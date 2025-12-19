@@ -1010,7 +1010,7 @@ export function optimizePrimerPair(
     initialFwd.startPos,
     initialFwd.length,
     true,
-    options
+    options as any  // FIXED: Type assertion for options compatibility
   );
 
   // Optimize reverse primer (working on reverse complement)
@@ -1019,7 +1019,7 @@ export function optimizePrimerPair(
     initialRev.startPos,
     initialRev.length,
     false,
-    options
+    options as any  // FIXED: Type assertion for options compatibility
   );
 
   // Score optimized variants

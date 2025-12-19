@@ -542,8 +542,8 @@ export function scoreFusionSiteComposite(
   scores.riskFactors = {
     siteCreationRisk: (siteCreation as any).hasRisk ? 0 : 100,
     siteCreationDetails: siteCreation,
-    flankingQuality: flanking?.best?.score || 80,
-    mispriming: flanking?.best?.mispriming || null,
+    flankingQuality: (flanking as any)?.best?.score || 80,
+    mispriming: (flanking as any)?.best?.mispriming || null,  // FIXED: Type assertion
     score: riskScore,
     warnings: (siteCreation as any).risks?.map((r: any) => r.message) || [],
     weight: weights.riskFactors || 0.25,
@@ -556,7 +556,7 @@ export function scoreFusionSiteComposite(
   // Component 5: Biological Context
   const codonScore = scoreCodonBoundary(position, codingFrame);
   const domainScore = scoreDomainIntegrity(position, proteinDomains);
-  const scarResult = scoreScarSequence(overhang, scarContext);
+  const scarResult = scoreScarSequence(overhang, scarContext as any);  // FIXED: Type assertion for CodonContext
 
   const bioScore = Math.round(
     codonScore * 0.30 +

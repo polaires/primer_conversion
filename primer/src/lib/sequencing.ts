@@ -803,12 +803,12 @@ export function scorePrimerQuality(
     warnings,
 
     // Calibrated scoring (unified with primerAnalysis.js)
-    piecewiseScores,
+    piecewiseScores: piecewiseScores as any,  // FIXED: Type assertion for Record<string, number>
     compositeScore,
     qualityTier: finalQualityTier,
     scoring: {
       penalty: Math.round(penalty * 10) / 10,
-      piecewiseScores,
+      piecewiseScores: piecewiseScores as any,  // FIXED: Type assertion for Record<string, number>
       compositeScore,
       qualityTier: finalQualityTier,
     },

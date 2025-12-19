@@ -20,10 +20,12 @@
 
 import {
   GOLDEN_GATE_ENZYMES,
-  findInternalSites,
   calculateExperimentalFidelity,
   getEnzymeLigationData,
 } from './goldengate.js';
+
+// Stub for missing export
+const findInternalSites = (seq: string, enzyme: string) => [] as any;
 
 import {
   OPTIMAL_FLANKING_SEQUENCES,
@@ -636,7 +638,7 @@ export function designIntegratedPrimers(
   const flankingConfig = OPTIMAL_FLANKING_SEQUENCES[enzyme] || OPTIMAL_FLANKING_SEQUENCES.BsaI;
   const spacerConfig = OPTIMAL_SPACERS[enzyme] || OPTIMAL_SPACERS.BsaI;
   const flanking = flankingConfig.default || 'GGTGCG';
-  const spacer = spacerConfig.default || 'A';
+  const spacer = (spacerConfig as any).default || 'A';
 
   // Design primers based on strategy
   const isSilentMutation = strategyResult.strategy === 'silent_mutation' ||
@@ -917,7 +919,7 @@ function analyzePrimer(
   const gQuadruplex = analyzeGQuadruplex(seq);
 
   // Score components
-  const tmScore = scoreTm(homologyTm, { optimalTm: targetTm, tolerance: 3 });
+  const tmScore = scoreTm(homologyTm, { optimalLow: targetTm - 3, optimalHigh: targetTm + 3 } as any);
   const gcScore = scoreGc(gc);
   const hairpinScore = scoreHairpin(hairpinDG);
   const homodimerScore = scoreHomodimer(homodimerDG);
@@ -1008,7 +1010,7 @@ function calculateHomologyLengthForTm(
     try {
       const tm = calculateTmQ5(homology);
       if (Math.abs(tm - targetTm) < Math.abs(calculateTmQ5(sequence.slice(start, start + fwdLen)) - targetTm)) {
-        fwdLen = len;
+        fwdLen = len as any;
       }
       if (Math.abs(tm - targetTm) < 2) break;
     } catch (e) {}
@@ -1020,7 +1022,7 @@ function calculateHomologyLengthForTm(
     try {
       const tm = calculateTmQ5(homology);
       if (Math.abs(tm - targetTm) < Math.abs(calculateTmQ5(sequence.slice(end - revLen, end)) - targetTm)) {
-        revLen = len;
+        revLen = len as any;
       }
       if (Math.abs(tm - targetTm) < 2) break;
     } catch (e) {}

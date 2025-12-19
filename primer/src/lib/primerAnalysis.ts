@@ -886,7 +886,7 @@ export function analyzeSinglePrimer(
       const fullPrimer = assemblyAnalysis.fullPrimer;
 
       // 3' end analysis on annealing region (since that's what extends)
-      const analysis3Prime = include3PrimeAnalysis ? analyze3PrimeEnd(annealingRegion.sequence) : null;
+      const analysis3Prime = include3PrimeAnalysis ? (analyze3PrimeEnd(annealingRegion.sequence) as any) : null;
 
       // Calculate scores using annealing region for Tm/GC/length, full primer for structure
       const scores: PrimerScores = {
@@ -975,7 +975,7 @@ export function analyzeSinglePrimer(
   // Calculate basic properties if not provided
   const primerTm = typeof primer === 'object' && primer.tm !== undefined
     ? primer.tm
-    : calculateTm(seqUpper, preset.tmMethod);
+    : calculateTm(seqUpper, (preset.tmMethod || 'auto') as any);
   const primerGc = typeof primer === 'object' && primer.gc !== undefined
     ? primer.gc
     : calculateGC(seqUpper);
@@ -988,7 +988,7 @@ export function analyzeSinglePrimer(
   const terminalDG = calculate3primeTerminalDG(seqUpper).dG;
 
   // 3' end analysis
-  const analysis3Prime = include3PrimeAnalysis ? analyze3PrimeEnd(seqUpper) : null;
+  const analysis3Prime = include3PrimeAnalysis ? (analyze3PrimeEnd(seqUpper) as any) : null;
 
   // G-quadruplex analysis
   const gQuadruplexAnalysis = includeGQuadruplex ? analyzeGQuadruplex(seqUpper) : null;

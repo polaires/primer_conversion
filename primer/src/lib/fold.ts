@@ -46,7 +46,7 @@ export function setFoldParameterSet(useDna24: boolean): void {
  * Get the current energy parameters based on selected parameter set
  */
 function getEnergyParams(): EnergyParameters {
-  return USE_DNA24 ? DNA24_ENERGIES : DNA_ENERGIES;
+  return (USE_DNA24 ? DNA24_ENERGIES : DNA_ENERGIES) as any;
 }
 
 /**

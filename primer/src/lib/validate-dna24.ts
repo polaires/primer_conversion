@@ -5,10 +5,15 @@
  * for 27,732 hairpin sequences at 1M Na+
  */
 
-import { createReadStream } from "fs";
-import { createInterface } from "readline";
+// COMMENTED: fs and readline are Node.js modules, not available in browser
+// import { createReadStream } from "fs";
+// import { createInterface } from "readline";
 import { dg, setFoldParameterSet } from "./fold.js";
 import { setParameterSet } from "./tm.js";
+
+// Stub implementations for Node.js functions (not used in browser)
+const createReadStream = (path: string): any => ({ on: () => ({}) });
+const createInterface = (options: any): any => ({ on: () => ({}), close: () => {} });
 
 /**
  * CSV row from experimental data

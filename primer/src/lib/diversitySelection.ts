@@ -401,7 +401,7 @@ export function identifyBadges(pair: any): BadgeInfo[] {
   const fwd = pair.forward || {};
   const rev = pair.reverse || {};
   const heterodimerDG = pair.heterodimerDG ?? pair.heterodimer?.dg ?? -10;
-  const tmDiff = Math.abs(pair.tmDiff ?? (fwd.tm - rev.tm) ?? 5);
+  const tmDiff = Math.abs(pair.tmDiff ?? ((fwd.tm && rev.tm) ? (fwd.tm - rev.tm) : 5));
 
   // GC Clamp: Both primers end with G or C
   const fwdGC = fwd.hasGCClamp ?? /[GC]$/i.test(fwd.sequence || '');

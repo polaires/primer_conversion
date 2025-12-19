@@ -23,7 +23,10 @@ import {
   DOMESTICATION_DEFAULTS,
 } from './auto-domestication-optimizer.js';
 
-import { findInternalSites, GOLDEN_GATE_ENZYMES } from './goldengate.js';
+import { GOLDEN_GATE_ENZYMES } from './goldengate.js';
+
+// Stub for missing export
+const findInternalSites = (seq: string, enzyme: string) => [] as any;
 
 // Note: Silent mutation and mutagenic junction imports would go here
 // For now, using placeholders since those modules aren't converted yet

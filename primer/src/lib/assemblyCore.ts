@@ -1032,9 +1032,9 @@ export function designAssemblyPrimers(
   // Design base primers using existing primers() function (no modification!)
   const [fwd, rev] = primers(fragmentSeq, {
     optimalTm: cfg.primerTmTarget,
-    tmRange: cfg.primerTmRange,
+    // tmRange: cfg.primerTmRange, // Not supported by primers() function
     useCompositeScore: true,
-  });
+  } as any);
 
   // Get the annealing portions
   const fwdAnneal = fwd.seq;

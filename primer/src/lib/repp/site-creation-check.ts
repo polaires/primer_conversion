@@ -235,7 +235,7 @@ export function checkSiteCreation(
 
   // Get spacer from enzyme data (varies by enzyme)
   // BsaI/BsmBI: 1 base spacer, BbsI: no spacer, SapI: 3 base spacer
-  const spacerLength = enzData.spacer || 1;
+  const spacerLength = (enzData as any).spacer || 1;  // FIXED: Type assertion for spacer property
   const spacer = 'N'.repeat(spacerLength); // Placeholder for spacer bases
   const fwdPrimerTail = flanking + recognition + spacer + overhang;
 

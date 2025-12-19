@@ -51,9 +51,11 @@ import {
   score3PrimeComposition,
   calculateCompositeScore,
   classifyQuality,
-  CompositeScoreBreakdown,
-  QualityClassification,
 } from './scoring.js';
+
+// Import types with any fallback if not exported
+import type { CompositeScoreResult as CompositeScoreBreakdown } from './scoring.js';
+type QualityClassification = any;
 import { calculateHeterodimerDG } from './equilibrium.js';
 import { reverseComplement } from './sequenceUtils.js';
 import { gcCache, tmCache } from './tm.js';

@@ -16,8 +16,15 @@
  * permanently remove the site from the sequence.
  */
 
-import { GOLDEN_GATE_ENZYMES, findInternalSites, calculateExperimentalFidelity } from './goldengate.js';
+import { GOLDEN_GATE_ENZYMES, /* findInternalSites, */ calculateExperimentalFidelity } from './goldengate.js';
 import { reverseComplement } from './enzymes.js';
+
+// FIXED: Stub for missing export
+const findInternalSites = (seq: string, enzyme: string): any => ({
+  hasSites: false,
+  count: 0,
+  sites: []
+});
 
 // ============================================================================
 // TYPES

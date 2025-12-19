@@ -268,7 +268,7 @@ export function quickValidation(): QuickValidationResult {
 }
 
 // Run if executed directly
-if (typeof process !== 'undefined' && process.argv && process.argv[1] && process.argv[1].includes('runCalibration')) {
+if (typeof (globalThis as any).process !== 'undefined' && (globalThis as any).process.argv && (globalThis as any).process.argv[1] && (globalThis as any).process.argv[1].includes('runCalibration')) {
   console.log('\nStarting calibration...\n');
   const results = runCalibration({ verbose: true });
 

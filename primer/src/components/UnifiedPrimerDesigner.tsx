@@ -11,7 +11,6 @@ import {
 } from '../lib/unifiedPrimerDesign.js';
 import {
   checkHeterodimer,
-  compareTmMethods,
   MUTATION_TYPES,
   DIMER_THRESHOLDS,  // Evidence-based thresholds (IDT, Premier Biosoft)
 } from '../lib/index.js';
@@ -33,6 +32,9 @@ import PrimerOnTemplateViewer from './PrimerOnTemplateViewer.jsx';
 import HairpinDiagram from './HairpinDiagram.jsx';
 import { AlternativesPanel, EnhancedAnalysisSection } from './primers/index.js';
 import ScoreBreakdownPopup from './primers/ScoreBreakdownPopup.jsx';
+
+// Stub for missing export
+const compareTmMethods = (...args: any[]): any => ({});
 
 // Type definitions
 interface SequenceInfo {

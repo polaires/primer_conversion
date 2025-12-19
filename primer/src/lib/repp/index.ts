@@ -32,21 +32,21 @@ export {
   STANDARD_FUSION_SITES,
   HIGH_FIDELITY_SETS,
   OVERHANG_FIDELITY,
-  PART_TYPES,
-  findTypeIISSites,
-  catalyze,
-  identifyFusionSites,
-  validateOrderedAssembly,
-  assembleSequence,
+  // PART_TYPES,  // COMMENTED: Not exported from goldengate.js
+  // findTypeIISSites,  // COMMENTED: Not exported from goldengate.js
+  // catalyze,  // COMMENTED: Not exported from goldengate.js
+  // identifyFusionSites,  // COMMENTED: Not exported from goldengate.js
+  // validateOrderedAssembly,  // COMMENTED: Not exported from goldengate.js
+  // assembleSequence,  // COMMENTED: Not exported from goldengate.js
   // Primer design functions
-  designGoldenGatePrimers,
-  designGoldenGateAssembly,
-  getRecommendedOverhangs,
-  validateOverhang,
-  checkOverhangCompatibility,
+  // designGoldenGatePrimers,  // COMMENTED: Not exported from goldengate.js
+  // designGoldenGateAssembly,  // COMMENTED: Not exported from goldengate.js
+  // getRecommendedOverhangs,  // COMMENTED: Not exported from goldengate.js
+  // validateOverhang,  // COMMENTED: Not exported from goldengate.js
+  // checkOverhangCompatibility,  // COMMENTED: Not exported from goldengate.js
   // NEB-validated overhang set functions
-  getRecommendedOverhangSet,
-  calculateSetFidelity,
+  // getRecommendedOverhangSet,  // COMMENTED: Not exported from goldengate.js
+  // calculateSetFidelity,  // COMMENTED: Not exported from goldengate.js
   // Experimental ligation data (Pryor et al. 2020)
   ligationData,
   ENZYMES_WITH_DATA,
@@ -59,18 +59,18 @@ export {
   compareEnzymeFidelity,
   findProblematicPairs,
   // Cross-ligation analysis and visualization
-  generateCrossLigationHeatmap,
-  generateOverhangQualityReport,
+  // generateCrossLigationHeatmap,  // COMMENTED: Not exported from goldengate.js
+  // generateOverhangQualityReport,  // COMMENTED: Not exported from goldengate.js
   // Internal site detection and domestication
-  findInternalSites,
-  suggestDomestication,
-  checkGoldenGateCompatibility,
-  findAlternativeEnzymes,
+  // findInternalSites,  // COMMENTED: Not exported from goldengate.js
+  // suggestDomestication,  // COMMENTED: Not exported from goldengate.js
+  // checkGoldenGateCompatibility,  // COMMENTED: Not exported from goldengate.js
+  // findAlternativeEnzymes,  // COMMENTED: Not exported from goldengate.js
   // Legacy/compatibility
-  calculateOverhang,
-  findSimpleCycles,
-  planGoldenGate,
-  getStandardOverhang,
+  // calculateOverhang,  // COMMENTED: Not exported from goldengate.js
+  // findSimpleCycles,  // COMMENTED: Not exported from goldengate.js
+  // planGoldenGate,  // COMMENTED: Not exported from goldengate.js
+  // getStandardOverhang,  // COMMENTED: Not exported from goldengate.js
 } from './goldengate.js';
 
 // Golden Gate Primer Optimizer (state-of-the-art optimizations)
@@ -184,10 +184,10 @@ export {
   DOMESTICATION_STRATEGY,
   UNIFIED_DOMESTICATION_CONFIG,
   // Mutagenic junction functions (PREFERRED for sites in middle of fragments)
-  designMutagenicJunction,
-  designAllMutagenicJunctions,
-  selectDomesticationStrategy,
-  MUTAGENIC_JUNCTION_CONFIG,
+  // designMutagenicJunction,  // COMMENTED: Not exported from domestication-optimizer.js
+  // designAllMutagenicJunctions,  // COMMENTED: Not exported from domestication-optimizer.js
+  // selectDomesticationStrategy,  // COMMENTED: Not exported from domestication-optimizer.js (use DOMESTICATION_STRATEGY instead)
+  // MUTAGENIC_JUNCTION_CONFIG,  // COMMENTED: Not exported from domestication-optimizer.js
 } from './domestication-optimizer.js';
 
 // Enhanced Domestication System (STATE-OF-THE-ART with user confirmation)

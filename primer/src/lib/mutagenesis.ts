@@ -1072,7 +1072,7 @@ export function checkMutantSecondaryStructure(mutantPrimer: string, originalPrim
   let foldDg: number;
   let structures: FoldStructure[];
   try {
-    structures = fold(seq, temperature);
+    structures = fold(seq, temperature) as any;
     foldDg = structures.reduce((sum, s) => sum + s.e, 0);
     foldDg = Math.round(foldDg * 100) / 100;
   } catch (e) {

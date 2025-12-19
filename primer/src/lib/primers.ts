@@ -1095,7 +1095,7 @@ export function primers(
     revWithScoring = smartResult.reverse;
 
     if (smartResult.alternativeOptimized) {
-      fwdWithScoring.alternativeOptimized = smartResult.alternativeOptimized;
+      (fwdWithScoring as any).alternativeOptimized = smartResult.alternativeOptimized;
     }
   }
 
