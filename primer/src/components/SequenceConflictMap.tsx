@@ -10,7 +10,7 @@
  * this shows the user exactly what's wrong and where.
  */
 
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState, ReactNode } from 'react';
 import {
   analyzeGCHotspots,
   analyzeStructureHotspots,
@@ -19,19 +19,65 @@ import {
   dgToColor,
 } from '../lib/visualization.js';
 
-const SEVERITY_COLORS = {
+// Type definitions
+type Severity = 'critical' | 'severe' | 'warning' | 'ok';
+
+interface Conflict {
+  severity: Severity;
+  message: string;
+}
+
+interface Suggestion {
+  message: string;
+  positions?: number[];
+}
+
+interface DesignAnalysis {
+  conflicts: Conflict[];
+  canDesign: boolean;
+  suggestions: Suggestion[];
+}
+
+interface GCHotspot {
+  start: number;
+  end: number;
+  type: 'high' | 'low';
+  severity: Severity;
+}
+
+interface GCAnalysis {
+  overallGC: number;
+  perPosition: number[];
+  hotspots: GCHotspot[];
+}
+
+interface Structure {
+  desc?: string;
+  e: number;
+}
+
+interface StructureAnalysis {
+  overallDG: number;
+  perPosition: number[];
+  structures: Structure[];
+}
+
+const SEVERITY_COLORS: Record<Severity, string> = {
   critical: '#dc2626',  // red-600
   severe: '#f97316',    // orange-500
   warning: '#facc15',   // yellow-400
   ok: '#22c55e',        // green-500
 };
 
-const SEVERITY_BG = {
-  critical: 'bg-red-100 border-red-300',
-  severe: 'bg-orange-100 border-orange-300',
-  warning: 'bg-yellow-100 border-yellow-300',
-  ok: 'bg-green-100 border-green-300',
-};
+type TabType = 'gc' | 'structure' | 'combined';
+
+interface SequenceConflictMapProps {
+  sequence: string;
+  mutationPosition?: number;
+  error?: string;
+  showDetails?: boolean;
+  height?: number;
+}
 
 /**
  * Main conflict visualization component
@@ -39,28 +85,28 @@ const SEVERITY_BG = {
 export function SequenceConflictMap({
   sequence,
   mutationPosition,
-  error,
   showDetails = true,
   height = 120,
-}) {
-  const [activeTab, setActiveTab] = useState('gc');
-  const [hoveredPosition, setHoveredPosition] = useState(null);
+}: SequenceConflictMapProps) {
+  const [activeTab, setActiveTab] = useState<TabType>('gc');
+  const [hoveredPosition, setHoveredPosition] = useState<number | null>(null);
 
   // Analyze conflicts
-  const analysis = useMemo(() => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const analysis = useMemo((): DesignAnalysis | null => {
     if (!sequence || sequence.length < 20) return null;
-    return analyzeDesignConflicts(sequence, mutationPosition);
+    return analyzeDesignConflicts(sequence, mutationPosition as any) as DesignAnalysis;
   }, [sequence, mutationPosition]);
 
   // Separate GC and structure analyses for full sequence
-  const gcAnalysis = useMemo(() => {
+  const gcAnalysis = useMemo((): GCAnalysis | null => {
     if (!sequence || sequence.length < 20) return null;
-    return analyzeGCHotspots(sequence, 15);
+    return analyzeGCHotspots(sequence, 15) as GCAnalysis;
   }, [sequence]);
 
-  const structureAnalysis = useMemo(() => {
+  const structureAnalysis = useMemo((): StructureAnalysis | null => {
     if (!sequence || sequence.length < 20) return null;
-    return analyzeStructureHotspots(sequence, 25);
+    return analyzeStructureHotspots(sequence, 25) as StructureAnalysis;
   }, [sequence]);
 
   if (!sequence || sequence.length < 20) {
@@ -72,13 +118,12 @@ export function SequenceConflictMap({
   }
 
   const conflicts = analysis?.conflicts || [];
-  const hasCriticalConflicts = conflicts.some(c => c.severity === 'critical' || c.severity === 'severe');
 
   return (
     <div className="space-y-4">
       {/* Conflict Summary */}
       {conflicts.length > 0 && (
-        <ConflictSummary conflicts={conflicts} canDesign={analysis?.canDesign} />
+        <ConflictSummary conflicts={conflicts} canDesign={analysis?.canDesign ?? true} />
       )}
 
       {/* Tab Navigation */}
@@ -158,7 +203,7 @@ export function SequenceConflictMap({
       </div>
 
       {/* Suggestions */}
-      {analysis?.suggestions?.length > 0 && (
+      {analysis?.suggestions && analysis.suggestions.length > 0 && (
         <Suggestions suggestions={analysis.suggestions} />
       )}
 
@@ -168,10 +213,17 @@ export function SequenceConflictMap({
   );
 }
 
+interface TabButtonProps {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  icon: ReactNode;
+}
+
 /**
  * Tab button component
  */
-function TabButton({ active, onClick, label, icon }) {
+function TabButton({ active, onClick, label, icon }: TabButtonProps) {
   return (
     <button
       onClick={onClick}
@@ -187,16 +239,15 @@ function TabButton({ active, onClick, label, icon }) {
   );
 }
 
+interface ConflictSummaryProps {
+  conflicts: Conflict[];
+  canDesign: boolean;
+}
+
 /**
  * Conflict summary cards
  */
-function ConflictSummary({ conflicts, canDesign }) {
-  const grouped = conflicts.reduce((acc, c) => {
-    acc[c.severity] = acc[c.severity] || [];
-    acc[c.severity].push(c);
-    return acc;
-  }, {});
-
+function ConflictSummary({ conflicts, canDesign }: ConflictSummaryProps) {
   return (
     <div className={`p-4 rounded-lg border ${canDesign ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200'}`}>
       <div className="flex items-center gap-2 mb-2">
@@ -230,10 +281,18 @@ function ConflictSummary({ conflicts, canDesign }) {
   );
 }
 
+interface GCVisualizationProps {
+  sequence: string;
+  analysis: GCAnalysis | null;
+  mutationPosition?: number;
+  height: number;
+  onHover: (position: number | null) => void;
+}
+
 /**
  * GC content visualization - heatmap style
  */
-function GCVisualization({ sequence, analysis, mutationPosition, height, onHover }) {
+function GCVisualization({ sequence, analysis, mutationPosition, height, onHover }: GCVisualizationProps) {
   if (!analysis) return null;
 
   const n = sequence.length;
@@ -319,10 +378,18 @@ function GCVisualization({ sequence, analysis, mutationPosition, height, onHover
   );
 }
 
+interface StructureVisualizationProps {
+  sequence: string;
+  analysis: StructureAnalysis | null;
+  mutationPosition?: number;
+  height: number;
+  onHover: (position: number | null) => void;
+}
+
 /**
  * Secondary structure visualization
  */
-function StructureVisualization({ sequence, analysis, mutationPosition, height, onHover }) {
+function StructureVisualization({ sequence, analysis, mutationPosition, height, onHover }: StructureVisualizationProps) {
   if (!analysis) return null;
 
   const n = sequence.length;
@@ -413,10 +480,19 @@ function StructureVisualization({ sequence, analysis, mutationPosition, height, 
   );
 }
 
+interface CombinedVisualizationProps {
+  sequence: string;
+  gcAnalysis: GCAnalysis | null;
+  structureAnalysis: StructureAnalysis | null;
+  mutationPosition?: number;
+  height: number;
+  onHover: (position: number | null) => void;
+}
+
 /**
  * Combined GC and Structure visualization
  */
-function CombinedVisualization({ sequence, gcAnalysis, structureAnalysis, mutationPosition, height, onHover }) {
+function CombinedVisualization({ sequence, gcAnalysis, structureAnalysis, mutationPosition, height, onHover }: CombinedVisualizationProps) {
   if (!gcAnalysis || !structureAnalysis) return null;
 
   return (
@@ -439,10 +515,17 @@ function CombinedVisualization({ sequence, gcAnalysis, structureAnalysis, mutati
   );
 }
 
+interface PositionTooltipProps {
+  position: number;
+  sequence: string;
+  gcAnalysis: GCAnalysis | null;
+  structureAnalysis: StructureAnalysis | null;
+}
+
 /**
  * Position tooltip showing details
  */
-function PositionTooltip({ position, sequence, gcAnalysis, structureAnalysis }) {
+function PositionTooltip({ position, sequence, gcAnalysis, structureAnalysis }: PositionTooltipProps) {
   const gc = gcAnalysis?.perPosition[position];
   const dg = structureAnalysis?.perPosition[position];
   const base = sequence[position];
@@ -465,10 +548,14 @@ function PositionTooltip({ position, sequence, gcAnalysis, structureAnalysis }) 
   );
 }
 
+interface SuggestionsProps {
+  suggestions: Suggestion[];
+}
+
 /**
  * Suggestions panel
  */
-function Suggestions({ suggestions }) {
+function Suggestions({ suggestions }: SuggestionsProps) {
   return (
     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
       <div className="flex items-center gap-2 mb-2">
@@ -493,10 +580,14 @@ function Suggestions({ suggestions }) {
   );
 }
 
+interface LegendProps {
+  activeTab: TabType;
+}
+
 /**
  * Legend component
  */
-function Legend({ activeTab }) {
+function Legend({ activeTab }: LegendProps) {
   return (
     <div className="flex flex-wrap gap-4 text-xs text-gray-600 pt-2 border-t">
       {(activeTab === 'gc' || activeTab === 'combined') && (

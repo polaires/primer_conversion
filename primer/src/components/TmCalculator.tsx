@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, CSSProperties } from 'react';
 import {
   calculateTm,
   calculateAnnealing,
@@ -7,18 +7,89 @@ import {
   getPolymeraseInfo,
 } from '../lib/polymerases.js';
 
+// Type definitions
+interface Polymerase {
+  id: string;
+  name: string;
+  type: string;
+  color: string;
+}
+
+interface ProtocolStep {
+  temp: number;
+  time: string;
+}
+
+interface PolymeraseProtocol {
+  initialDenature: ProtocolStep;
+  denature: ProtocolStep;
+  extension: ProtocolStep;
+  finalExtension: ProtocolStep;
+  cycles: number;
+}
+
+interface PolymeraseInfo {
+  id: string;
+  name: string;
+  type: string;
+  color: string;
+  fidelity: string;
+  extension: string;
+  hotStart: boolean;
+  proofReading: boolean;
+  method: string;
+  notes: string;
+  defaults: {
+    primerConc: number;
+    maxAnneal: number;
+  };
+  protocol: PolymeraseProtocol;
+}
+
+interface PrimerStats {
+  length: number;
+  gc: string;
+}
+
+interface TmQuality {
+  status: 'optimal' | 'acceptable' | 'warning';
+  message: string;
+}
+
+interface PrimerResult {
+  sequence: string;
+  length: number;
+  gc: number;
+  tm: number;
+}
+
+interface CalculationResult {
+  mode: 'single' | 'pair';
+  primer1: PrimerResult;
+  primer2?: PrimerResult;
+  annealingTemp?: number;
+  tmDifference?: number;
+  isCapped?: boolean;
+  method?: string;
+}
+
 // Nucleotide colors for sequence display
-const NT_COLORS = {
+const NT_COLORS: Record<string, string> = {
   A: '#22c55e',
   T: '#ef4444',
   G: '#f59e0b',
   C: '#3b82f6',
 };
 
+interface ColorizedSequenceInputProps {
+  sequence: string;
+  stats: PrimerStats;
+}
+
 /**
  * Colorized sequence display component - integrated into input
  */
-function ColorizedSequenceInput({ sequence, stats }) {
+function ColorizedSequenceInput({ sequence, stats }: ColorizedSequenceInputProps) {
   if (!sequence) return null;
 
   return (
@@ -38,10 +109,18 @@ function ColorizedSequenceInput({ sequence, stats }) {
   );
 }
 
+interface TemperatureGaugeProps {
+  value: number;
+  min?: number;
+  max?: number;
+  label: string;
+  quality?: TmQuality;
+}
+
 /**
  * Visual temperature gauge component
  */
-function TemperatureGauge({ value, min = 40, max = 85, label, quality }) {
+function TemperatureGauge({ value, min = 40, max = 85, label, quality }: TemperatureGaugeProps) {
   const percentage = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
   const optimalStart = ((55 - min) / (max - min)) * 100;
   const optimalEnd = ((72 - min) / (max - min)) * 100;
@@ -73,28 +152,20 @@ function TemperatureGauge({ value, min = 40, max = 85, label, quality }) {
   );
 }
 
-/**
- * Modern stat card component
- */
-function StatCard({ label, value, unit, icon, status }) {
-  return (
-    <div className={`tm-stat-card ${status || ''}`}>
-      {icon && <div className="tm-stat-icon">{icon}</div>}
-      <div className="tm-stat-content">
-        <div className="tm-stat-value">{value}<span className="tm-stat-unit">{unit}</span></div>
-        <div className="tm-stat-label">{label}</div>
-      </div>
-    </div>
-  );
+interface PolymeraseSelectorProps {
+  selected: string;
+  onChange: (id: string) => void;
+  showMethod: boolean;
+  onToggleMethod: () => void;
 }
 
 /**
  * Collapsible Polymerase selector with integrated method info
  */
-function PolymeraseSelector({ selected, onChange, showMethod, onToggleMethod }) {
-  const polymerases = getPolymeraseList();
-  const [expanded, setExpanded] = useState(false);
-  const selectedInfo = getPolymeraseInfo(selected);
+function PolymeraseSelector({ selected, onChange, showMethod, onToggleMethod }: PolymeraseSelectorProps) {
+  const polymerases = getPolymeraseList() as Polymerase[];
+  const [expanded, setExpanded] = useState<boolean>(false);
+  const selectedInfo = getPolymeraseInfo(selected) as PolymeraseInfo | null;
 
   return (
     <div className={`tm-polymerase-selector ${expanded ? 'expanded' : 'collapsed'}`}>
@@ -127,7 +198,7 @@ function PolymeraseSelector({ selected, onChange, showMethod, onToggleMethod }) 
                   onChange(p.id);
                   setExpanded(false);
                 }}
-                style={{ '--poly-color': p.color }}
+                style={{ '--poly-color': p.color } as CSSProperties}
               >
                 <span className="tm-poly-indicator" style={{ backgroundColor: p.color }} />
                 <span className="tm-poly-name">{p.name}</span>
@@ -192,20 +263,20 @@ function PolymeraseSelector({ selected, onChange, showMethod, onToggleMethod }) 
  * Multi-Polymerase Tm Calculator Component - Modern UI
  */
 export default function TmCalculator() {
-  const [primer1, setPrimer1] = useState('');
-  const [primer2, setPrimer2] = useState('');
-  const [polymerase, setPolymerase] = useState('q5'); // Default to Q5
-  const [primerConc, setPrimerConc] = useState(500);
-  const [showMethod, setShowMethod] = useState(true); // Show by default
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
+  const [primer1, setPrimer1] = useState<string>('');
+  const [primer2, setPrimer2] = useState<string>('');
+  const [polymerase, setPolymerase] = useState<string>('q5'); // Default to Q5
+  const [primerConc, setPrimerConc] = useState<number>(500);
+  const [showMethod, setShowMethod] = useState<boolean>(true); // Show by default
+  const [result, setResult] = useState<CalculationResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const polymeraseInfo = useMemo(() => getPolymeraseInfo(polymerase), [polymerase]);
+  const polymeraseInfo = useMemo(() => getPolymeraseInfo(polymerase) as PolymeraseInfo | null, [polymerase]);
 
   // Update primer concentration when polymerase changes
-  const handlePolymeraseChange = useCallback((newPolymerase) => {
+  const handlePolymeraseChange = useCallback((newPolymerase: string): void => {
     setPolymerase(newPolymerase);
-    const info = getPolymeraseInfo(newPolymerase);
+    const info = getPolymeraseInfo(newPolymerase) as PolymeraseInfo | null;
     if (info) {
       setPrimerConc(info.defaults.primerConc);
     }
@@ -213,7 +284,7 @@ export default function TmCalculator() {
   }, []);
 
   // Clean sequence input
-  const cleanSequence = useCallback((seq) => {
+  const cleanSequence = useCallback((seq: string): string => {
     return seq.toUpperCase().replace(/[^ATGCN]/g, '').replace(/N/g, '');
   }, []);
 
@@ -222,7 +293,7 @@ export default function TmCalculator() {
   const cleanedPrimer2 = useMemo(() => cleanSequence(primer2), [primer2, cleanSequence]);
 
   // Calculate result when primers change
-  const calculate = useCallback(() => {
+  const calculate = useCallback((): void => {
     setError(null);
     setResult(null);
 
@@ -237,20 +308,27 @@ export default function TmCalculator() {
     try {
       if (seq1 && seq2) {
         // Two primers - calculate annealing temperature
-        const annealResult = calculateAnnealing(seq1, seq2, polymerase, { primerConc });
+        const annealResult = calculateAnnealing(seq1, seq2, polymerase, { primerConc }) as {
+          tm1: number;
+          tm2: number;
+          annealingTemp: number;
+          tmDifference: number;
+          isCapped: boolean;
+          method: string;
+        };
 
         setResult({
           mode: 'pair',
           primer1: {
             sequence: seq1,
             length: seq1.length,
-            gc: calculateGC(seq1),
+            gc: calculateGC(seq1) as number,
             tm: annealResult.tm1,
           },
           primer2: {
             sequence: seq2,
             length: seq2.length,
-            gc: calculateGC(seq2),
+            gc: calculateGC(seq2) as number,
             tm: annealResult.tm2,
           },
           annealingTemp: annealResult.annealingTemp,
@@ -260,31 +338,31 @@ export default function TmCalculator() {
         });
       } else {
         // Single primer - calculate Tm only
-        const tm = calculateTm(seq1, polymerase, { primerConc });
+        const tm = calculateTm(seq1, polymerase, { primerConc }) as number;
 
         setResult({
           mode: 'single',
           primer1: {
             sequence: seq1,
             length: seq1.length,
-            gc: calculateGC(seq1),
+            gc: calculateGC(seq1) as number,
             tm,
           },
         });
       }
     } catch (err) {
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'An error occurred');
     }
   }, [cleanedPrimer1, cleanedPrimer2, polymerase, primerConc]);
 
   // Load example primers
-  const loadExample = useCallback(() => {
+  const loadExample = useCallback((): void => {
     setPrimer1('ACGTACGTACGTACGTACGT');
     setPrimer2('TGCATGCATGCATGCATGCA');
   }, []);
 
   // Clear all
-  const clearAll = useCallback(() => {
+  const clearAll = useCallback((): void => {
     setPrimer1('');
     setPrimer2('');
     setResult(null);
@@ -292,7 +370,7 @@ export default function TmCalculator() {
   }, []);
 
   // Get Tm quality assessment
-  const getTmQuality = useCallback((tm) => {
+  const getTmQuality = useCallback((tm: number): TmQuality => {
     if (tm >= 55 && tm <= 72) return { status: 'optimal', message: 'Optimal range' };
     if (tm >= 50 && tm < 55) return { status: 'acceptable', message: 'Acceptable (low)' };
     if (tm > 72 && tm <= 80) return { status: 'acceptable', message: 'Acceptable (high)' };
@@ -301,7 +379,7 @@ export default function TmCalculator() {
   }, []);
 
   // Get concentration options based on polymerase
-  const concentrationOptions = useMemo(() => {
+  const concentrationOptions = useMemo((): number[] => {
     if (polymeraseInfo) {
       const defaultConc = polymeraseInfo.defaults.primerConc;
       const options = [100, 200, 300, 500, 1000].filter(c =>
@@ -320,7 +398,7 @@ export default function TmCalculator() {
   const themeColor = polymeraseInfo?.color || '#0d9488';
 
   return (
-    <div className="tm-calculator-modern" style={{ '--tm-theme-color': themeColor }}>
+    <div className="tm-calculator-modern" style={{ '--tm-theme-color': themeColor } as CSSProperties}>
       {/* Header */}
       <div className="tm-header-modern">
         <div className="tm-header-icon">
@@ -365,7 +443,7 @@ export default function TmCalculator() {
                 sequence={cleanedPrimer1}
                 stats={{
                   length: cleanedPrimer1.length,
-                  gc: (calculateGC(cleanedPrimer1) * 100).toFixed(0)
+                  gc: (calculateGC(cleanedPrimer1) as number * 100).toFixed(0)
                 }}
               />
             )}
@@ -393,7 +471,7 @@ export default function TmCalculator() {
                 sequence={cleanedPrimer2}
                 stats={{
                   length: cleanedPrimer2.length,
-                  gc: (calculateGC(cleanedPrimer2) * 100).toFixed(0)
+                  gc: (calculateGC(cleanedPrimer2) as number * 100).toFixed(0)
                 }}
               />
             )}
@@ -459,7 +537,7 @@ export default function TmCalculator() {
           )}
 
           {/* Annealing Temperature Hero */}
-          {result.mode === 'pair' && (
+          {result.mode === 'pair' && result.annealingTemp && (
             <div className="tm-annealing-hero">
               <div className="tm-annealing-content">
                 <div className="tm-annealing-label">Recommended Annealing Temperature</div>
@@ -504,7 +582,7 @@ export default function TmCalculator() {
             </div>
 
             {/* Primer 2 */}
-            {result.mode === 'pair' && (
+            {result.mode === 'pair' && result.primer2 && (
               <div className="tm-primer-card">
                 <div className="tm-primer-header">
                   <div className="tm-primer-badge rev">Reverse</div>
@@ -524,7 +602,7 @@ export default function TmCalculator() {
           </div>
 
           {/* Tm Difference Warning */}
-          {result.mode === 'pair' && result.tmDifference > 5 && (
+          {result.mode === 'pair' && result.tmDifference && result.tmDifference > 5 && (
             <div className="tm-warning-modern">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
                 <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
@@ -605,7 +683,7 @@ export default function TmCalculator() {
         <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
         </svg>
-        <span>Supports {getPolymeraseList().length} polymerases with manufacturer-specific Tm calculations</span>
+        <span>Supports {(getPolymeraseList() as Polymerase[]).length} polymerases with manufacturer-specific Tm calculations</span>
       </div>
     </div>
   );
