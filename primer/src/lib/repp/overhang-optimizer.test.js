@@ -11,7 +11,7 @@ import {
   calculateLigationFidelity,
   getAllOverhangs,
   filterOverhangs,
-} from './overhang-optimizer.js';
+} from './overhang-optimizer';
 
 describe('Overhang Optimizer', () => {
   describe('getAllOverhangs', () => {

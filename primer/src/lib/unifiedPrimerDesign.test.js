@@ -17,17 +17,17 @@ import {
   MUTATION_TYPES,
   CODON_TABLE,
   AA_NAMES,
-} from './unifiedPrimerDesign.js';
+} from './unifiedPrimerDesign';
 
 // Import original implementations for comparison
-import { primers } from './primers.js';
+import { primers } from './primers';
 import {
   designSubstitutionPrimers,
   designCodonChangePrimers,
   designInsertionPrimers,
   designDeletionPrimers,
   designRegionSubstitutionPrimers,
-} from './mutagenesis.js';
+} from './mutagenesis';
 
 // =============================================================================
 // Test Data
@@ -217,7 +217,7 @@ describe('Unified Primer Design API', () => {
       expect(result.type).toBe('insertion');
 
       // Test the library detection separately
-      const { hasAmbiguousBases, countCombinations } = require('./sequenceUtils.js');
+      const { hasAmbiguousBases, countCombinations } = require('./sequenceUtils');
       expect(hasAmbiguousBases('NNK')).toBe(true);
       expect(countCombinations('NNK')).toBe(32); // 4*4*2 = 32
     });

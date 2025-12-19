@@ -23,7 +23,7 @@ import {
   validateDomesticationOverhangs,
   validatePostDomestication,
   DOMESTICATION_DEFAULTS,
-} from './auto-domestication-optimizer.js';
+} from './auto-domestication-optimizer';
 
 // Test sequences
 const SEQUENCES = {

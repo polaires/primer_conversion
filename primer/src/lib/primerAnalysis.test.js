@@ -13,7 +13,7 @@ import {
   analyzeSinglePrimer,
   analyzePrimers,
   detectGoldenGateSites,
-} from './primerAnalysis.js';
+} from './primerAnalysis';
 
 // Test data: A typical Golden Gate primer and its template
 const GOLDEN_GATE_TEMPLATE = 'ATGAAGTCTACTGTCGCCGTCGATCTGAACGCCGTGAAGATCCAGAACCTGATGGGCTGCATGCTGGTGATCGACCTGGGCTGC';

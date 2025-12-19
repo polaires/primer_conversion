@@ -21,7 +21,7 @@ import {
   exportToFasta,
   exportProject,
   importProject,
-} from './assemblyCore.js';
+} from './assemblyCore';
 
 // =============================================================================
 // Test Sequences

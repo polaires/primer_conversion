@@ -9,7 +9,7 @@ import {
   calculateQuickScore,
   calculateMediumScore,
   THRESHOLDS,
-} from './alternativeGeneration.js';
+} from './alternativeGeneration';
 
 // Test template - a realistic 200bp sequence
 const TEST_TEMPLATE = 'ATGCGTACGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG';
@@ -366,7 +366,7 @@ describe('calculateMediumScore - Tiered Scoring', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('THRESHOLDS configuration', () => {
-  it('has aligned Tm thresholds with scoring.js', () => {
+  it('has aligned Tm thresholds with scoring', () => {
     // These should match the values in scoring.js scoreTm()
     expect(THRESHOLDS.tm.optimalLow).toBe(55);
     expect(THRESHOLDS.tm.optimalHigh).toBe(60);
@@ -374,7 +374,7 @@ describe('THRESHOLDS configuration', () => {
     expect(THRESHOLDS.tm.acceptableHigh).toBe(65);
   });
 
-  it('has aligned GC thresholds with scoring.js', () => {
+  it('has aligned GC thresholds with scoring', () => {
     // These should match the values in scoring.js scoreGc()
     expect(THRESHOLDS.gc.optimalLow).toBe(0.40);
     expect(THRESHOLDS.gc.optimalHigh).toBe(0.60);
@@ -382,7 +382,7 @@ describe('THRESHOLDS configuration', () => {
     expect(THRESHOLDS.gc.acceptableHigh).toBe(0.70);
   });
 
-  it('has aligned length thresholds with scoring.js', () => {
+  it('has aligned length thresholds with scoring', () => {
     // These should match the values in scoring.js scoreLength()
     // Note: acceptableHigh extended to 35bp and hardMax to 60bp for better Tm matching
     expect(THRESHOLDS.length.optimalLow).toBe(18);

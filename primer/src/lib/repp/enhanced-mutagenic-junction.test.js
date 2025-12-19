@@ -17,13 +17,13 @@ import {
   scorePrimerQuality,
   classifyQuality,
   ENHANCED_JUNCTION_CONFIG,
-} from './enhanced-mutagenic-junction.js';
+} from './enhanced-mutagenic-junction';
 import {
   runDomesticationWorkflow,
   analyzeSequenceForDomestication,
   WORKFLOW_CONFIG,
-} from './domestication-primer-workflow.js';
-import { findInternalSites, GOLDEN_GATE_ENZYMES, calculateExperimentalFidelity } from './goldengate.js';
+} from './domestication-primer-workflow';
+import { findInternalSites, GOLDEN_GATE_ENZYMES, calculateExperimentalFidelity } from './goldengate';
 
 // Test sequences with known BsaI sites
 const TEST_SEQUENCES = {

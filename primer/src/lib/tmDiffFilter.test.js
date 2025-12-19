@@ -26,7 +26,7 @@
 import { describe, it, expect } from 'vitest';
 
 // Unified Designer
-import { designUnified } from './unifiedPrimerDesign.js';
+import { designUnified } from './unifiedPrimerDesign';
 
 // Legacy Designer
 import {
@@ -34,10 +34,10 @@ import {
   designInsertionPrimers,
   designRegionSubstitutionPrimers,
   designCodonChangePrimers,
-} from './mutagenesis.js';
+} from './mutagenesis';
 
 // PCR primer design
-import { primers, generateAlternatives } from './primers.js';
+import { primers, generateAlternatives } from './primers';
 
 // Test sequences designed to potentially cause Tm mismatches
 const TEST_TEMPLATE = 'ATGAAACAAAGCACTATTGCACTGGCACTCTTACCGTTACTGTTTACCCCTGTGACAAAAGCCAATATGGACAAGTTGTTTGACGGTATCAGAAGCAGAACTGGCGAAACTTTTACCGGTGAAGACCGTAACGGTTACGACAATAAATACAATGTTTATAATCAGACTAACGACTGTTGGGGTTTTGAATTTAAAGATGAAGATATGCTGTGCCCGGACCCAATTAGCTGGCGTAATGCCGAGATCATGCGTAAAAAATGGGACAGCAAAGAGCAGAAAAGCATGTACGAACGCCAGTTTGACGAGCTGTATAAAGAACGCTATGGTTATGCCAACAGCTACATGTATGACGATGATGACAAACATCTGTACAAGTAAGGAGGTAATAA';

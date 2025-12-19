@@ -21,17 +21,17 @@ import {
   CODON_TABLE,
   CODON_TO_AA,
   ECOLI_CODON_USAGE,
-} from './silent-mutation-domesticator.js';
+} from './silent-mutation-domesticator';
 
 import {
   optimizeDomestication,
   analyzeDomesticationOptions,
   generateDomesticationReport,
   DOMESTICATION_STRATEGY,
-} from './domestication-optimizer.js';
+} from './domestication-optimizer';
 
-import { findInternalSites, GOLDEN_GATE_ENZYMES } from './goldengate.js';
-import { reverseComplement } from './enzymes.js';
+import { findInternalSites, GOLDEN_GATE_ENZYMES } from './goldengate';
+import { reverseComplement } from './enzymes';
 
 // ============================================================================
 // TEST SEQUENCES

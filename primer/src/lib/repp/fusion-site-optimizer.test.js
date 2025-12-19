@@ -20,14 +20,14 @@ import {
   isPalindrome,
   isHomopolymer,
   EFFICIENCY_PENALTIES,
-} from './overhang-efficiency.js';
+} from './overhang-efficiency';
 
 import {
   checkSiteCreation,
   checkMultipleSiteCreation,
   findSafeJunctionNear,
   validateJunctionSet,
-} from './site-creation-check.js';
+} from './site-creation-check';
 
 import {
   scanForFusionSites,
@@ -35,14 +35,14 @@ import {
   generateTargetPositions,
   filterByDistance,
   assessFeasibility,
-} from './fusion-site-scanner.js';
+} from './fusion-site-scanner';
 
 import {
   scoreFusionSiteComposite,
   scoreMultipleFusionSites,
   quickScoreFusionSite,
   DEFAULT_FUSION_WEIGHTS,
-} from './fusion-site-scorer.js';
+} from './fusion-site-scorer';
 
 import {
   scoreScarSequence,
@@ -50,7 +50,7 @@ import {
   checkStopCodons,
   translateOverhang,
   SCAR_PREFERENCES,
-} from './scar-preferences.js';
+} from './scar-preferences';
 
 import {
   predictFailureModes,
@@ -59,7 +59,7 @@ import {
   predictEfficiencyIssues,
   quickRiskAssessment,
   FAILURE_MODES,
-} from './failure-prediction.js';
+} from './failure-prediction';
 
 import {
   optimizeFusionSites,
@@ -69,7 +69,7 @@ import {
   optimizeHybrid,
   quickOptimize,
   OPTIMIZER_DEFAULTS,
-} from './fusion-site-optimizer.js';
+} from './fusion-site-optimizer';
 
 // ============================================================================
 // TEST DATA

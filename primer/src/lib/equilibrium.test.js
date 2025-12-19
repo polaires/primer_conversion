@@ -17,7 +17,7 @@ import {
   solveEquilibrium,
   efficiencyToScore,
   reverseComplement,
-} from './equilibrium.js';
+} from './equilibrium';
 
 describe('Reverse Complement', () => {
   it('should correctly reverse complement a sequence', () => {

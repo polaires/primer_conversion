@@ -16,7 +16,7 @@ import {
   optimizeOverlap,
   designNEBuilderAssembly,
   generateNEBuilderProtocol,
-} from './nebuilder.js';
+} from './nebuilder';
 
 // =============================================================================
 // Test Sequences

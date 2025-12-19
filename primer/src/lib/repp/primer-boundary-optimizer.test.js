@@ -14,7 +14,7 @@ import {
   scorePrimerBindingRegion,
   validateOverhang,
   BOUNDARY_OPTIMIZER_DEFAULTS,
-} from './primer-boundary-optimizer.js';
+} from './primer-boundary-optimizer';
 
 // ============================================================================
 // TEST DATA
