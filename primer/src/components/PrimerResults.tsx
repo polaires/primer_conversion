@@ -458,10 +458,10 @@ export default function PrimerResults({ results, error, sequence, options = {} }
           <SequenceViewer
             sequence={sequence}
             name="Template"
-            fwdPrimer={fwd.seq}
-            revPrimer={rev?.seq}
-            addFwd={options.addFwd}
-            addRev={options.addRev}
+            fwdPrimer={fwd.seq as any}
+            revPrimer={rev?.seq as any}
+            addFwd={options.addFwd as any}
+            addRev={options.addRev as any}
             viewer={viewerMode}
             height={viewerMode === 'both' ? 400 : 300}
           />

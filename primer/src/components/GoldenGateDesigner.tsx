@@ -1,9 +1,8 @@
-import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { SeqViz } from 'seqviz';
 import {
   GOLDEN_GATE_ENZYMES,
   ENZYMES_WITH_DATA,
-  designGoldenGateAssembly,
   getRecommendedOverhangs,
   parseFasta,
   // Experimental fidelity functions
@@ -19,30 +18,25 @@ import {
   scanForFusionSites,
   scoreFusionSiteComposite,
   OPTIMIZER_DEFAULTS,
-  DEFAULT_FUSION_WEIGHTS,
   // Auto-Domestication Optimizer (legacy - kept for compatibility)
   optimizeWithDomestication,
   analyzeForDomestication,
-  recommendAlternativeEnzymes,
   DOMESTICATION_DEFAULTS,
   // Unified Domestication Optimizer (PREFERRED - one-pot compatible strategies)
-  optimizeDomestication,
   analyzeDomesticationOptions,
   DOMESTICATION_STRATEGY,
   designAllMutagenicJunctions,
-  selectDomesticationStrategy,
 } from '../lib/repp/index.js';
 import {
   optimizeAssemblyBoundaries,
   assessBoundaryOptimizationPotential,
 } from '../lib/repp/primer-boundary-optimizer.js';
-import { CrossLigationHeatmap, CrossLigationHeatmapCompact } from './CrossLigationHeatmap';
-import FusionSiteOptimizerPanel from './FusionSiteOptimizerPanel.jsx';
-import { EnhancedDomesticationPanel, EnhancedDomesticationStyles } from './EnhancedDomesticationPanel.jsx';
-import { DomesticationWorkflowGuide, DomesticationWorkflowStyles } from './DomesticationWorkflowGuide.jsx';
+import { CrossLigationHeatmapCompact } from './CrossLigationHeatmap';
+import FusionSiteOptimizerPanel from './FusionSiteOptimizerPanel';
+import { EnhancedDomesticationPanel, EnhancedDomesticationStyles } from './EnhancedDomesticationPanel';
+import { DomesticationWorkflowGuide, DomesticationWorkflowStyles } from './DomesticationWorkflowGuide';
 import {
   designNEBuilderAssembly,
-  analyzeOverlap,
   NEBUILDER_PARAMS,
 } from '../lib/nebuilder.js';
 import {
@@ -52,7 +46,253 @@ import {
   exportProject,
   importProject,
 } from '../lib/assemblyCore.js';
-import IsothermalAssemblyPanel from './IsothermalAssemblyPanel.jsx';
+import IsothermalAssemblyPanel from './IsothermalAssemblyPanel';
+
+
+// TypeScript Interfaces
+interface Part {
+  id: string;
+  seq: string;
+  type: 'promoter' | 'rbs' | 'cds' | 'terminator' | 'other' | 'fragment';
+  rangeStart?: number;
+  rangeEnd?: number;
+  originalSeq?: string;
+  index?: number;
+  length?: number;
+  _originalSequence?: string;
+  leftOverhang?: string;
+  rightOverhang?: string;
+  primers?: {
+    forward: {
+      sequence: string;
+      length: number;
+      tm: number;
+      gc: number;
+      qualityScore?: number;
+      qualityTier?: string;
+      breakdown?: any;
+      structure?: {
+        extra?: string;
+        bsaISite?: string;
+        recognitionSite?: string;
+        spacer?: string;
+        overhang?: string;
+        homology?: string;
+        annealing?: string;
+      };
+    };
+    reverse: {
+      sequence: string;
+      length: number;
+      tm: number;
+      gc: number;
+      qualityScore?: number;
+      qualityTier?: string;
+      breakdown?: any;
+      structure?: {
+        extra?: string;
+        bsaISite?: string;
+        recognitionSite?: string;
+        spacer?: string;
+        overhang?: string;
+        homology?: string;
+        annealing?: string;
+      };
+    };
+    pairQuality?: {
+      tmDifference?: { value: number };
+      heterodimer?: any;
+      score?: number;
+      quality?: any;
+    };
+    pcr?: {
+      annealingTemp: number;
+      extensionTime: number;
+      tmDifference?: number;
+    };
+  };
+  _domesticationApproved?: boolean;
+  _domesticationStrategy?: string;
+  _domesticationJunctions?: Array<{
+    sitePosition?: number;
+    junctionPosition?: number;
+    position?: number;
+    overhang: string;
+    site?: { position: number };
+  }>;
+  _domesticationMutations?: Array<{
+    position: number;
+    original: string;
+    mutated: string;
+  }>;
+  _domesticationPrimers?: any[];
+  _workflowApplied?: boolean;
+  _workflowResult?: any;
+  _optimized?: {
+    leftOverhang: string | null;
+    rightOverhang: string | null;
+    junctionQuality: number | null;
+  };
+  _domesticated?: boolean;
+  _userConfigured?: boolean;
+  _parentPart?: string;
+  _fragmentIndex?: number;
+  _totalFragments?: number;
+  _overhang?: string | null;
+  _strategy?: string;
+  _onePotCompatible?: boolean;
+  _configuredPrimers?: any[];
+}
+
+
+interface PartWithAngles extends Part {
+  startAngle: number;
+  sweepAngle: number;
+  midAngle: number;
+  index: number;
+}
+
+interface AssemblyMethod {
+  id: string;
+  name: string;
+  description: string;
+  icon: React.ReactElement;
+  color: string;
+}
+
+interface IsothermalVariant {
+  id: string;
+  name: string;
+  description: string;
+  badge: string;
+  optimalOverlap: { min: number; max: number; ideal: number };
+  optimalTm: { min: number; max: number; ideal: number };
+  recommended?: boolean;
+}
+
+interface PartTypeInfo {
+  name: string;
+  color: string;
+  icon: string;
+}
+
+interface OverlapSettings {
+  overlapLength: number;
+  targetTm: number;
+}
+
+interface DomesticationAnalysis {
+  error?: boolean | { type?: string; details?: any[]; violations?: any[] };
+  message?: string;
+  needsDomestication?: boolean;
+  totalFragments?: number;
+  additionalFragmentsNeeded?: number;
+  domesticationJunctions?: any[];
+  alternativeEnzymes?: any[];
+  recommendedEnzyme?: string;
+}
+
+interface FusionCandidate {
+  position: number;
+  overhang: string;
+  score: any;
+}
+
+interface AssemblyResult {
+  parts: any[];
+  overhangs?: string[];
+  assembledSequence?: string;
+  assembledLength?: number;
+  fidelity?: {
+    percentage: string;
+    individual?: any[];
+    baseFidelityPercent?: string;
+    gtAdjusted?: number;
+  };
+  warnings?: string[];
+  primers?: any[];
+  simulation?: any;
+  overlapAnalysis?: any;
+  protocol?: string;
+  hasInternalSites?: boolean;
+  internalSiteIssues?: any[];
+  _autoDomestication?: {
+    applied: boolean;
+    details: any[];
+  };
+  _optimizedData?: any;
+}
+
+interface PartCardProps {
+  part: Part;
+  index: number;
+  onChange: (index: number, newPart: Part) => void;
+  onRemove: (index: number) => void;
+  canRemove: boolean;
+  enzyme: string;
+  onDragStart: (e: React.DragEvent, index: number) => void;
+  onDragOver: (e: React.DragEvent, index: number) => void;
+  onDrop: (e: React.DragEvent, index: number) => void;
+  isDragging: boolean;
+  onSplitSequence?: (index: number, sequence: string, numFragments: number, enzyme: string) => Promise<any>;
+  useEnhancedWorkflow?: boolean;
+  onOpenEnhancedDomestication?: (part: Part & { index: number }) => void;
+  onOpenWorkflowGuide?: (part: Part) => void;
+}
+
+interface CircularPlasmidViewProps {
+  parts: Part[];
+  overhangs: string[];
+  totalLength: number;
+}
+
+interface LinearAssemblyDiagramProps {
+  parts: Part[];
+  overhangs: string[];
+}
+
+interface FidelityGaugeProps {
+  overhangs: string[];
+  enzyme: string;
+  staticFidelity: number;
+}
+
+interface PrimerResultsProps {
+  result: AssemblyResult;
+  onCopy?: (message: string) => void;
+  method: string;
+  enzyme: string;
+  isGoldenGate?: boolean;
+}
+
+interface ExperimentalFidelity {
+  assemblyFidelity: number;
+  source: string;
+}
+
+interface EnzymeComparison {
+  ranked: Array<{
+    enzyme: string;
+    assemblyFidelity: number;
+    [key: string]: any;
+  }>;
+}
+
+interface HeatmapData {
+  error?: boolean;
+  [key: string]: any;
+}
+
+interface CrossLigationData {
+  error?: boolean;
+  [key: string]: any;
+}
+
+interface DomesticationData {
+  domesticatedSequence?: string;
+  [key: string]: any;
+}
+
 
 // Professional SVG icons for assembly methods
 const MethodIcons = {
@@ -125,52 +365,54 @@ const PART_TYPES = {
   cds: { name: 'CDS', color: '#22c55e', icon: 'C' },
   terminator: { name: 'Terminator', color: '#3b82f6', icon: 'T' },
   other: { name: 'Other', color: '#8b5cf6', icon: 'O' },
+  fragment: { name: 'Fragment', color: '#6366f1', icon: 'F' },
 };
 
 // Compact Part Card - collapsed by default, shows summary
-function PartCard({ part, index, onChange, onRemove, canRemove, enzyme, onDragStart, onDragOver, onDrop, isDragging, onSplitSequence, useEnhancedWorkflow, onOpenEnhancedDomestication, onOpenWorkflowGuide }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [isEditing, setIsEditing] = useState(!part.seq);
-  const [showSplitPanel, setShowSplitPanel] = useState(false);
-  const [splitNumFragments, setSplitNumFragments] = useState(3);
-  const [isSplitting, setIsSplitting] = useState(false);
-  const [splitError, setSplitError] = useState(null);
+function PartCard({ part, index, onChange, onRemove, canRemove, enzyme, onDragStart, onDragOver, onDrop, isDragging, onSplitSequence, useEnhancedWorkflow, onOpenEnhancedDomestication, onOpenWorkflowGuide }: PartCardProps) {
+  const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  const [isEditing, setIsEditing] = useState<boolean>(!part.seq);
+  const [showSplitPanel, setShowSplitPanel] = useState<boolean>(false);
+  const [splitNumFragments, setSplitNumFragments] = useState<number>(3);
+  const [isSplitting, setIsSplitting] = useState<boolean>(false);
+  const [splitError, setSplitError] = useState<string | null>(null);
 
   // Check if sequence is large enough to split (>500bp)
   const canSplit = part.seq && part.seq.length >= 500;
 
-  const handleSeqChange = (e) => {
+  const handleSeqChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const seq = e.target.value.toUpperCase().replace(/[^ATGCNRYSWKMBDHV]/gi, '');
     // Reset range when sequence changes
     onChange(index, { ...part, seq, rangeStart: 1, rangeEnd: seq.length || 0 });
   };
 
-  const handleNameChange = (e) => {
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange(index, { ...part, id: e.target.value });
   };
 
-  const handleTypeChange = (e) => {
-    onChange(index, { ...part, type: e.target.value });
+  const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    onChange(index, { ...part, type: e.target.value as Part['type'] });
   };
 
-  const handleRangeChange = (field, value) => {
+  const handleRangeChange = (field: string, value: string | number) => {
     // Allow free typing - store raw value, validate on blur
+    const numValue = typeof value === 'string' ? parseInt(value) || 1 : value;
     if (field === 'rangeStart') {
-      onChange(index, { ...part, rangeStart: value });
+      onChange(index, { ...part, rangeStart: numValue });
     } else {
-      onChange(index, { ...part, rangeEnd: value });
+      onChange(index, { ...part, rangeEnd: numValue });
     }
   };
 
-  const handleRangeBlur = (field) => {
+  const handleRangeBlur = (field: string) => {
     const seqLen = part.seq?.length || 0;
     if (field === 'rangeStart') {
-      const numVal = parseInt(part.rangeStart) || 1;
+      const numVal = parseInt(String(part.rangeStart)) || 1;
       const newStart = Math.max(1, Math.min(numVal, seqLen));
       onChange(index, { ...part, rangeStart: newStart });
     } else {
       // Allow end < start for circular plasmids (wrap-around selection)
-      const numVal = parseInt(part.rangeEnd) || seqLen;
+      const numVal = parseInt(String(part.rangeEnd)) || seqLen;
       const newEnd = Math.max(1, Math.min(numVal, seqLen));
       onChange(index, { ...part, rangeEnd: newEnd });
     }
@@ -191,29 +433,30 @@ function PartCard({ part, index, onChange, onRemove, canRemove, enzyme, onDragSt
       // Call the parent's split handler which runs the optimizer
       await onSplitSequence(index, part.seq, splitNumFragments, enzyme);
       setShowSplitPanel(false);
-    } catch (err) {
-      setSplitError(err.message);
+    } catch (err: unknown) {
+      setSplitError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsSplitting(false);
     }
   };
 
-  const typeInfo = PART_TYPES[part.type] || PART_TYPES.other;
+  const typeInfo = PART_TYPES[part.type as keyof typeof PART_TYPES] || PART_TYPES.other;
 
   // Check for internal enzyme sites (only for Golden Gate when enzyme is specified)
   const hasSites = enzyme && part.seq && (() => {
-    const enzSite = GOLDEN_GATE_ENZYMES[enzyme]?.recognition;
+    const enzSite = GOLDEN_GATE_ENZYMES[enzyme as keyof typeof GOLDEN_GATE_ENZYMES]?.recognition;
     if (!enzSite) return false;
+    const complement: Record<string, string> = { A: 'T', T: 'A', G: 'C', C: 'G' };
     const enzSiteRc = enzSite.split('').reverse().map(c =>
-      ({ A: 'T', T: 'A', G: 'C', C: 'G' }[c] || c)
+      complement[c] || c
     ).join('');
     return part.seq.toUpperCase().includes(enzSite) ||
            part.seq.toUpperCase().includes(enzSiteRc);
   })();
 
   // Get selected range
-  const rangeStart = typeof part.rangeStart === 'number' ? part.rangeStart : (parseInt(part.rangeStart) || 1);
-  const rangeEnd = typeof part.rangeEnd === 'number' ? part.rangeEnd : (parseInt(part.rangeEnd) || part.seq?.length || 0);
+  const rangeStart = typeof part.rangeStart === 'number' ? part.rangeStart : (part.rangeStart ? parseInt(String(part.rangeStart)) : 1);
+  const rangeEnd = typeof part.rangeEnd === 'number' ? part.rangeEnd : (part.rangeEnd ? parseInt(String(part.rangeEnd)) : part.seq?.length || 0);
   // Support circular wrap-around: if end < start, selection spans origin
   const selectedSeq = part.seq ? (
     rangeEnd >= rangeStart
@@ -231,9 +474,9 @@ function PartCard({ part, index, onChange, onRemove, canRemove, enzyme, onDragSt
     <div
       className={`part-card-compact ${isDragging ? 'dragging' : ''} ${isExpanded ? 'expanded' : ''} ${hasSites ? 'has-warning' : ''}`}
       draggable
-      onDragStart={(e) => onDragStart(e, index)}
-      onDragOver={(e) => onDragOver(e, index)}
-      onDrop={(e) => onDrop(e, index)}
+      onDragStart={(e: React.DragEvent) => onDragStart(e, index)}
+      onDragOver={(e: React.DragEvent) => onDragOver(e, index)}
+      onDrop={(e: React.DragEvent) => onDrop(e, index)}
     >
       {/* Main Row */}
       <div className="part-card-main">
@@ -400,7 +643,7 @@ function PartCard({ part, index, onChange, onRemove, canRemove, enzyme, onDragSt
                   <input
                     type="text"
                     value={rangeStart}
-                    onChange={(e) => handleRangeChange('rangeStart', e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleRangeChange('rangeStart', e.target.value)}
                     onBlur={() => handleRangeBlur('rangeStart')}
                     className="range-input"
                     placeholder="1"
@@ -416,7 +659,7 @@ function PartCard({ part, index, onChange, onRemove, canRemove, enzyme, onDragSt
                   <input
                     type="text"
                     value={rangeEnd}
-                    onChange={(e) => handleRangeChange('rangeEnd', e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleRangeChange('rangeEnd', e.target.value)}
                     onBlur={() => handleRangeBlur('rangeEnd')}
                     className="range-input"
                     placeholder={part.seq.length.toString()}
@@ -605,18 +848,18 @@ function PartCard({ part, index, onChange, onRemove, canRemove, enzyme, onDragSt
 }
 
 // Enhanced Circular Plasmid Visualization
-function CircularPlasmidView({ parts, overhangs, totalLength }) {
-  const [hoveredJunction, setHoveredJunction] = useState(null);
-  const [hoveredPart, setHoveredPart] = useState(null);
+function CircularPlasmidView({ parts, overhangs, totalLength }: CircularPlasmidViewProps) {
+  const [hoveredJunction, setHoveredJunction] = useState<number | null>(null);
+  const [hoveredPart, setHoveredPart] = useState<number | null>(null);
 
   // Calculate angles for each part
-  const partAngles = useMemo(() => {
+  const partAngles = useMemo((): PartWithAngles[] => {
     if (!parts.length) return [];
 
-    const total = parts.reduce((sum, p) => sum + (p.seq?.length || 100), 0);
+    const total = parts.reduce((sum: number, p: Part) => sum + (p.seq?.length || 100), 0);
     let currentAngle = -90; // Start at top
 
-    return parts.map((part, i) => {
+    return parts.map((part: Part, i: number): PartWithAngles => {
       const partLength = part.seq?.length || 100;
       const sweepAngle = (partLength / total) * 360;
       const startAngle = currentAngle;
@@ -632,7 +875,7 @@ function CircularPlasmidView({ parts, overhangs, totalLength }) {
   }, [parts]);
 
   // Generate arc path
-  const describeArc = (cx, cy, r, startAngle, endAngle) => {
+  const describeArc = (cx: number, cy: number, r: number, startAngle: number, endAngle: number) => {
     const start = {
       x: cx + r * Math.cos(Math.PI * startAngle / 180),
       y: cy + r * Math.sin(Math.PI * startAngle / 180)
@@ -654,8 +897,8 @@ function CircularPlasmidView({ parts, overhangs, totalLength }) {
         <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e5e7eb" strokeWidth="20" />
 
         {/* Part arcs */}
-        {partAngles.map((part, i) => {
-          const typeInfo = PART_TYPES[part.type] || PART_TYPES.other;
+        {partAngles.map((part: PartWithAngles, i: number) => {
+          const typeInfo = PART_TYPES[part.type as keyof typeof PART_TYPES] || PART_TYPES.other;
           const isHovered = hoveredPart === i;
           return (
             <g key={i}>
@@ -674,7 +917,7 @@ function CircularPlasmidView({ parts, overhangs, totalLength }) {
         })}
 
         {/* Junction markers */}
-        {partAngles.map((part, i) => {
+        {partAngles.map((part: PartWithAngles, i: number) => {
           const angle = (part.startAngle * Math.PI) / 180;
           const jx = cx + (r + 20) * Math.cos(angle);
           const jy = cy + (r + 20) * Math.sin(angle);
@@ -721,12 +964,12 @@ function CircularPlasmidView({ parts, overhangs, totalLength }) {
         })}
 
         {/* Part labels */}
-        {partAngles.map((part, i) => {
+        {partAngles.map((part: PartWithAngles, i: number) => {
           const labelR = r - 35;
           const angle = (part.midAngle * Math.PI) / 180;
           const lx = cx + labelR * Math.cos(angle);
           const ly = cy + labelR * Math.sin(angle);
-          const typeInfo = PART_TYPES[part.type] || PART_TYPES.other;
+          const typeInfo = PART_TYPES[part.type as keyof typeof PART_TYPES] || PART_TYPES.other;
 
           return (
             <g key={`label-${i}`}>
@@ -757,8 +1000,8 @@ function CircularPlasmidView({ parts, overhangs, totalLength }) {
       {/* Hovered part tooltip */}
       {hoveredPart !== null && (
         <div className="plasmid-tooltip">
-          <div className="tooltip-header" style={{ borderColor: PART_TYPES[partAngles[hoveredPart]?.type]?.color }}>
-            <span className="tooltip-type">{PART_TYPES[partAngles[hoveredPart]?.type]?.name}</span>
+          <div className="tooltip-header" style={{ borderColor: PART_TYPES[partAngles[hoveredPart]?.type as keyof typeof PART_TYPES]?.color }}>
+            <span className="tooltip-type">{PART_TYPES[partAngles[hoveredPart]?.type as keyof typeof PART_TYPES]?.name}</span>
             <span className="tooltip-name">{partAngles[hoveredPart]?.id || `Part ${hoveredPart + 1}`}</span>
           </div>
           <div className="tooltip-stats">
@@ -770,8 +1013,8 @@ function CircularPlasmidView({ parts, overhangs, totalLength }) {
 
       {/* Legend */}
       <div className="plasmid-legend">
-        {parts.map((part, i) => {
-          const typeInfo = PART_TYPES[part.type] || PART_TYPES.other;
+        {parts.map((part: Part, i: number) => {
+          const typeInfo = PART_TYPES[part.type as keyof typeof PART_TYPES] || PART_TYPES.other;
           return (
             <div
               key={i}
@@ -790,13 +1033,13 @@ function CircularPlasmidView({ parts, overhangs, totalLength }) {
 }
 
 // Linear Assembly Diagram (enhanced)
-function LinearAssemblyDiagram({ parts, overhangs }) {
-  const [hoveredOH, setHoveredOH] = useState(null);
+function LinearAssemblyDiagram({ parts, overhangs }: LinearAssemblyDiagramProps) {
+  const [hoveredOH, setHoveredOH] = useState<string | null>(null);
 
   return (
     <div className="linear-assembly-diagram">
       <div className="assembly-track">
-        {parts.map((part, i) => {
+        {parts.map((part: Part, i: number) => {
           const typeInfo = PART_TYPES[part.type] || PART_TYPES.other;
           const leftOH = overhangs[i];
           const rightOH = overhangs[i + 1];
@@ -846,42 +1089,42 @@ function LinearAssemblyDiagram({ parts, overhangs }) {
 }
 
 // Fidelity Gauge (enhanced with cross-ligation heatmap)
-function FidelityGauge({ overhangs, enzyme, staticFidelity }) {
-  const [showDetails, setShowDetails] = useState(false);
-  const [showHeatmap, setShowHeatmap] = useState(false);
+function FidelityGauge({ overhangs, enzyme, staticFidelity }: FidelityGaugeProps) {
+  const [showDetails, setShowDetails] = useState<boolean>(false);
+  const [showHeatmap, setShowHeatmap] = useState<boolean>(false);
 
-  const experimentalFidelity = useMemo(() => {
+  const experimentalFidelity = useMemo((): ExperimentalFidelity | null => {
     if (!overhangs || overhangs.length === 0) return null;
     try {
-      return calculateExperimentalFidelity(overhangs, enzyme);
-    } catch (e) {
+      return calculateExperimentalFidelity(overhangs, enzyme) as ExperimentalFidelity;
+    } catch (e: unknown) {
       return null;
     }
   }, [overhangs, enzyme]);
 
-  const enzymeComparison = useMemo(() => {
+  const enzymeComparison = useMemo((): EnzymeComparison | null => {
     if (!overhangs || overhangs.length === 0) return null;
     try {
-      return compareEnzymeFidelity(overhangs);
-    } catch (e) {
+      return compareEnzymeFidelity(overhangs) as EnzymeComparison;
+    } catch (e: unknown) {
       return null;
     }
   }, [overhangs]);
 
-  const problematicPairs = useMemo(() => {
+  const problematicPairs = useMemo((): any[] => {
     if (!overhangs || overhangs.length === 0) return [];
     try {
-      return findProblematicPairs(overhangs, enzyme, 0.05);
-    } catch (e) {
+      return findProblematicPairs(overhangs, enzyme, 0.05) as any[];
+    } catch (e: unknown) {
       return [];
     }
   }, [overhangs, enzyme]);
 
-  const heatmapData = useMemo(() => {
+  const heatmapData = useMemo((): HeatmapData | null => {
     if (!overhangs || overhangs.length === 0) return null;
     try {
-      return generateCrossLigationHeatmap(overhangs, enzyme);
-    } catch (e) {
+      return generateCrossLigationHeatmap(overhangs, enzyme) as HeatmapData;
+    } catch (e: unknown) {
       return null;
     }
   }, [overhangs, enzyme]);
@@ -890,14 +1133,14 @@ function FidelityGauge({ overhangs, enzyme, staticFidelity }) {
   const fidelityPercent = (fidelity * 100).toFixed(1);
   const isExperimental = experimentalFidelity?.source === 'experimental';
 
-  const getFidelityColor = (f) => {
+  const getFidelityColor = (f: number) => {
     if (f >= 0.95) return '#22c55e';
     if (f >= 0.90) return '#84cc16';
     if (f >= 0.80) return '#f59e0b';
     return '#ef4444';
   };
 
-  const getFidelityStatus = (f) => {
+  const getFidelityStatus = (f: number) => {
     if (f >= 0.95) return 'Excellent';
     if (f >= 0.90) return 'Good';
     if (f >= 0.80) return 'Moderate';
@@ -955,7 +1198,7 @@ function FidelityGauge({ overhangs, enzyme, staticFidelity }) {
 
       {showDetails && enzymeComparison && (
         <div className="enzyme-comparison-list">
-          {enzymeComparison.ranked.map((e, i) => (
+          {enzymeComparison.ranked.map((e: any, i: number) => (
             <div key={e.enzyme} className={`enzyme-row ${e.enzyme === enzyme ? 'current' : ''}`}>
               <span className="enzyme-rank">#{i + 1}</span>
               <span className="enzyme-label">{e.enzyme}</span>
@@ -976,7 +1219,7 @@ function FidelityGauge({ overhangs, enzyme, staticFidelity }) {
 
       {showHeatmap && heatmapData && (
         <div className="heatmap-section">
-          <CrossLigationHeatmapCompact heatmapData={heatmapData} enzyme={enzyme} />
+          <CrossLigationHeatmapCompact heatmapData={heatmapData as any} enzyme={enzyme} />
         </div>
       )}
     </div>
@@ -984,20 +1227,20 @@ function FidelityGauge({ overhangs, enzyme, staticFidelity }) {
 }
 
 // Enhanced Primer Results with better contrast and CSV export
-function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenGateProp }) {
+function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenGateProp }: PrimerResultsProps) {
   // Use prop if provided, otherwise derive from method
   const isGoldenGate = isGoldenGateProp !== undefined ? isGoldenGateProp : method === 'golden_gate';
-  const [activeTab, setActiveTab] = useState('primers');
-  const [copiedId, setCopiedId] = useState(null);
-  const [expandedThermo, setExpandedThermo] = useState({}); // Track expanded thermo panels per part
+  const [activeTab, setActiveTab] = useState<string>('primers');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [expandedThermo, setExpandedThermo] = useState<Record<string, boolean>>({}); // Track expanded thermo panels per part
 
   // Generate cross-ligation heatmap data from result's overhangs
   const crossLigationData = useMemo(() => {
     if (!result?.parts || method !== 'golden_gate') return null;
     try {
       // Extract unique overhangs from parts (each part has left and right overhang)
-      const overhangs = [];
-      result.parts.forEach((part, i) => {
+      const overhangs: string[] = [];
+      result.parts.forEach((part: any) => {
         if (part.leftOverhang && !overhangs.includes(part.leftOverhang)) {
           overhangs.push(part.leftOverhang);
         }
@@ -1006,14 +1249,14 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
         }
       });
       if (overhangs.length < 2) return null;
-      return generateCrossLigationHeatmap(overhangs, enzyme || 'BsaI');
-    } catch (e) {
+      return generateCrossLigationHeatmap(overhangs, enzyme || 'BsaI') as CrossLigationData;
+    } catch (e: unknown) {
       return null;
     }
   }, [result, enzyme, method]);
 
   // Toggle thermo panel for a specific part
-  const toggleThermo = (partId) => {
+  const toggleThermo = (partId: string) => {
     setExpandedThermo(prev => ({
       ...prev,
       [partId]: !prev[partId]
@@ -1022,7 +1265,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
 
   if (!result) return null;
 
-  const copyToClipboard = (text, id) => {
+  const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 1500);
@@ -1030,41 +1273,45 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
   };
 
   const exportAllPrimersFasta = () => {
-    const lines = [];
+    const lines: string[] = [];
     result.parts.forEach(part => {
-      lines.push(`>${part.id}_FWD`);
-      lines.push(part.primers.forward.sequence);
-      lines.push(`>${part.id}_REV`);
-      lines.push(part.primers.reverse.sequence);
+      if (part.primers) {
+        lines.push(`>${part.id}_FWD`);
+        lines.push(part.primers.forward.sequence);
+        lines.push(`>${part.id}_REV`);
+        lines.push(part.primers.reverse.sequence);
+      }
     });
     copyToClipboard(lines.join('\n'), 'all primers (FASTA)');
   };
 
   const downloadCSV = () => {
     const headers = ['Part', 'Direction', 'Sequence', 'Length', 'Tm (°C)', 'GC (%)', 'Left Overhang', 'Right Overhang'];
-    const rows = [];
+    const rows: string[] = [];
 
     result.parts.forEach(part => {
-      rows.push([
-        part.id,
-        'Forward',
-        part.primers.forward.sequence,
-        part.primers.forward.length,
-        part.primers.forward.tm.toFixed(1),
-        part.primers.forward.gc.toFixed(1),
-        part.leftOverhang,
-        part.rightOverhang
-      ].join(','));
-      rows.push([
-        part.id,
-        'Reverse',
-        part.primers.reverse.sequence,
-        part.primers.reverse.length,
-        part.primers.reverse.tm.toFixed(1),
-        part.primers.reverse.gc.toFixed(1),
-        part.leftOverhang,
-        part.rightOverhang
-      ].join(','));
+      if (part.primers) {
+        rows.push([
+          part.id,
+          'Forward',
+          part.primers.forward.sequence,
+          part.primers.forward.length,
+          part.primers.forward.tm.toFixed(1),
+          part.primers.forward.gc.toFixed(1),
+          part.leftOverhang,
+          part.rightOverhang
+        ].join(','));
+        rows.push([
+          part.id,
+          'Reverse',
+          part.primers.reverse.sequence,
+          part.primers.reverse.length,
+          part.primers.reverse.tm.toFixed(1),
+          part.primers.reverse.gc.toFixed(1),
+          part.leftOverhang,
+          part.rightOverhang
+        ].join(','));
+      }
     });
 
     const csv = [headers.join(','), ...rows].join('\n');
@@ -1078,7 +1325,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
   };
 
   const downloadFasta = () => {
-    const fasta = `>assembled_${result.parts.map(p => p.id).join('+')}\n${result.assembledSequence.match(/.{1,60}/g).join('\n')}`;
+    const fasta = `>assembled_${result.parts.map((p: any) => p.id).join('+')}\n${(result.assembledSequence || '').match(/.{1,60}/g)?.join('\n') || ''}`;
     const blob = new Blob([fasta], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1089,25 +1336,27 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
   };
 
   const copyIDTFormat = () => {
-    const lines = [];
+    const lines: string[] = [];
     result.parts.forEach(part => {
-      // Forward primer: Name, Sequence, Notes (with Ta), Scale, Purification
-      const fwdTa = part.primers.forward.tm.toFixed(1);
-      const revTa = part.primers.reverse.tm.toFixed(1);
-      lines.push([
-        `${part.id}_FWD`,
-        part.primers.forward.sequence,
-        `Ta=${fwdTa}C`,
-        '25nm',
-        'STD'
-      ].join('\t'));
-      lines.push([
-        `${part.id}_REV`,
-        part.primers.reverse.sequence,
-        `Ta=${revTa}C`,
-        '25nm',
-        'STD'
-      ].join('\t'));
+      if (part.primers) {
+        // Forward primer: Name, Sequence, Notes (with Ta), Scale, Purification
+        const fwdTa = part.primers.forward.tm.toFixed(1);
+        const revTa = part.primers.reverse.tm.toFixed(1);
+        lines.push([
+          `${part.id}_FWD`,
+          part.primers.forward.sequence,
+          `Ta=${fwdTa}C`,
+          '25nm',
+          'STD'
+        ].join('\t'));
+        lines.push([
+          `${part.id}_REV`,
+          part.primers.reverse.sequence,
+          `Ta=${revTa}C`,
+          '25nm',
+          'STD'
+        ].join('\t'));
+      }
     });
     copyToClipboard(lines.join('\n'), 'primers (IDT format)');
   };
@@ -1155,9 +1404,9 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
       </div>
 
       {/* Warnings */}
-      {result.warnings.length > 0 && (
+      {result.warnings && result.warnings.length > 0 && (
         <div className="warnings-card">
-          {result.warnings.map((w, i) => (
+          {result.warnings.map((w: string, i: number) => (
             <div key={i} className="warning-item">
               <svg className="warning-icon" viewBox="0 0 24 24" width="16" height="16" fill="#f59e0b">
                 <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
@@ -1169,7 +1418,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
       )}
 
       {/* Workflow Steps - shown when user-configured domestication with multi-step workflow */}
-      {console.log('[PrimerResults] _autoDomestication:', result._autoDomestication)}
+      {(() => { console.log('[PrimerResults] _autoDomestication:', result._autoDomestication); return null; })()}
       {result._autoDomestication?.details?.some(d => d.workflowSteps?.length > 0) && (
         <div className="workflow-steps-card">
           <div className="workflow-header">
@@ -1182,7 +1431,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
           <div className="workflow-steps-list">
             {result._autoDomestication.details
               .filter(d => d.workflowSteps?.length > 0)
-              .flatMap((d, di) => d.workflowSteps.map((step, si) => (
+              .flatMap((d: any, di: number) => d.workflowSteps.map((step: any, si: number) => (
                 <div key={`${di}-${si}`} className={`workflow-step-item ${step.type}`}>
                   <div className="step-indicator">
                     <span className="step-number">{step.step}</span>
@@ -1250,10 +1499,10 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                 </div>
                 {result._autoDomestication.details
                   .filter(d => d.workflowSteps?.length > 0)
-                  .flatMap((detail, di) =>
+                  .flatMap((detail: any, di: number) =>
                     detail.workflowSteps
                       .filter(step => step.type === 'pcr_mutagenesis' && step.primers?.length > 0)
-                      .flatMap((step, si) => step.primers.map((primer, pi) => (
+                      .flatMap((step: any, si: number) => step.primers.map((primer: any, pi: number) => (
                         <div key={`mut-${di}-${si}-${pi}`} className="primer-block mutagenesis">
                           <div className="primer-block-header">
                             <div className="header-left">
@@ -1311,7 +1560,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                 </div>
               </div>
             )}
-            {result.parts.map((part, i) => {
+            {result.parts.map((part: Part, i: number) => {
               // Extract quality data
               const fwdQuality = part.primers.forward.qualityScore;
               const revQuality = part.primers.reverse.qualityScore;
@@ -1322,7 +1571,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
               const revBreakdown = part.primers.reverse.breakdown;
 
               // Helper to get quality color
-              const getQualityColor = (tier) => {
+              const getQualityColor = (tier: string) => {
                 if (tier === 'excellent') return '#22c55e';
                 if (tier === 'good') return '#3b82f6';
                 if (tier === 'acceptable') return '#f59e0b';
@@ -1330,7 +1579,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
               };
 
               // Helper to get score color
-              const getScoreColor = (score) => {
+              const getScoreColor = (score: number) => {
                 if (score >= 85) return '#22c55e';
                 if (score >= 70) return '#3b82f6';
                 if (score >= 55) return '#f59e0b';
@@ -1689,12 +1938,12 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                                     <div
                                       className="breakdown-bar"
                                       style={{
-                                        width: `${data.score || 0}%`,
-                                        backgroundColor: getScoreColor(data.score || 0)
+                                        width: `${(data as any).score || 0}%`,
+                                        backgroundColor: getScoreColor((data as any).score || 0)
                                       }}
                                     />
                                   </div>
-                                  <span className="breakdown-value">{data.score || 0}</span>
+                                  <span className="breakdown-value">{(data as any).score || 0}</span>
                                 </div>
                               ))}
                             </div>
@@ -1710,12 +1959,12 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                                     <div
                                       className="breakdown-bar"
                                       style={{
-                                        width: `${data.score || 0}%`,
-                                        backgroundColor: getScoreColor(data.score || 0)
+                                        width: `${(data as any).score || 0}%`,
+                                        backgroundColor: getScoreColor((data as any).score || 0)
                                       }}
                                     />
                                   </div>
-                                  <span className="breakdown-value">{data.score || 0}</span>
+                                  <span className="breakdown-value">{(data as any).score || 0}</span>
                                 </div>
                               ))}
                             </div>
@@ -1825,7 +2074,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                         Diagonal = correct, Off-diagonal = cross-ligation risk
                       </span>
                     </div>
-                    <CrossLigationHeatmapCompact heatmapData={crossLigationData} enzyme={enzyme} />
+                    <CrossLigationHeatmapCompact heatmapData={crossLigationData as any} enzyme={enzyme} />
                   </div>
                 )}
               </>
@@ -1985,13 +2234,13 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
 
         {activeTab === 'protocol' && result.protocol && (
           <div className="protocol-panel">
-            <h4>{result.protocol.title}</h4>
+            <h4>{(result.protocol as any).title}</h4>
             <ol className="protocol-steps">
-              {result.protocol.steps.map((step, i) => (
+              {(result.protocol as any).steps.map((step: any, i: number) => (
                 <li key={i}>
                   <strong>{step.title}</strong>
                   <ul>
-                    {step.details.map((d, j) => <li key={j}>{d}</li>)}
+                    {step.details.map((d: any, j: number) => <li key={j}>{d}</li>)}
                   </ul>
                 </li>
               ))}
@@ -1999,7 +2248,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
             <div className="protocol-notes">
               <h5>Notes</h5>
               <ul>
-                {result.protocol.notes.map((n, i) => <li key={i}>{n}</li>)}
+                {(result.protocol as any).notes.map((n: any, i: number) => <li key={i}>{n}</li>)}
               </ul>
             </div>
           </div>
@@ -2023,10 +2272,10 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                 {/* Part arcs */}
                 {(() => {
                   const parts = result.parts || [];
-                  const total = parts.reduce((sum, p) => sum + (p.length || p.seq?.length || 100), 0);
+                  const total = parts.reduce((sum: number, p: Part) => sum + (p.length || p.seq?.length || 100), 0);
                   let currentAngle = -90;
 
-                  return parts.map((part, i) => {
+                  return parts.map((part: Part, i: number) => {
                     const partLength = part.length || part.seq?.length || 100;
                     const sweepAngle = (partLength / total) * 360;
                     const startAngle = currentAngle;
@@ -2115,7 +2364,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
             <div className="simulation-parts-list">
               <h5>Parts Order</h5>
               <div className="parts-order">
-                {(result.parts || []).map((part, i) => (
+                {(result.parts || []).map((part: Part, i: number) => (
                   <div key={i} className="part-order-item">
                     <span className="part-num">{i + 1}</span>
                     <span
@@ -2333,13 +2582,13 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
 
 // Assembly Viewer with SeqViz
 function AssemblyViewer({ result }) {
-  const [viewMode, setViewMode] = useState('circular');
+  const [viewMode, setViewMode] = useState<string>('circular');
 
   const annotations = useMemo(() => {
     if (!result?.parts) return [];
     const annots = [];
     let pos = 0;
-    result.parts.forEach((part, i) => {
+    result.parts.forEach((part: any, i: number) => {
       const len = part.length || part.seq?.length || 0;
       if (len > 0) {
         annots.push({
@@ -2372,7 +2621,7 @@ function AssemblyViewer({ result }) {
           name="Assembled Construct"
           seq={result.assembledSequence.toUpperCase()}
           annotations={annotations}
-          viewer={viewMode}
+          viewer={viewMode as 'linear' | 'circular' | 'both' | 'both_flip'}
           showComplement={false}
           showIndex={true}
           style={{ height: '300px', width: '100%' }}
@@ -2381,7 +2630,7 @@ function AssemblyViewer({ result }) {
         />
       </div>
       <div className="parts-legend-bar">
-        {result.parts.map((part, i) => (
+        {result.parts.map((part: Part, i: number) => (
           <span key={i} className="legend-chip">
             <span className="chip-dot" style={{ backgroundColor: PART_TYPES[part.type]?.color || '#8b5cf6' }}></span>
             {part.id || `Part ${i + 1}`}
@@ -2397,6 +2646,10 @@ function OverlapSettings({ settings, onChange, variant }) {
   const isHiFi = variant === 'nebuilder_hifi';
   const defaults = isHiFi ? NEBUILDER_PARAMS : { MIN_OVERLAP: 15, MAX_OVERLAP: 40, TARGET_TM: 55 };
 
+  // Extract min/max overlap values from NEBUILDER_PARAMS or fallback defaults
+  const minOverlap = (defaults as any).overlap?.minLength || (defaults as any).MIN_OVERLAP || 15;
+  const maxOverlap = (defaults as any).overlap?.maxLength || (defaults as any).MAX_OVERLAP || 40;
+
   return (
     <div className="overlap-settings">
       <div className="setting-row">
@@ -2404,10 +2657,10 @@ function OverlapSettings({ settings, onChange, variant }) {
         <div className="setting-control">
           <input
             type="range"
-            min={defaults.MIN_OVERLAP || 15}
-            max={defaults.MAX_OVERLAP || 40}
+            min={minOverlap}
+            max={maxOverlap}
             value={settings.overlapLength}
-            onChange={(e) => onChange({ ...settings, overlapLength: parseInt(e.target.value) })}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange({ ...settings, overlapLength: parseInt(e.target.value) })}
           />
           <span className="setting-value">{settings.overlapLength} bp</span>
         </div>
@@ -2420,7 +2673,7 @@ function OverlapSettings({ settings, onChange, variant }) {
             min="48"
             max="65"
             value={settings.targetTm}
-            onChange={(e) => onChange({ ...settings, targetTm: parseInt(e.target.value) })}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange({ ...settings, targetTm: parseInt(e.target.value) })}
           />
           <span className="setting-value">{settings.targetTm}°C</span>
         </div>
@@ -2580,7 +2833,7 @@ function OverlapQualityGauge({ overlapLength, targetTm, fragmentCount, variant }
 function OverlapAnalysisDisplay({ overlaps }) {
   if (!overlaps || overlaps.length === 0) return null;
 
-  const getScoreColor = (score) => {
+  const getScoreColor = (score: number) => {
     if (score >= 0.8) return '#22c55e';
     if (score >= 0.6) return '#84cc16';
     if (score >= 0.4) return '#f59e0b';
@@ -2625,9 +2878,9 @@ function OverlapAnalysisDisplay({ overlaps }) {
 // Main Golden Gate Designer Component (now unified as Assembly Studio)
 export default function GoldenGateDesigner() {
   // Method selection - now uses 2 main methods
-  const [method, setMethod] = useState('golden_gate');
+  const [method, setMethod] = useState<string>('golden_gate');
   // Protocol variant for isothermal assembly (gibson or nebuilder_hifi)
-  const [isothermalVariant, setIsothermalVariant] = useState('nebuilder_hifi');
+  const [isothermalVariant, setIsothermalVariant] = useState<string>('nebuilder_hifi');
 
   // Computed helpers
   const isGoldenGate = method === 'golden_gate';
@@ -2637,32 +2890,32 @@ export default function GoldenGateDesigner() {
 
   // Fusion Site Optimizer mode - enables automatic junction position finding
   // (Advanced feature - not commonly used)
-  const [fusionMode, setFusionMode] = useState(false);
-  const [fusionSequence, setFusionSequence] = useState('');
-  const [fusionNumFragments, setFusionNumFragments] = useState(4);
-  const [fusionCandidates, setFusionCandidates] = useState([]);
-  const [fusionResult, setFusionResult] = useState(null);
-  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [fusionMode, setFusionMode] = useState<boolean>(false);
+  const [fusionSequence, setFusionSequence] = useState<string>('');
+  const [fusionNumFragments, setFusionNumFragments] = useState<number>(4);
+  const [fusionCandidates, setFusionCandidates] = useState<FusionCandidate[]>([]);
+  const [fusionResult, setFusionResult] = useState<any>(null);
+  const [isOptimizing, setIsOptimizing] = useState<boolean>(false);
 
   // Auto-Domestication - automatically breaks internal restriction sites
-  const [autoDomesticationEnabled, setAutoDomesticationEnabled] = useState(true);
-  const [minFragmentSize, setMinFragmentSize] = useState(DOMESTICATION_DEFAULTS.minFragmentSize);
-  const [domesticationError, setDomesticationError] = useState(null);
+  const [autoDomesticationEnabled, setAutoDomesticationEnabled] = useState<boolean>(true);
+  const [minFragmentSize, setMinFragmentSize] = useState<number>(DOMESTICATION_DEFAULTS.minFragmentSize);
+  const [domesticationError, setDomesticationError] = useState<DomesticationAnalysis | null>(null);
 
   // Enhanced Domestication - state-of-the-art workflow with user confirmation
-  const [showEnhancedDomestication, setShowEnhancedDomestication] = useState(false);
-  const [enhancedDomesticationPart, setEnhancedDomesticationPart] = useState(null);
-  const [useEnhancedWorkflow, setUseEnhancedWorkflow] = useState(true); // New workflow enabled by default
-  const [needsRedesignAfterDomestication, setNeedsRedesignAfterDomestication] = useState(false);
+  const [showEnhancedDomestication, setShowEnhancedDomestication] = useState<boolean>(false);
+  const [enhancedDomesticationPart, setEnhancedDomesticationPart] = useState<Part | null>(null);
+  const [useEnhancedWorkflow, setUseEnhancedWorkflow] = useState<boolean>(true); // New workflow enabled by default
+  const [needsRedesignAfterDomestication, setNeedsRedesignAfterDomestication] = useState<boolean>(false);
 
   // Domestication Workflow Guide - complete workflow with primer design
-  const [showWorkflowGuide, setShowWorkflowGuide] = useState(false);
-  const [workflowGuidePart, setWorkflowGuidePart] = useState(null);
+  const [showWorkflowGuide, setShowWorkflowGuide] = useState<boolean>(false);
+  const [workflowGuidePart, setWorkflowGuidePart] = useState<Part | null>(null);
 
   // Primer Boundary Optimizer - adjusts boundaries for better primers
-  const [boundaryAssessment, setBoundaryAssessment] = useState(null);
-  const [isOptimizingBoundaries, setIsOptimizingBoundaries] = useState(false);
-  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [boundaryAssessment, setBoundaryAssessment] = useState<any>(null);
+  const [isOptimizingBoundaries, setIsOptimizingBoundaries] = useState<boolean>(false);
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState<boolean>(false);
 
   // Minimum sequence length for PCR-based Golden Gate assembly:
   // - Need ~18-25bp homology region for each primer (for proper Tm)
@@ -2673,25 +2926,25 @@ export default function GoldenGateDesigner() {
   const RECOMMENDED_MIN_LENGTH = 100;
 
   // Start with empty parts - user can click "Load Example" to load sample data
-  const [parts, setParts] = useState([
+  const [parts, setParts] = useState<Part[]>([
     { id: '', seq: '', type: 'promoter' },
     { id: '', seq: '', type: 'cds' },
   ]);
-  const [enzyme, setEnzyme] = useState('BsaI');
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
-  const [copyMessage, setCopyMessage] = useState('');
-  const [draggedIndex, setDraggedIndex] = useState(null);
-  const [viewMode, setViewMode] = useState('linear'); // 'linear' or 'circular'
+  const [enzyme, setEnzyme] = useState<string>('BsaI');
+  const [result, setResult] = useState<AssemblyResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [copyMessage, setCopyMessage] = useState<string>('');
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<string>('linear'); // 'linear' or 'circular'
 
   // Gibson/HiFi specific settings - defaults optimized for NEBuilder HiFi
-  const [overlapSettings, setOverlapSettings] = useState({
+  const [overlapSettings, setOverlapSettings] = useState<OverlapSettings>({
     overlapLength: 20,  // NEB recommends 15-20bp for 2-3 fragments, 20-30bp for 4-6
     targetTm: 52,       // Must be ≥48°C (reaction at 50°C)
   });
-  const [showIsothermalAdvanced, setShowIsothermalAdvanced] = useState(false);
+  const [showIsothermalAdvanced, setShowIsothermalAdvanced] = useState<boolean>(false);
   // Use advanced range-based optimization for isothermal assembly
-  const [useAdvancedOptimization, setUseAdvancedOptimization] = useState(true);
+  const [useAdvancedOptimization, setUseAdvancedOptimization] = useState<boolean>(true);
 
   // Computed values - maxParts based on method
   const maxParts = isGoldenGate ? MAX_GOLDEN_GATE_FRAGMENTS : MAX_FRAGMENTS;
@@ -2702,10 +2955,10 @@ export default function GoldenGateDesigner() {
   }, [parts.length, isGoldenGate]);
 
   const totalLength = useMemo(() => {
-    return parts.reduce((sum, p) => sum + (p.seq?.length || 0), 0);
+    return parts.reduce((sum: number, p: Part) => sum + (p.seq?.length || 0), 0);
   }, [parts]);
 
-  const handlePartChange = useCallback((index, newPart) => {
+  const handlePartChange = useCallback((index: number, newPart: Part) => {
     setParts(prev => {
       const updated = [...prev];
       updated[index] = newPart;
@@ -2716,15 +2969,15 @@ export default function GoldenGateDesigner() {
 
   const addPart = useCallback(() => {
     if (parts.length < maxParts) {
-      const types = ['promoter', 'rbs', 'cds', 'terminator', 'other'];
-      setParts(prev => [...prev, { id: '', seq: '', type: types[prev.length % types.length] || 'other' }]);
+      const types: Array<'promoter' | 'rbs' | 'cds' | 'terminator' | 'other'> = ['promoter', 'rbs', 'cds', 'terminator', 'other'];
+      setParts(prev => [...prev, { id: '', seq: '', type: types[prev.length % types.length] || 'other' }] as Part[]);
       setResult(null);
     }
   }, [parts.length, maxParts]);
 
-  const removePart = useCallback((index) => {
+  const removePart = useCallback((index: any) => {
     // Allow deletion of any part - user can add parts back or load example
-    setParts(prev => prev.filter((_, i) => i !== index));
+    setParts(prev => prev.filter((_: any, i: number) => i !== index));
     setResult(null);
   }, []);
 
@@ -2831,7 +3084,7 @@ export default function GoldenGateDesigner() {
           : '';
         setCopyMessage(`Split into ${effectiveFragments} optimized fragments${domesticationNote} (${(result.score?.fidelity * 100 || 90).toFixed(0)}% predicted fidelity)`);
         resolve({ ...result, domesticationInfo });
-      } catch (err) {
+      } catch (err: unknown) {
         reject(err);
       }
     });
@@ -2862,14 +3115,14 @@ export default function GoldenGateDesigner() {
     setResult(null);
   };
 
-  const handleFileUpload = useCallback((e) => {
-    const file = e.target.files[0];
+  const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = (event: ProgressEvent<FileReader>) => {
       try {
-        const content = event.target.result;
+        const content = event.target?.result as string;
         const parsed = parseFasta(content);
 
         if (parsed.length === 0) {
@@ -2877,18 +3130,18 @@ export default function GoldenGateDesigner() {
           return;
         }
 
-        const types = ['promoter', 'rbs', 'cds', 'terminator', 'other'];
-        const newParts = parsed.slice(0, MAX_FRAGMENTS).map((p, i) => ({
+        const types: Array<'promoter' | 'rbs' | 'cds' | 'terminator' | 'other'> = ['promoter', 'rbs', 'cds', 'terminator', 'other'];
+        const newParts = parsed.slice(0, MAX_FRAGMENTS).map((p: any, i: number) => ({
           id: p.id,
           seq: p.seq.toUpperCase(),
-          type: types[i] || 'other',
+          type: (types[i] || 'other') as 'promoter' | 'rbs' | 'cds' | 'terminator' | 'other',
         }));
 
-        setParts(newParts.length >= 2 ? newParts : [...newParts, { id: '', seq: '', type: 'other' }]);
+        setParts((newParts.length >= 2 ? newParts : [...newParts, { id: '', seq: '', type: 'other' }]) as Part[]);
         setResult(null);
         setError(null);
-      } catch (err) {
-        setError('Failed to parse file: ' + err.message);
+      } catch (err: unknown) {
+        setError('Failed to parse file: ' + (err as Error).message);
       }
     };
     reader.readAsText(file);
@@ -3037,7 +3290,7 @@ export default function GoldenGateDesigner() {
                 partId: part.id,
                 siteCount: configuredMutations.length,
                 strategy: 'silent_mutation',
-                mutations: configuredMutations.map(m => ({
+                mutations: configuredMutations.map((m: any) => ({
                   // Handle nested structure: mutation data can be in m.mutation or directly in m
                   position: m.site?.position ?? m.mutation?.position ?? m.position ?? m.sequencePosition,
                   codonChange: m.codonChange || m.mutation?.codonChange || `${m.mutation?.originalCodon || m.originalCodon || ''}→${m.mutation?.newCodon || m.newCodon || ''}`,
@@ -3234,7 +3487,7 @@ export default function GoldenGateDesigner() {
                   continue;
                 }
               }
-            } catch (err) {
+            } catch (err: unknown) {
               console.warn(`Auto-domestication failed for ${part.id}:`, err);
               // Fall through to add original part
             }
@@ -3305,7 +3558,7 @@ export default function GoldenGateDesigner() {
         }
       } else {
         // Gibson or NEBuilder HiFi Assembly
-        const fragments = validParts.map((p, i) => ({
+        const fragments = validParts.map((p: Part, i: number) => ({
           id: p.id || `Fragment_${i + 1}`,
           seq: p.seq,
           type: p.type,
@@ -3329,7 +3582,7 @@ export default function GoldenGateDesigner() {
         // Use designResult.fragments for primer info, validParts for sequences
         assemblyResult = {
           method: effectiveMethod,
-          parts: designResult.fragments.map((frag, i) => {
+          parts: designResult.fragments.map((frag: any, i: number) => {
             const part = validParts[i];
             const junction = designResult.junctions[i];
             return {
@@ -3377,7 +3630,7 @@ export default function GoldenGateDesigner() {
             };
           }),
           assembledSequence: simulation?.assembledSequence || validParts.map(p => p.seq).join(''),
-          assembledLength: simulation?.assembledLength || validParts.reduce((sum, p) => sum + (p.seq?.length || 0), 0),
+          assembledLength: simulation?.assembledLength || validParts.reduce((sum: number, p: Part) => sum + (p.seq?.length || 0), 0),
           fidelity: {
             overall: 0.95,
             percentage: '95.0%',
@@ -3406,16 +3659,16 @@ export default function GoldenGateDesigner() {
         try {
           const assessment = assessBoundaryOptimizationPotential(validParts);
           setBoundaryAssessment(assessment);
-        } catch (e) {
+        } catch (e: unknown) {
           console.warn('Boundary assessment failed:', e);
           setBoundaryAssessment(null);
         }
       } else {
         setBoundaryAssessment(null);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Assembly design error:', err);
-      setError(err.message);
+      setError((err as Error).message);
       setResult(null);
       setBoundaryAssessment(null);
     }
@@ -3446,7 +3699,7 @@ export default function GoldenGateDesigner() {
 
       if (optimized.success && optimized.summary.boundariesOptimized > 0) {
         // Update parts with optimized sequences
-        const newParts = optimized.optimizedFragments.map((frag, i) => ({
+        const newParts = optimized.optimizedFragments.map((frag: any, i: number) => ({
           ...parts[i],
           seq: frag.seq,
           id: frag.id || parts[i].id,
@@ -3463,16 +3716,16 @@ export default function GoldenGateDesigner() {
       } else {
         setError('No boundary improvements found. Current boundaries are already optimal.');
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Boundary optimization error:', err);
-      setError('Failed to optimize boundaries: ' + err.message);
+      setError('Failed to optimize boundaries: ' + (err as Error).message);
     } finally {
       setIsOptimizingBoundaries(false);
     }
   }, [parts, result, isGoldenGate, designAssembly]);
 
   // Generate protocol based on method
-  const generateProtocol = (methodOrVariant, partCount) => {
+  const generateProtocol = (methodOrVariant: any, partCount: any) => {
     if (methodOrVariant === 'golden_gate') {
       return null; // Golden Gate uses its own protocol from designGoldenGateAssembly
     }
@@ -3529,7 +3782,7 @@ export default function GoldenGateDesigner() {
     };
   };
 
-  const handleCopy = useCallback((message) => {
+  const handleCopy = useCallback((message: any) => {
     setCopyMessage(message);
     setTimeout(() => setCopyMessage(''), 2000);
   }, []);
@@ -3562,7 +3815,7 @@ export default function GoldenGateDesigner() {
   }, []);
 
   // Fusion Site Optimizer handler - uses the real library functions
-  const handleFusionOptimize = useCallback((options) => {
+  const handleFusionOptimize = useCallback((options: any) => {
     if (!fusionSequence || fusionSequence.length < 200) {
       setError('Please enter a sequence of at least 200bp for fusion site optimization');
       return;
@@ -3655,7 +3908,7 @@ export default function GoldenGateDesigner() {
               isTNNA: candidate.overhang.startsWith('T') && candidate.overhang.endsWith('A'),
               isHighGC: (candidate.overhang.match(/[GC]/g) || []).length >= 3,
             };
-          } catch (e) {
+          } catch (e: unknown) {
             // Fallback if scoring fails
             return {
               ...candidate,
@@ -3757,15 +4010,23 @@ export default function GoldenGateDesigner() {
         });
 
         setCopyMessage('Optimization complete');
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('Fusion optimization error:', err);
-        setError('Optimization failed: ' + err.message);
+        setError('Optimization failed: ' + (err as Error).message);
         setFusionResult(null);
       } finally {
         setIsOptimizing(false);
       }
     }, 100); // Small delay to allow UI to update
   }, [fusionSequence, fusionNumFragments, enzyme]);
+
+  // Handler to accept fusion optimization results and design primers
+  const handleAcceptAndDesignPrimers = useCallback(() => {
+    if (fusionResult?.success && fusionResult?.fragments) {
+      // The fusion results are already in the state, just trigger design
+      designAssembly();
+    }
+  }, [fusionResult, designAssembly]);
 
   // Export handlers
   const handleExportGenBank = useCallback(() => {
@@ -3793,8 +4054,8 @@ export default function GoldenGateDesigner() {
       a.click();
       URL.revokeObjectURL(url);
       setCopyMessage('GenBank file downloaded');
-    } catch (err) {
-      setError('Failed to export GenBank: ' + err.message);
+    } catch (err: unknown) {
+      setError('Failed to export GenBank: ' + (err as Error).message);
     }
   }, [result, method]);
 
@@ -3818,8 +4079,8 @@ export default function GoldenGateDesigner() {
       a.click();
       URL.revokeObjectURL(url);
       setCopyMessage('FASTA file downloaded');
-    } catch (err) {
-      setError('Failed to export FASTA: ' + err.message);
+    } catch (err: unknown) {
+      setError('Failed to export FASTA: ' + (err as Error).message);
     }
   }, [result, method]);
 
@@ -3848,19 +4109,19 @@ export default function GoldenGateDesigner() {
       a.click();
       URL.revokeObjectURL(url);
       setCopyMessage('Project saved');
-    } catch (err) {
-      setError('Failed to save project: ' + err.message);
+    } catch (err: unknown) {
+      setError('Failed to save project: ' + (err as Error).message);
     }
   }, [method, parts, enzyme, overlapSettings, result, isGoldenGate]);
 
-  const handleLoadProject = useCallback((e) => {
+  const handleLoadProject = useCallback((e: any) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = (event: ProgressEvent<FileReader>) => {
       try {
-        const project = importProject(event.target.result);
+        const project = importProject(event.target?.result as string);
 
         // Restore project state
         if (project.method) setMethod(project.method);
@@ -3871,8 +4132,8 @@ export default function GoldenGateDesigner() {
 
         setCopyMessage('Project loaded');
         setError(null);
-      } catch (err) {
-        setError('Failed to load project: ' + err.message);
+      } catch (err: unknown) {
+        setError('Failed to load project: ' + (err as Error).message);
       }
     };
     reader.readAsText(file);
@@ -3894,7 +4155,7 @@ export default function GoldenGateDesigner() {
               key={m.id}
               className={`method-card ${method === m.id ? 'active' : ''}`}
               onClick={() => { setMethod(m.id); setResult(null); }}
-              style={{ '--method-color': m.color }}
+              style={{ '--method-color': m.color } as React.CSSProperties}
             >
               <div className="method-card-icon">
                 {m.icon}
@@ -3974,7 +4235,7 @@ export default function GoldenGateDesigner() {
                       max="500"
                       step="10"
                       value={minFragmentSize}
-                      onChange={(e) => {
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                         const val = Math.max(20, Math.min(500, parseInt(e.target.value) || 50));
                         setMinFragmentSize(val);
                         setDomesticationError(null);
@@ -4082,7 +4343,7 @@ export default function GoldenGateDesigner() {
                       <div className="variant-info-compact">
                         <strong>{v.name}</strong>
                         <span className="variant-badge-compact">{v.badge}</span>
-                        {v.recommended && <span className="recommended-tag-compact">Recommended</span>}
+                        {(v as any).recommended && <span className="recommended-tag-compact">Recommended</span>}
                       </div>
                     </button>
                   ))}
@@ -4158,11 +4419,11 @@ export default function GoldenGateDesigner() {
           </div>
           <p className="error-message">{domesticationError.message}</p>
 
-          {domesticationError.error?.type === 'ADJACENT_SITES_TOO_CLOSE' && (
+          {(domesticationError.error as any)?.type === 'ADJACENT_SITES_TOO_CLOSE' && (
             <div className="error-details">
               <p className="detail-label">Sites too close together:</p>
               <ul className="site-list">
-                {domesticationError.error.details?.map((detail, i) => (
+                {(domesticationError.error as any).details?.map((detail: any, i: number) => (
                   <li key={i}>
                     Positions {detail.site1Position + 1} and {detail.site2Position + 1} are only {detail.distance}bp apart
                     (minimum: {detail.requiredDistance}bp)
@@ -4172,11 +4433,11 @@ export default function GoldenGateDesigner() {
             </div>
           )}
 
-          {domesticationError.error?.type === 'FRAGMENT_SIZE_VIOLATION' && (
+          {(domesticationError.error as any)?.type === 'FRAGMENT_SIZE_VIOLATION' && (
             <div className="error-details">
               <p className="detail-label">Fragment size violations:</p>
               <ul className="site-list">
-                {domesticationError.error.violations?.map((v, i) => (
+                {(domesticationError.error as any).violations?.map((v: any, i: number) => (
                   <li key={i}>{v.message}</li>
                 ))}
               </ul>
@@ -4190,7 +4451,7 @@ export default function GoldenGateDesigner() {
                 {domesticationError.alternativeEnzymes
                   .filter(alt => !alt.isCurrent) // Don't show current enzyme as alternative
                   .slice(0, 4)
-                  .map((alt) => (
+                  .map((alt: any) => (
                   <button
                     key={alt.enzyme}
                     className={`enzyme-recommendation-btn ${alt.isCompatible ? 'compatible' : 'partial'}`}
@@ -4209,7 +4470,7 @@ export default function GoldenGateDesigner() {
                         <span className="site-count">{alt.internalSites} site{alt.internalSites !== 1 ? 's' : ''}</span>
                       )}
                     </span>
-                    {alt.enzyme === domesticationError.recommendedEnzyme?.enzyme && (
+                    {alt.enzyme === domesticationError.recommendedEnzyme && (
                       <span className="recommended-badge">Recommended</span>
                     )}
                   </button>
@@ -4250,7 +4511,7 @@ export default function GoldenGateDesigner() {
                 className="fusion-sequence-input"
                 placeholder="Paste your DNA sequence here (minimum 500bp). The optimizer will find optimal junction positions to split this into fragments."
                 value={fusionSequence}
-                onChange={(e) => {
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
                   const seq = e.target.value.replace(/[^ACGTacgt\n\r]/g, '').toUpperCase();
                   setFusionSequence(seq);
                   setFusionResult(null);
@@ -4288,9 +4549,8 @@ export default function GoldenGateDesigner() {
             enzyme={enzyme}
             numFragments={fusionNumFragments}
             onOptimize={handleFusionOptimize}
-            onResultChange={setFusionResult}
             result={fusionResult}
-            candidates={fusionCandidates}
+            candidates={fusionCandidates as any}
             isOptimizing={isOptimizing}
             globalAutoDomestication={autoDomesticationEnabled}
             onAutoDomesticationChange={setAutoDomesticationEnabled}
@@ -4354,8 +4614,8 @@ export default function GoldenGateDesigner() {
                   opacity: isOptimizing ? 0.7 : 1,
                   transition: 'all 0.2s',
                 }}
-                onMouseOver={(e) => !isOptimizing && (e.target.style.background = '#16a34a')}
-                onMouseOut={(e) => e.target.style.background = '#22c55e'}
+                onMouseOver={(e) => !isOptimizing && ((e.target as HTMLElement).style.background = '#16a34a')}
+                onMouseOut={(e) => (e.target as HTMLElement).style.background = '#22c55e'}
               >
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
                   <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
@@ -4477,7 +4737,7 @@ export default function GoldenGateDesigner() {
             </div>
             <div className="card-body">
               <div className="parts-list-compact">
-                {parts.map((part, i) => (
+                {parts.map((part: Part, i: number) => (
                   <PartCard
                     key={i}
                     part={part}
@@ -4660,11 +4920,11 @@ export default function GoldenGateDesigner() {
               {/* Advanced Isothermal Assembly Panel - state-of-the-art optimization */}
               {isIsothermal && useAdvancedOptimization ? (
                 <IsothermalAssemblyPanel
-                  fragments={parts.filter(p => p.seq && p.seq.length > 0).map((p, i) => ({
+                  fragments={parts.filter(p => p.seq && p.seq.length > 0).map((p: Part, i: number) => ({
                     id: p.id || `Fragment_${i + 1}`,
                     seq: p.seq,
                     type: p.type,
-                  }))}
+                  })) as any}
                   variant={isothermalVariant}
                   config={{
                     targetOverlap: overlapSettings.overlapLength,
@@ -4899,7 +5159,7 @@ export default function GoldenGateDesigner() {
               sequence={workflowGuidePart.seq}
               enzyme={enzyme}
               existingOverhangs={result?.overhangs || []}
-              onWorkflowComplete={(workflowResult) => {
+              onWorkflowComplete={(workflowResult: any) => {
                 // Apply the workflow results
                 if (workflowResult.success && workflowResult.domestication?.domesticatedSequence) {
                   const updatedParts = [...parts];

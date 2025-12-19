@@ -35,6 +35,195 @@ import { recommendAlternativeEnzymes } from '../lib/repp/auto-domestication-opti
 import { designIntegratedPrimers, generatePrimerSummary } from '../lib/repp/domestication-primer-workflow.js';
 
 // ============================================================================
+// Type Definitions
+// ============================================================================
+
+type StepType = 'analyze' | 'strategy' | 'frame' | 'mutations' | 'preview' | 'primers' | 'complete';
+
+interface InternalSite {
+  position: number;
+  sequence: string;
+  orientation: string;
+}
+
+interface InternalSitesResult {
+  hasSites: boolean;
+  count: number;
+  sites: InternalSite[];
+}
+
+interface ORF {
+  frame: number;
+  start: number;
+  end: number;
+  proteinLength: number;
+  strand: 'forward' | 'reverse';
+  avgCodonUsage: number;
+}
+
+interface ORFDetectionResult {
+  hasOrfs: boolean;
+  totalFound: number;
+  orfs: ORF[];
+  bestOrf: ORF | null;
+}
+
+interface ReadingFrameValidation {
+  valid: boolean;
+  internalStops: number[];
+  warnings: string[];
+}
+
+interface MutationOption {
+  type: 'silent_mutation' | 'mutagenic_junction';
+  score: number;
+  codonChange?: string;
+  aminoAcid?: string;
+  frequencyChange?: string;
+  warnings?: string[];
+  junction?: {
+    junctionPosition: number;
+  };
+  overhang?: string;
+}
+
+interface SiteOption {
+  site: InternalSite;
+  options: MutationOption[];
+  recommended: MutationOption | null;
+}
+
+interface MutationStep {
+  step: string;
+  siteOptions: SiteOption[];
+}
+
+interface DomesticationPlan {
+  steps: MutationStep[];
+  preview: {
+    validation: {
+      proteinPreserved: boolean;
+      noRemainingSites: boolean;
+    };
+    original: {
+      protein: string;
+      proteinLength: number;
+    };
+    domesticated: {
+      protein: string;
+      proteinLength: number;
+    };
+    comparison: {
+      proteinIdentical: boolean;
+      differences: any[];
+    };
+    totalMutations: number;
+    mutations: Array<{
+      position: number;
+      change: string;
+      codon: string;
+      aminoAcid: string;
+    }>;
+    totalJunctions: number;
+    junctions: Array<{
+      sitePosition?: number;
+      position?: number;
+      overhang?: string;
+      description?: string;
+    }>;
+  };
+}
+
+interface ExecutionResult {
+  success: boolean;
+  strategy: string;
+  domesticatedSequence?: string;
+  message?: string;
+  mutations: any[];
+  junctions: any[];
+  switchToEnzyme?: string;
+}
+
+interface PrimerComponents {
+  fivePrime: string;
+  mutation: string;
+  threePrime: string;
+}
+
+interface PrimerDetail {
+  sequence: string;
+  length: number;
+  homologyTm?: number;
+  components?: PrimerComponents;
+}
+
+interface PrimerPairDesign {
+  name?: string;
+  type: string;
+  forward?: PrimerDetail;
+  reverse?: PrimerDetail;
+  codonChange?: string;
+  overhang?: string;
+  pairQuality?: number;
+  mutationIndex?: number;
+  instructions?: string;
+  pcrProtocol?: {
+    annealingTemp: number;
+    extensionTime: string;
+  };
+}
+
+interface PrimerSummary {
+  totalPrimers: number;
+  totalLength: number;
+  estimatedCost?: number;
+  orderList?: Array<{
+    name: string;
+    sequence: string;
+    length: number;
+    tm?: number;
+  }>;
+}
+
+interface PrimerDesignResult {
+  primers: PrimerPairDesign[];
+  primerSummary: PrimerSummary | null;
+  strategy: string;
+}
+
+interface MutagenicAnalysisResult {
+  success: boolean;
+  junctions: any[];
+  additionalFragments: number;
+}
+
+interface AlternativeEnzyme {
+  enzyme: string;
+  fullName?: string;
+  recognition: string;
+  overhangLength: number;
+  internalSites: number;
+  isCompatible: boolean;
+  isCurrent: boolean;
+}
+
+interface FrameValidationOption {
+  frame: number;
+  validation: ReadingFrameValidation;
+  orfs: ORF[];
+  bestOrf: ORF | undefined;
+  isRecommended: boolean;
+  proteinPreview: string;
+}
+
+interface EnhancedDomesticationPanelProps {
+  sequence: string;
+  enzyme?: string;
+  onDomesticationComplete?: (result: ExecutionResult & { primers: PrimerPairDesign[]; primerSummary: PrimerSummary | null }) => void;
+  onCancel?: () => void;
+}
+
+// ============================================================================
 // SVG ICONS
 // ============================================================================
 
@@ -100,30 +289,30 @@ export function EnhancedDomesticationPanel({
   enzyme = 'BsaI',
   onDomesticationComplete,
   onCancel,
-}) {
+}: EnhancedDomesticationPanelProps) {
   // State
-  const [step, setStep] = useState('analyze'); // analyze, strategy, frame, mutations, preview, primers, complete
-  const [plan, setPlan] = useState(null);
-  const [selectedStrategy, setSelectedStrategy] = useState(ENHANCED_CONFIG.defaultStrategy);
-  const [selectedFrame, setSelectedFrame] = useState(null);
-  const [codonMode, setCodonMode] = useState(ENHANCED_CONFIG.codonModes.CONSERVATIVE);
-  const [mutationSelections, setMutationSelections] = useState({});
-  const [error, setError] = useState(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [executionResult, setExecutionResult] = useState(null);
-  const [primerDesign, setPrimerDesign] = useState(null);
-  const [selectedAlternativeEnzyme, setSelectedAlternativeEnzyme] = useState(null);
+  const [step, setStep] = useState<StepType>('analyze');
+  const [plan, setPlan] = useState<DomesticationPlan | null>(null);
+  const [selectedStrategy, setSelectedStrategy] = useState<string>(ENHANCED_CONFIG.defaultStrategy);
+  const [selectedFrame, setSelectedFrame] = useState<number | null>(null);
+  const [codonMode, setCodonMode] = useState<string>(ENHANCED_CONFIG.codonModes.CONSERVATIVE);
+  const [mutationSelections, setMutationSelections] = useState<Record<string, MutationOption>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
+  const [primerDesign, setPrimerDesign] = useState<PrimerDesignResult | null>(null);
+  const [selectedAlternativeEnzyme, setSelectedAlternativeEnzyme] = useState<string | null>(null);
 
   // Initial analysis
-  const internalSites = useMemo(() => {
+  const internalSites = useMemo<InternalSitesResult | null>(() => {
     if (!sequence) return null;
-    return findInternalSites(sequence, enzyme);
+    return findInternalSites(sequence, enzyme) as InternalSitesResult;
   }, [sequence, enzyme]);
 
   // ORF detection
-  const orfDetection = useMemo(() => {
+  const orfDetection = useMemo<ORFDetectionResult | null>(() => {
     if (!sequence) return null;
-    return detectORFs(sequence);
+    return detectORFs(sequence) as ORFDetectionResult;
   }, [sequence]);
 
   // Create domestication plan when we have all inputs
@@ -138,13 +327,13 @@ export function EnhancedDomesticationPanel({
         frame: selectedFrame,
         codonMode,
         preferredStrategy: selectedStrategy,
-      });
+      }) as DomesticationPlan;
 
       setPlan(newPlan);
 
       // Initialize mutation selections with recommended options
-      const initialSelections = {};
-      const mutationStep = newPlan.steps.find(s => s.step === 'MUTATION_OPTIONS');
+      const initialSelections: Record<string, MutationOption> = {};
+      const mutationStep = newPlan.steps.find((s: MutationStep) => s.step === 'MUTATION_OPTIONS');
       if (mutationStep) {
         for (const siteOption of mutationStep.siteOptions) {
           if (siteOption.recommended) {
@@ -156,7 +345,7 @@ export function EnhancedDomesticationPanel({
 
       setStep('mutations');
     } catch (err) {
-      setError(err.message);
+      setError((err as Error).message);
     } finally {
       setIsProcessing(false);
     }
@@ -174,7 +363,7 @@ export function EnhancedDomesticationPanel({
         frame: selectedFrame,
         strategy: selectedStrategy,
         ...mutationSelections,
-      });
+      }) as ExecutionResult;
 
       if (result.success) {
         setExecutionResult(result);
@@ -194,26 +383,33 @@ export function EnhancedDomesticationPanel({
           );
 
           // Extract primers array from the result object
-          const primersArray = primerResult?.primers || [];
-          const primerSummary = primerResult?.summary || generatePrimerSummary(primersArray, enzyme);
+          const primersArray = (primerResult?.primers || []) as any[];
+          const summaryResult = (primerResult?.summary || generatePrimerSummary(primersArray, enzyme)) as any;
+
+          // Ensure totalLength is present in summary
+          const primerSummary = summaryResult ? {
+            ...summaryResult,
+            totalLength: summaryResult.totalLength ||
+              (summaryResult.orderList?.reduce((sum: number, p: any) => sum + (p.length || 0), 0) || 0)
+          } as PrimerSummary : null;
 
           setPrimerDesign({
-            primers: primersArray,
+            primers: primersArray as PrimerPairDesign[],
             primerSummary,
             strategy: result.strategy,
           });
         } catch (primerErr) {
-          console.warn('Primer design warning:', primerErr.message);
+          console.warn('Primer design warning:', (primerErr as Error).message);
           // Continue even if primer design fails - user can still apply domestication
           setPrimerDesign(null);
         }
 
         setStep('primers');
       } else {
-        setError(result.message);
+        setError(result.message || 'Execution failed');
       }
     } catch (err) {
-      setError(err.message);
+      setError((err as Error).message);
     } finally {
       setIsProcessing(false);
     }
@@ -234,7 +430,7 @@ export function EnhancedDomesticationPanel({
   }, [executionResult, primerDesign, onDomesticationComplete]);
 
   // Frame selection handler
-  const handleFrameSelect = useCallback((frame) => {
+  const handleFrameSelect = useCallback((frame: number) => {
     setSelectedFrame(frame);
   }, []);
 
@@ -260,6 +456,8 @@ export function EnhancedDomesticationPanel({
           domesticatedSequence: sequence, // Sequence unchanged
           mutations: [],
           junctions: [],
+          primers: [],
+          primerSummary: null,
         });
       }
       setStep('complete');
@@ -270,7 +468,7 @@ export function EnhancedDomesticationPanel({
   }, [selectedStrategy, selectedAlternativeEnzyme, sequence, onDomesticationComplete, handleEnterFrameStep]);
 
   // Mutation selection handler
-  const handleMutationSelect = useCallback((siteKey, option) => {
+  const handleMutationSelect = useCallback((siteKey: string, option: MutationOption) => {
     setMutationSelections(prev => ({
       ...prev,
       [siteKey]: option,
@@ -395,8 +593,13 @@ export function EnhancedDomesticationPanel({
 // STEP COMPONENTS
 // ============================================================================
 
-function ProgressIndicator({ steps, currentStep }) {
-  const stepIndex = {
+interface ProgressIndicatorProps {
+  steps: string[];
+  currentStep: StepType;
+}
+
+function ProgressIndicator({ steps, currentStep }: ProgressIndicatorProps) {
+  const stepIndex: Record<string, number> = {
     'analyze': 0,
     'strategy': 1,
     'frame': 2,
@@ -423,7 +626,15 @@ function ProgressIndicator({ steps, currentStep }) {
   );
 }
 
-function AnalyzeStep({ sequence, enzyme, internalSites, orfDetection, onContinue }) {
+interface AnalyzeStepProps {
+  sequence: string;
+  enzyme: string;
+  internalSites: InternalSitesResult;
+  orfDetection: ORFDetectionResult | null;
+  onContinue: () => void;
+}
+
+function AnalyzeStep({ sequence, enzyme, internalSites, orfDetection, onContinue }: AnalyzeStepProps) {
   return (
     <div className="step-content analyze-step">
       <h2>Sequence Analysis</h2>
@@ -508,6 +719,18 @@ function AnalyzeStep({ sequence, enzyme, internalSites, orfDetection, onContinue
  * 2. Silent Mutation - No extra fragments
  * 3. Alternative Enzyme - No mutations needed
  */
+interface StrategySelectionStepProps {
+  sequence: string;
+  enzyme: string;
+  internalSites: InternalSitesResult;
+  selectedStrategy: string;
+  onStrategySelect: (strategy: string) => void;
+  selectedAlternativeEnzyme: string | null;
+  onAlternativeEnzymeSelect: (enzyme: string) => void;
+  onContinue: () => void;
+  onBack: () => void;
+}
+
 function StrategySelectionStep({
   sequence,
   enzyme,
@@ -518,19 +741,20 @@ function StrategySelectionStep({
   onAlternativeEnzymeSelect,
   onContinue,
   onBack,
-}) {
+}: StrategySelectionStepProps) {
   // Analyze available strategies
-  const mutagenicAnalysis = useMemo(() => {
+  const mutagenicAnalysis = useMemo<MutagenicAnalysisResult>(() => {
     try {
-      return designAllMutagenicJunctions(sequence, enzyme, { frame: 0 });
+      return designAllMutagenicJunctions(sequence, enzyme, { frame: 0 }) as MutagenicAnalysisResult;
     } catch (e) {
       return { success: false, junctions: [], additionalFragments: internalSites?.count || 0 };
     }
   }, [sequence, enzyme, internalSites]);
 
-  const alternativeEnzymes = useMemo(() => {
+  const alternativeEnzymes = useMemo<AlternativeEnzyme[]>(() => {
     try {
-      return recommendAlternativeEnzymes(sequence, enzyme).filter(e => e.isCompatible && !e.isCurrent);
+      const alternatives = recommendAlternativeEnzymes(sequence, enzyme) as AlternativeEnzyme[];
+      return alternatives.filter((e: AlternativeEnzyme) => e.isCompatible && !e.isCurrent);
     } catch (e) {
       return [];
     }
@@ -606,9 +830,9 @@ function StrategySelectionStep({
   ];
 
   // Get all enzymes for comparison (including non-compatible ones)
-  const allAlternativeEnzymes = useMemo(() => {
+  const allAlternativeEnzymes = useMemo<AlternativeEnzyme[]>(() => {
     try {
-      return recommendAlternativeEnzymes(sequence, enzyme);
+      return recommendAlternativeEnzymes(sequence, enzyme) as AlternativeEnzyme[];
     } catch (e) {
       return [];
     }
@@ -617,7 +841,7 @@ function StrategySelectionStep({
   // Determine if continue is allowed for alternative enzyme strategy
   const canContinueAlternativeEnzyme = selectedStrategy === ENHANCED_CONFIG.strategies.ALTERNATIVE_ENZYME
     && selectedAlternativeEnzyme
-    && alternativeEnzymes.some(e => e.enzyme === selectedAlternativeEnzyme);
+    && alternativeEnzymes.some((e: AlternativeEnzyme) => e.enzyme === selectedAlternativeEnzyme);
 
   return (
     <div className="step-content strategy-step">
@@ -706,14 +930,14 @@ function StrategySelectionStep({
                     <strong>{enzyme}</strong>
                     <span className="current-badge">Current</span>
                   </td>
-                  <td><code>{GOLDEN_GATE_ENZYMES[enzyme]?.recognition || 'N/A'}</code></td>
-                  <td>{GOLDEN_GATE_ENZYMES[enzyme]?.overhangLength || 4} nt</td>
+                  <td><code>{(GOLDEN_GATE_ENZYMES as any)[enzyme]?.recognition || 'N/A'}</code></td>
+                  <td>{(GOLDEN_GATE_ENZYMES as any)[enzyme]?.overhangLength || 4} nt</td>
                   <td className="site-count warning">{internalSites?.count || 0} sites</td>
                   <td><span className="status-badge incompatible">Needs domestication</span></td>
                 </tr>
 
                 {/* Alternative enzymes */}
-                {allAlternativeEnzymes.filter(e => !e.isCurrent).map((alt, i) => (
+                {allAlternativeEnzymes.filter((e: AlternativeEnzyme) => !e.isCurrent).map((alt) => (
                   <tr
                     key={alt.enzyme}
                     className={`enzyme-option ${alt.isCompatible ? 'compatible' : 'incompatible'} ${selectedAlternativeEnzyme === alt.enzyme ? 'selected' : ''}`}
@@ -771,6 +995,18 @@ function StrategySelectionStep({
   );
 }
 
+interface FrameSelectionStepProps {
+  sequence: string;
+  orfDetection: ORFDetectionResult | null;
+  selectedFrame: number | null;
+  onFrameSelect: (frame: number) => void;
+  codonMode: string;
+  onCodonModeChange: (mode: string) => void;
+  onContinue: () => void;
+  onBack: () => void;
+  isProcessing: boolean;
+}
+
 function FrameSelectionStep({
   sequence,
   orfDetection,
@@ -781,19 +1017,25 @@ function FrameSelectionStep({
   onContinue,
   onBack,
   isProcessing,
-}) {
-  const frameOptions = [0, 1, 2].map(frame => {
-    const validation = validateReadingFrame(sequence, frame);
-    const orfs = orfDetection?.orfs.filter(o => o.frame === frame && o.strand === 'forward') || [];
+}: FrameSelectionStepProps) {
+  const frameOptions: FrameValidationOption[] = [0, 1, 2].map(frame => {
+    const validationResult = validateReadingFrame(sequence, frame) as any;
+    const validation: ReadingFrameValidation = {
+      valid: validationResult.isValid || false,
+      internalStops: validationResult.internalStops || [],
+      warnings: validationResult.validations?.filter((v: any) => !v.passed).map((v: any) => v.message) || [],
+    };
+    const orfs = orfDetection?.orfs.filter((o: ORF) => o.frame === frame && o.strand === 'forward') || [];
     const bestOrf = orfs[0];
 
+    const translationResult = translateSequence(sequence, frame) as any;
     return {
       frame,
       validation,
       orfs,
       bestOrf,
       isRecommended: orfDetection?.bestOrf?.frame === frame,
-      proteinPreview: translateSequence(sequence, frame).protein.slice(0, 30),
+      proteinPreview: translationResult.protein.slice(0, 30),
     };
   });
 
@@ -860,7 +1102,7 @@ function FrameSelectionStep({
               name="codonMode"
               value={ENHANCED_CONFIG.codonModes.CONSERVATIVE}
               checked={codonMode === ENHANCED_CONFIG.codonModes.CONSERVATIVE}
-              onChange={(e) => onCodonModeChange(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => onCodonModeChange(e.target.value)}
             />
             <div className="mode-content">
               <div className="mode-title">Conservative</div>
@@ -874,7 +1116,7 @@ function FrameSelectionStep({
               name="codonMode"
               value={ENHANCED_CONFIG.codonModes.OPTIMIZED}
               checked={codonMode === ENHANCED_CONFIG.codonModes.OPTIMIZED}
-              onChange={(e) => onCodonModeChange(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => onCodonModeChange(e.target.value)}
             />
             <div className="mode-content">
               <div className="mode-title">Optimized</div>
@@ -888,7 +1130,7 @@ function FrameSelectionStep({
               name="codonMode"
               value={ENHANCED_CONFIG.codonModes.CUSTOM}
               checked={codonMode === ENHANCED_CONFIG.codonModes.CUSTOM}
-              onChange={(e) => onCodonModeChange(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => onCodonModeChange(e.target.value)}
             />
             <div className="mode-content">
               <div className="mode-title">Custom</div>
@@ -912,6 +1154,15 @@ function FrameSelectionStep({
   );
 }
 
+interface MutationSelectionStepProps {
+  plan: DomesticationPlan;
+  selectedStrategy: string;
+  mutationSelections: Record<string, MutationOption>;
+  onMutationSelect: (siteKey: string, option: MutationOption) => void;
+  onContinue: () => void;
+  onBack: () => void;
+}
+
 function MutationSelectionStep({
   plan,
   selectedStrategy,
@@ -919,8 +1170,8 @@ function MutationSelectionStep({
   onMutationSelect,
   onContinue,
   onBack,
-}) {
-  const mutationStep = plan.steps.find(s => s.step === 'MUTATION_OPTIONS');
+}: MutationSelectionStepProps) {
+  const mutationStep = plan.steps.find((s: MutationStep) => s.step === 'MUTATION_OPTIONS');
 
   // Determine which option type matches the selected strategy
   const isMutagenicStrategy = selectedStrategy === ENHANCED_CONFIG.strategies.MUTAGENIC_JUNCTION;
@@ -931,10 +1182,10 @@ function MutationSelectionStep({
   React.useEffect(() => {
     if (!mutationStep) return;
 
-    mutationStep.siteOptions.forEach(siteOption => {
+    mutationStep.siteOptions.forEach((siteOption: SiteOption) => {
       const siteKey = `site_${siteOption.site.position}`;
       const current = mutationSelections[siteKey];
-      const filteredOptions = siteOption.options.filter(o => o.type === preferredType);
+      const filteredOptions = siteOption.options.filter((o: MutationOption) => o.type === preferredType);
       const displayOptions = filteredOptions.length > 0 ? filteredOptions : siteOption.options;
 
       // If current selection is not in display options, auto-select first matching option
@@ -956,18 +1207,18 @@ function MutationSelectionStep({
       </p>
 
       <div className="site-mutations">
-        {mutationStep.siteOptions.map((siteOption, siteIndex) => {
+        {mutationStep.siteOptions.map((siteOption: SiteOption, siteIndex: number) => {
           const siteKey = `site_${siteOption.site.position}`;
           const selected = mutationSelections[siteKey];
 
           // Filter options based on strategy - only show relevant options
-          const filteredOptions = siteOption.options.filter(o => o.type === preferredType);
+          const filteredOptions = siteOption.options.filter((o: MutationOption) => o.type === preferredType);
           // Fall back to all options if no matching options
           const displayOptions = filteredOptions.length > 0 ? filteredOptions : siteOption.options;
 
           // Determine effective selection - use first option if current selection isn't in displayed options
           const effectiveSelected = displayOptions.includes(selected) ? selected : displayOptions[0];
-          const isSelected = (option) => option === effectiveSelected;
+          const isSelected = (option: MutationOption) => option === effectiveSelected;
 
           return (
             <div key={siteIndex} className="site-mutation-card">
@@ -977,7 +1228,7 @@ function MutationSelectionStep({
               </div>
 
               <div className="mutation-options">
-                {displayOptions.map((option, optIndex) => (
+                {displayOptions.map((option: MutationOption, optIndex: number) => (
                   <div
                     key={optIndex}
                     className={`mutation-option ${isSelected(option) ? 'selected' : ''} ${option === siteOption.recommended ? 'recommended' : ''}`}
@@ -1012,9 +1263,9 @@ function MutationSelectionStep({
                             <span className="label">Frequency:</span>
                             <span>{option.frequencyChange}</span>
                           </div>
-                          {option.warnings?.length > 0 && (
+                          {option.warnings && option.warnings.length > 0 && (
                             <div className="warnings">
-                              {option.warnings.map((w, i) => (
+                              {option.warnings.map((w: string, i: number) => (
                                 <span key={i} className="warning-badge">{w}</span>
                               ))}
                             </div>
@@ -1024,7 +1275,7 @@ function MutationSelectionStep({
                         <>
                           <div className="detail">
                             <span className="label">Junction at:</span>
-                            <span>position {option.junction.junctionPosition}</span>
+                            <span>position {option.junction?.junctionPosition}</span>
                           </div>
                           <div className="detail">
                             <span className="label">Overhang:</span>
@@ -1055,15 +1306,22 @@ function MutationSelectionStep({
   );
 }
 
+interface PreviewStepProps {
+  plan: DomesticationPlan;
+  sequence: string;
+  frame: number | null;
+  mutationSelections: Record<string, MutationOption>;
+  onApprove: () => void;
+  onBack: () => void;
+  isProcessing: boolean;
+}
+
 function PreviewStep({
   plan,
-  sequence,
-  frame,
-  mutationSelections,
   onApprove,
   onBack,
   isProcessing,
-}) {
+}: PreviewStepProps) {
   const preview = plan.preview;
 
   if (!preview) {
@@ -1213,7 +1471,15 @@ function PreviewStep({
 /**
  * Reusable primer card component for displaying primer pairs
  */
-function PrimerCard({ primerPair, index, expandedPrimer, setExpandedPrimer, primerType }) {
+interface PrimerCardProps {
+  primerPair: PrimerPairDesign;
+  index: number;
+  expandedPrimer: number | null;
+  setExpandedPrimer: (index: number | null) => void;
+  primerType: string;
+}
+
+function PrimerCard({ primerPair, index, expandedPrimer, setExpandedPrimer, primerType }: PrimerCardProps) {
   const isExpanded = expandedPrimer === index;
   const isPCR = primerType === 'pcr';
 
@@ -1315,8 +1581,16 @@ function PrimerCard({ primerPair, index, expandedPrimer, setExpandedPrimer, prim
   );
 }
 
-function PrimersStep({ executionResult, primerDesign, enzyme, onContinue, onBack }) {
-  const [expandedPrimer, setExpandedPrimer] = useState(null);
+interface PrimersStepProps {
+  executionResult: ExecutionResult | null;
+  primerDesign: PrimerDesignResult | null;
+  enzyme: string;
+  onContinue: () => void;
+  onBack: () => void;
+}
+
+function PrimersStep({ executionResult, primerDesign, onContinue, onBack }: PrimersStepProps) {
+  const [expandedPrimer, setExpandedPrimer] = useState<number | null>(null);
 
   if (!executionResult) {
     return (
@@ -1376,8 +1650,8 @@ function PrimersStep({ executionResult, primerDesign, enzyme, onContinue, onBack
         <div className="primer-list">
           {/* Check if we have multi-step workflow (silent mutation) */}
           {(() => {
-            const pcrPrimers = primers.filter(p => p.type === 'pcr_mutagenesis');
-            const ggPrimers = primers.filter(p => p.type === 'golden_gate' || p.type === 'junction');
+            const pcrPrimers = primers.filter((p: PrimerPairDesign) => p.type === 'pcr_mutagenesis');
+            const ggPrimers = primers.filter((p: PrimerPairDesign) => p.type === 'golden_gate' || p.type === 'junction');
             const hasMultiStep = pcrPrimers.length > 0 && ggPrimers.length > 0;
 
             if (hasMultiStep) {
@@ -1392,7 +1666,7 @@ function PrimersStep({ executionResult, primerDesign, enzyme, onContinue, onBack
                         Use these primers with overlap extension PCR or QuikChange to introduce silent mutations
                       </p>
                     </div>
-                    {pcrPrimers.map((primerPair, i) => (
+                    {pcrPrimers.map((primerPair: PrimerPairDesign, i: number) => (
                       <PrimerCard
                         key={`pcr-${i}`}
                         primerPair={primerPair}
@@ -1413,7 +1687,7 @@ function PrimersStep({ executionResult, primerDesign, enzyme, onContinue, onBack
                         After obtaining mutated template, use these primers for final assembly
                       </p>
                     </div>
-                    {ggPrimers.map((primerPair, i) => (
+                    {ggPrimers.map((primerPair: PrimerPairDesign, i: number) => (
                       <PrimerCard
                         key={`gg-${i}`}
                         primerPair={primerPair}
@@ -1437,7 +1711,7 @@ function PrimersStep({ executionResult, primerDesign, enzyme, onContinue, onBack
                     {Icons.check} One-pot compatible: Mutations are introduced during Golden Gate assembly
                   </p>
                 )}
-                {primers.map((primerPair, i) => {
+                {primers.map((primerPair: PrimerPairDesign, i: number) => {
                   if (primerPair.type === 'silent_mutation_info') {
                     return (
                       <div key={i} className="primer-card info-card">
@@ -1521,7 +1795,7 @@ function PrimersStep({ executionResult, primerDesign, enzyme, onContinue, onBack
               <button
                 className="btn-copy"
                 onClick={() => {
-                  const text = primerSummary.orderList
+                  const text = primerSummary.orderList!
                     .map(p => `${p.name}\t${p.sequence}`)
                     .join('\n');
                   navigator.clipboard.writeText(text);
@@ -1544,7 +1818,11 @@ function PrimersStep({ executionResult, primerDesign, enzyme, onContinue, onBack
   );
 }
 
-function CompleteStep({ onClose }) {
+interface CompleteStepProps {
+  onClose?: () => void;
+}
+
+function CompleteStep({ onClose }: CompleteStepProps) {
   return (
     <div className="step-content complete-step">
       <div className="success-animation">

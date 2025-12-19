@@ -9,18 +9,97 @@ import FornaViewer from './FornaViewer.jsx';
  */
 
 // ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
+
+interface BasePair extends Array<number> {
+  0: number;
+  1: number;
+}
+
+interface FoldResult {
+  e: number;
+  ij: BasePair[];
+}
+
+interface DimerAlignment {
+  offset: number;
+  score: number;
+  pairs: Array<{
+    i: number;
+    j: number;
+    base1: string;
+    base2: string;
+  }>;
+  maxConsecutive: number;
+  involves3Prime1: boolean;
+  involves3Prime2: boolean;
+  involves5Prime1: boolean;
+  involves5Prime2: boolean;
+}
+
+interface Node {
+  id: number;
+  base: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  pairingProb: number;
+}
+
+interface ForceDirectedStructureProps {
+  sequence: string;
+  basePairs?: BasePair[];
+  width?: number;
+  height?: number;
+  label?: string;
+  onShift?: ((offset: number) => void) | null;
+}
+
+interface CrossDimerZipperProps {
+  forwardSeq: string;
+  reverseSeq: string;
+  width?: number;
+  height?: number;
+  isSDMMode?: boolean;
+}
+
+interface ThermodynamicHeatmapProps {
+  sequence: string;
+  templateRegion?: any;
+  width?: number;
+  label?: string;
+}
+
+interface PrimerStructureViewerProps {
+  forwardSeq?: string;
+  reverseSeq?: string;
+  forwardName?: string;
+  reverseName?: string;
+  templateRegion?: any;
+  showCrossDimer?: boolean;
+  showHeatmap?: boolean;
+  showSparkline?: boolean;
+  isSDMMode?: boolean;
+  onForwardShift?: ((offset: number) => void) | null;
+  onReverseShift?: ((offset: number) => void) | null;
+  useFornaViewer?: boolean;
+}
+
+// ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
-const complement = { A: 'T', T: 'A', G: 'C', C: 'G' };
+const complement: Record<string, string> = { A: 'T', T: 'A', G: 'C', C: 'G' };
 
-function reverseComplement(seq) {
+function reverseComplement(seq: string): string {
   return seq.split('').reverse().map(c => complement[c] || c).join('');
 }
 
-function basePairEnergy(base1, base2) {
+function basePairEnergy(base1: string, base2: string): number {
   const pair = `${base1}${base2}`;
-  const energies = {
+  const energies: Record<string, number> = {
     'GC': -2.4, 'CG': -2.4,
     'AT': -1.5, 'TA': -1.5,
     'GT': -0.5, 'TG': -0.5,
@@ -30,18 +109,18 @@ function basePairEnergy(base1, base2) {
   return energies[pair] || 0;
 }
 
-function canPair(base1, base2) {
+function canPair(base1: string, base2: string): boolean {
   return complement[base1] === base2;
 }
 
-function findBestDimerAlignment(seq1, seq2) {
+function findBestDimerAlignment(seq1: string, seq2: string): DimerAlignment | null {
   const rc2 = reverseComplement(seq2);
   let bestScore = 0;
-  let bestAlignment = null;
+  let bestAlignment: DimerAlignment | null = null;
 
   for (let offset = -(seq2.length - 3); offset < seq1.length - 2; offset++) {
     let score = 0;
-    const pairs = [];
+    const pairs: Array<{ i: number; j: number; base1: string; base2: string }> = [];
     let consecutive = 0;
     let maxConsecutive = 0;
 
@@ -80,8 +159,8 @@ function findBestDimerAlignment(seq1, seq2) {
   return bestAlignment;
 }
 
-function calculatePositionwiseDG(sequence, windowSize = 10) {
-  const energies = [];
+function calculatePositionwiseDG(sequence: string, windowSize: number = 10): number[] {
+  const energies: number[] = [];
   const halfWindow = Math.floor(windowSize / 2);
 
   for (let i = 0; i < sequence.length; i++) {
@@ -99,7 +178,7 @@ function calculatePositionwiseDG(sequence, windowSize = 10) {
   return energies;
 }
 
-function calculatePairingProbability(sequence, index, basePairs) {
+function calculatePairingProbability(sequence: string, index: number, basePairs: BasePair[]): number {
   const isPaired = basePairs.some(([i, j]) => i === index || j === index);
   if (isPaired) return 1.0;
 
@@ -158,13 +237,13 @@ function ForceDirectedStructure({
   width = 300,
   height = 250,
   label = 'Primer',
-  onShift = null  // Callback for interactive sliding
-}) {
-  const svgRef = useRef(null);
-  const [nodes, setNodes] = useState([]);
-  const [savedNodes, setSavedNodes] = useState(null);
-  const [simpleView, setSimpleView] = useState(false);
-  const [hoveredNode, setHoveredNode] = useState(null);
+  onShift = null
+}: ForceDirectedStructureProps) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [nodes, setNodes] = useState<Node[]>([]);
+  const [savedNodes, setSavedNodes] = useState<Node[] | null>(null);
+  const [simpleView, setSimpleView] = useState<boolean>(false);
+  const [hoveredNode, setHoveredNode] = useState<number | null>(null);
 
   // Create deterministic layout based on structure
   useEffect(() => {
@@ -176,7 +255,7 @@ function ForceDirectedStructure({
     const padding = 30;
 
     // Build pair map
-    const pairMap = new Map();
+    const pairMap = new Map<number, number>();
     if (basePairs) {
       basePairs.forEach(([i, j]) => {
         pairMap.set(i, j);
@@ -184,7 +263,7 @@ function ForceDirectedStructure({
       });
     }
 
-    const nodeArray = [];
+    const nodeArray: Node[] = [];
 
     if (hasStructure && basePairs.length > 0) {
       // For hairpin: create proper vertical stem-loop layout
@@ -213,13 +292,13 @@ function ForceDirectedStructure({
       // Strategy: Walk through sequence, place each base appropriately
 
       for (let i = 0; i < n; i++) {
-        let x, y;
+        let x: number, y: number;
         const partner = pairMap.get(i);
         const isPaired = partner !== undefined;
 
         if (isPaired) {
           // This base is part of a pair
-          const isLeftStem = i < partner; // 5' side of pair
+          const isLeftStem = i < partner!; // 5' side of pair
 
           // Find which pair this belongs to
           const pairIdx = sortedPairs.findIndex(([a, b]) => a === i || b === i);
@@ -350,7 +429,7 @@ function ForceDirectedStructure({
     return dg(sequence, 37);
   }, [sequence]);
 
-  const getProbabilityColor = (prob, index) => {
+  const getProbabilityColor = (prob: number, index: number): string => {
     const is3Prime = index >= sequence.length - 5;
     if (is3Prime && prob > 0.5) return theme.danger;
     if (prob > 0.7) return '#ea580c';
@@ -625,7 +704,7 @@ function CrossDimerZipper({
   width = 600,
   height = 200,
   isSDMMode = false
-}) {
+}: CrossDimerZipperProps) {
   const alignment = useMemo(() => {
     if (!forwardSeq || !reverseSeq) return null;
     return findBestDimerAlignment(forwardSeq, reverseSeq);
@@ -647,7 +726,7 @@ function CrossDimerZipper({
   // Determine severity with better classification
   // Key insight: 3' extensible dimers (where 3' end is hybridized) are CRITICAL
   // Internal/5' dimers are annoying but often PCR-viable
-  let severity;
+  let severity: 'critical' | 'warning' | 'safe';
   let dimerType = 'none';
 
   if (involves3Prime1 && involves3Prime2 && maxConsecutive >= 4) {
@@ -953,8 +1032,8 @@ function ThermodynamicHeatmap({
   templateRegion = null,
   width = 600,
   label = 'Primer'
-}) {
-  const [hoveredBar, setHoveredBar] = useState(null);
+}: ThermodynamicHeatmapProps) {
+  const [hoveredBar, setHoveredBar] = useState<number | null>(null);
 
   // Calculate position-wise ΔG for sparkline
   const energies = useMemo(() => {
@@ -964,7 +1043,7 @@ function ThermodynamicHeatmap({
 
   if (!sequence) return null;
 
-  const getBindingStrength = (base, index) => {
+  const getBindingStrength = (base: string, index: number): number => {
     const isGC = base === 'G' || base === 'C';
     const position3Prime = index >= sequence.length - 5;
     let score = isGC ? 0.8 : 0.4;
@@ -1212,7 +1291,7 @@ export default function PrimerStructureViewer({
   onForwardShift = null,
   onReverseShift = null,
   useFornaViewer = true, // Use fornac library for smooth structure visualization
-}) {
+}: PrimerStructureViewerProps) {
   const fwdFold = useMemo(() => {
     if (!forwardSeq || forwardSeq.length < 6) return { e: 0, ij: [] };
     return foldSequence(forwardSeq);
@@ -1224,7 +1303,7 @@ export default function PrimerStructureViewer({
   }, [reverseSeq]);
 
   // Calculate appropriate dimensions based on sequence length
-  const calcDimensions = (seq, pairs) => {
+  const calcDimensions = (seq: string | undefined, pairs: BasePair[]) => {
     if (!seq) return { width: 450, height: 420 };
     const len = seq.length;
     const hasPairs = pairs && pairs.length > 0;

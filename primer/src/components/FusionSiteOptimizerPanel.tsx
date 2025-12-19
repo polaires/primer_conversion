@@ -1,8 +1,6 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   getDomesticationSummary,
-  optimizeWithDomestication,
-  validateDomesticationOverhangs,
 } from '../lib/repp/index.js';
 
 /**
@@ -19,8 +17,188 @@ import {
  * - Failure mode prediction
  */
 
+// Type Definitions
+
+interface AlgorithmInfo {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  maxJunctions?: number;
+}
+
+interface ScoringWeights {
+  overhangQuality: number;
+  forwardPrimer: number;
+  reversePrimer: number;
+  riskFactors: number;
+  biologicalContext: number;
+}
+
+interface ScoringPreset {
+  id: string;
+  name: string;
+  description: string;
+  weights: ScoringWeights;
+}
+
+interface ScoreDetail {
+  score?: number;
+  [key: string]: any;
+}
+
+interface CandidateScores {
+  overhangQuality?: ScoreDetail;
+  forwardPrimer?: ScoreDetail;
+  reversePrimer?: ScoreDetail;
+  riskFactors?: ScoreDetail;
+  biologicalContext?: ScoreDetail;
+}
+
+interface FusionCandidate {
+  overhang: string;
+  position: number;
+  composite: number;
+  scores?: CandidateScores;
+  warnings?: string[];
+  isTNNA?: boolean;
+  isHighGC?: boolean;
+}
+
+interface Constraints {
+  minFragmentSize: number;
+  maxFragmentSize: number;
+  minDistanceFromEnds: number;
+  minSetFidelity: number;
+  circular: boolean;
+}
+
+interface BioContext {
+  isCodingSequence: boolean;
+  codingFrame: number;
+  proteinDomains: any[];
+  scarPreferences: string;
+}
+
+interface OptimizationSolution {
+  junctions?: any[];
+  setFidelity?: number;
+  overhangs?: string[];
+}
+
+interface OptimizationResult {
+  solution?: OptimizationSolution;
+  algorithm?: string;
+  nodesExplored?: number;
+  optimal?: boolean;
+  failurePrediction?: FailurePrediction;
+}
+
+interface FailurePredictionSummary {
+  predictedSuccessRate?: number;
+  predictedSuccessPercent?: string;
+  highRiskCount?: number;
+  mediumRiskCount?: number;
+  lowRiskCount?: number;
+  recommendation?: string;
+}
+
+interface Prediction {
+  severity: 'high' | 'medium' | 'low';
+  type: string;
+  fragment?: string;
+  probability: number;
+  message: string;
+  mitigation?: string;
+}
+
+interface FailurePrediction {
+  summary?: FailurePredictionSummary;
+  predictions: Prediction[];
+}
+
+interface DomesticationSite {
+  sequence: string;
+  position: number;
+  orientation: string;
+  recommendedJunction?: {
+    overhang: string;
+    quality?: {
+      score?: number;
+    };
+  };
+  hasValidOption?: boolean;
+}
+
+interface DomesticationSummary {
+  status: 'compatible' | 'auto-fixable' | 'needs-attention';
+  icon: string;
+  title: string;
+  description: string;
+  sites?: DomesticationSite[];
+  additionalFragments?: number;
+}
+
+interface AutoDomesticationInfo {
+  enabled: boolean;
+  sites?: DomesticationSite[];
+  additionalFragments?: number;
+}
+
+interface OptimizationParams {
+  algorithm: string;
+  weights: ScoringWeights;
+  constraints: Constraints;
+  bioContext: BioContext;
+  manualCandidates: FusionCandidate[] | null;
+  autoDomestication: AutoDomesticationInfo;
+  effectiveFragments: number;
+}
+
+// Component Props Interfaces
+
+interface FusionCandidateCardProps {
+  candidate: FusionCandidate;
+  isSelected: boolean;
+  onSelect: (candidate: FusionCandidate) => void;
+  showDetails: boolean;
+}
+
+interface ScoringWeightsEditorProps {
+  weights: ScoringWeights;
+  onChange: (weights: ScoringWeights) => void;
+  preset: string;
+  onPresetChange: (preset: string) => void;
+}
+
+interface FailurePredictionDisplayProps {
+  predictions?: FailurePrediction;
+}
+
+interface DomesticationStatusBannerProps {
+  summary: DomesticationSummary | null;
+  onToggleDetails: () => void;
+  showDetails: boolean;
+}
+
+interface OptimizerResultSummaryProps {
+  result: OptimizationResult | null;
+}
+
+interface FusionSiteOptimizerPanelProps {
+  sequence: string;
+  enzyme?: string;
+  numFragments?: number;
+  onOptimize?: (params: OptimizationParams) => void;
+  result?: OptimizationResult | null;
+  candidates?: FusionCandidate[];
+  isOptimizing?: boolean;
+  globalAutoDomestication?: boolean;
+  onAutoDomesticationChange?: (enabled: boolean) => void;
+}
+
 // Algorithm selection options
-const OPTIMIZER_ALGORITHMS = {
+const OPTIMIZER_ALGORITHMS: Record<string, AlgorithmInfo> = {
   AUTO: {
     id: 'auto',
     name: 'Auto Select',
@@ -50,7 +228,7 @@ const OPTIMIZER_ALGORITHMS = {
 };
 
 // Scoring weight presets
-const SCORING_PRESETS = {
+const SCORING_PRESETS: Record<string, ScoringPreset> = {
   BALANCED: {
     id: 'balanced',
     name: 'Balanced',
@@ -102,15 +280,15 @@ const SCORING_PRESETS = {
 };
 
 // Fusion site candidate card component
-function FusionCandidateCard({ candidate, isSelected, onSelect, showDetails }) {
-  const getQualityColor = (score) => {
+function FusionCandidateCard({ candidate, isSelected, onSelect, showDetails }: FusionCandidateCardProps) {
+  const getQualityColor = (score: number): string => {
     if (score >= 85) return '#22c55e';
     if (score >= 70) return '#3b82f6';
     if (score >= 55) return '#f59e0b';
     return '#ef4444';
   };
 
-  const getQualityLabel = (score) => {
+  const getQualityLabel = (score: number): string => {
     if (score >= 85) return 'Excellent';
     if (score >= 70) return 'Good';
     if (score >= 55) return 'Acceptable';
@@ -167,7 +345,7 @@ function FusionCandidateCard({ candidate, isSelected, onSelect, showDetails }) {
             <span className="detail-label">Risk Score</span>
             <span className="detail-value">{candidate.scores.riskFactors?.score || '—'}</span>
           </div>
-          {candidate.warnings?.length > 0 && (
+          {candidate.warnings?.length && candidate.warnings.length > 0 && (
             <div className="candidate-warnings">
               {candidate.warnings.map((w, i) => (
                 <span key={i} className="warning-tag">{w}</span>
@@ -189,16 +367,16 @@ function FusionCandidateCard({ candidate, isSelected, onSelect, showDetails }) {
 }
 
 // Scoring weights editor component
-function ScoringWeightsEditor({ weights, onChange, preset, onPresetChange }) {
-  const [isCustom, setIsCustom] = useState(false);
+function ScoringWeightsEditor({ weights, onChange, preset, onPresetChange }: ScoringWeightsEditorProps) {
+  const [isCustom, setIsCustom] = useState<boolean>(false);
 
-  const handleWeightChange = (key, value) => {
+  const handleWeightChange = (key: keyof ScoringWeights, value: string) => {
     const newWeights = { ...weights, [key]: parseFloat(value) };
     // Normalize weights to sum to 1
     const total = Object.values(newWeights).reduce((sum, w) => sum + w, 0);
-    const normalized = {};
+    const normalized: ScoringWeights = {} as ScoringWeights;
     for (const k in newWeights) {
-      normalized[k] = newWeights[k] / total;
+      normalized[k as keyof ScoringWeights] = newWeights[k as keyof ScoringWeights] / total;
     }
     onChange(normalized);
     setIsCustom(true);
@@ -209,7 +387,7 @@ function ScoringWeightsEditor({ weights, onChange, preset, onPresetChange }) {
       <div className="preset-selector">
         <label>Scoring Preset</label>
         <div className="preset-chips">
-          {Object.entries(SCORING_PRESETS).map(([key, p]) => (
+          {Object.entries(SCORING_PRESETS).map(([, p]) => (
             <button
               key={p.id}
               className={`preset-chip ${preset === p.id ? 'active' : ''} ${isCustom && preset !== p.id ? 'inactive' : ''}`}
@@ -241,7 +419,7 @@ function ScoringWeightsEditor({ weights, onChange, preset, onPresetChange }) {
               max="0.5"
               step="0.05"
               value={value}
-              onChange={(e) => handleWeightChange(key, e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleWeightChange(key as keyof ScoringWeights, e.target.value)}
               className="weight-slider"
             />
             <span className="weight-value">{(value * 100).toFixed(0)}%</span>
@@ -253,7 +431,7 @@ function ScoringWeightsEditor({ weights, onChange, preset, onPresetChange }) {
 }
 
 // Failure prediction display component
-function FailurePredictionDisplay({ predictions }) {
+function FailurePredictionDisplay({ predictions }: FailurePredictionDisplayProps) {
   if (!predictions || predictions.predictions?.length === 0) {
     return (
       <div className="failure-prediction-empty">
@@ -263,7 +441,7 @@ function FailurePredictionDisplay({ predictions }) {
     );
   }
 
-  const getSeverityColor = (severity) => {
+  const getSeverityColor = (severity: string): string => {
     switch (severity) {
       case 'high': return '#ef4444';
       case 'medium': return '#f59e0b';
@@ -272,7 +450,7 @@ function FailurePredictionDisplay({ predictions }) {
     }
   };
 
-  const getSeverityIcon = (severity) => {
+  const getSeverityIcon = (severity: string): string => {
     switch (severity) {
       case 'high': return '🔴';
       case 'medium': return '🟠';
@@ -293,8 +471,8 @@ function FailurePredictionDisplay({ predictions }) {
               cy="50"
               r="40"
               fill="none"
-              stroke={predictions.summary?.predictedSuccessRate >= 0.8 ? '#22c55e' :
-                      predictions.summary?.predictedSuccessRate >= 0.6 ? '#f59e0b' : '#ef4444'}
+              stroke={predictions.summary?.predictedSuccessRate && predictions.summary.predictedSuccessRate >= 0.8 ? '#22c55e' :
+                      predictions.summary?.predictedSuccessRate && predictions.summary.predictedSuccessRate >= 0.6 ? '#f59e0b' : '#ef4444'}
               strokeWidth="10"
               strokeLinecap="round"
               strokeDasharray={`${(predictions.summary?.predictedSuccessRate || 0) * 251.2} 251.2`}
@@ -326,12 +504,12 @@ function FailurePredictionDisplay({ predictions }) {
       {/* Recommendation Banner */}
       {predictions.summary?.recommendation && (
         <div className={`recommendation-banner ${
-          predictions.summary.predictedSuccessRate >= 0.8 ? 'success' :
-          predictions.summary.predictedSuccessRate >= 0.6 ? 'warning' : 'danger'
+          predictions.summary.predictedSuccessRate && predictions.summary.predictedSuccessRate >= 0.8 ? 'success' :
+          predictions.summary.predictedSuccessRate && predictions.summary.predictedSuccessRate >= 0.6 ? 'warning' : 'danger'
         }`}>
           <span className="recommendation-icon">
-            {predictions.summary.predictedSuccessRate >= 0.8 ? '✓' :
-             predictions.summary.predictedSuccessRate >= 0.6 ? '⚠' : '✕'}
+            {predictions.summary.predictedSuccessRate && predictions.summary.predictedSuccessRate >= 0.8 ? '✓' :
+             predictions.summary.predictedSuccessRate && predictions.summary.predictedSuccessRate >= 0.6 ? '⚠' : '✕'}
           </span>
           <span className="recommendation-text">{predictions.summary.recommendation}</span>
         </div>
@@ -367,10 +545,10 @@ function FailurePredictionDisplay({ predictions }) {
 }
 
 // Auto-Domestication Status Banner
-function DomesticationStatusBanner({ summary, enzyme, onToggleDetails, showDetails }) {
+function DomesticationStatusBanner({ summary, onToggleDetails, showDetails }: DomesticationStatusBannerProps) {
   if (!summary) return null;
 
-  const getStatusStyles = () => {
+  const getStatusStyles = (): { bg: string; border: string; icon: string } => {
     switch (summary.status) {
       case 'compatible':
         return {
@@ -486,7 +664,7 @@ function DomesticationStatusBanner({ summary, enzyme, onToggleDetails, showDetai
                 </div>
               ))}
 
-              {summary.additionalFragments > 0 && (
+              {summary.additionalFragments && summary.additionalFragments > 0 && (
                 <div style={{
                   marginTop: '12px',
                   padding: '8px 12px',
@@ -509,7 +687,7 @@ function DomesticationStatusBanner({ summary, enzyme, onToggleDetails, showDetai
 }
 
 // Optimizer result summary component
-function OptimizerResultSummary({ result }) {
+function OptimizerResultSummary({ result }: OptimizerResultSummaryProps) {
   if (!result) return null;
 
   return (
@@ -535,7 +713,7 @@ function OptimizerResultSummary({ result }) {
         <div className="info-item">
           <span className="info-label">Algorithm Used</span>
           <span className="info-value">
-            {OPTIMIZER_ALGORITHMS[result.algorithm?.toUpperCase()]?.name || result.algorithm || 'Auto'}
+            {OPTIMIZER_ALGORITHMS[result.algorithm?.toUpperCase() || '']?.name || result.algorithm || 'Auto'}
           </span>
         </div>
         {result.nodesExplored !== undefined && (
@@ -599,31 +777,30 @@ export default function FusionSiteOptimizerPanel({
   enzyme = 'BsaI',
   numFragments = 4,
   onOptimize,
-  onResultChange,
   result,
   candidates,
   isOptimizing,
   globalAutoDomestication = true,
   onAutoDomesticationChange,
-}) {
+}: FusionSiteOptimizerPanelProps) {
   // State for optimizer settings
-  const [algorithm, setAlgorithm] = useState('auto');
-  const [scoringPreset, setScoringPreset] = useState('balanced');
-  const [weights, setWeights] = useState(SCORING_PRESETS.BALANCED.weights);
-  const [selectedCandidates, setSelectedCandidates] = useState([]);
-  const [showAllCandidates, setShowAllCandidates] = useState(false);
-  const [activeTab, setActiveTab] = useState('candidates');
+  const [algorithm, setAlgorithm] = useState<string>('auto');
+  const [scoringPreset, setScoringPreset] = useState<string>('balanced');
+  const [weights, setWeights] = useState<ScoringWeights>(SCORING_PRESETS.BALANCED.weights);
+  const [selectedCandidates, setSelectedCandidates] = useState<FusionCandidate[]>([]);
+  const [showAllCandidates, setShowAllCandidates] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<string>('candidates');
 
   // Auto-domestication state - use global prop if provided
-  const [showDomesticationDetails, setShowDomesticationDetails] = useState(false);
+  const [showDomesticationDetails, setShowDomesticationDetails] = useState<boolean>(false);
   const autoDomesticationEnabled = globalAutoDomestication;
   const setAutoDomesticationEnabled = onAutoDomesticationChange || (() => {});
 
   // Analyze sequence for domestication needs
-  const domesticationSummary = useMemo(() => {
+  const domesticationSummary = useMemo<DomesticationSummary | null>(() => {
     if (!sequence || sequence.length < 50) return null;
     try {
-      return getDomesticationSummary(sequence, enzyme);
+      return getDomesticationSummary(sequence, enzyme) as DomesticationSummary;
     } catch (e) {
       console.warn('Domestication analysis error:', e);
       return null;
@@ -631,13 +808,13 @@ export default function FusionSiteOptimizerPanel({
   }, [sequence, enzyme]);
 
   // Calculate effective fragment count (user request + domestication junctions)
-  const effectiveFragments = useMemo(() => {
+  const effectiveFragments = useMemo<number>(() => {
     if (!domesticationSummary || !autoDomesticationEnabled) return numFragments;
     return numFragments + (domesticationSummary.additionalFragments || 0);
   }, [numFragments, domesticationSummary, autoDomesticationEnabled]);
 
   // Constraint settings
-  const [constraints, setConstraints] = useState({
+  const [constraints, setConstraints] = useState<Constraints>({
     minFragmentSize: 200,
     maxFragmentSize: 3000,
     minDistanceFromEnds: 50,
@@ -646,7 +823,7 @@ export default function FusionSiteOptimizerPanel({
   });
 
   // Biological context settings
-  const [bioContext, setBioContext] = useState({
+  const [bioContext, setBioContext] = useState<BioContext>({
     isCodingSequence: false,
     codingFrame: 0,
     proteinDomains: [],
@@ -654,7 +831,7 @@ export default function FusionSiteOptimizerPanel({
   });
 
   // Handle candidate selection
-  const handleCandidateSelect = useCallback((candidate) => {
+  const handleCandidateSelect = useCallback((candidate: FusionCandidate) => {
     setSelectedCandidates(prev => {
       const exists = prev.find(c => c.position === candidate.position);
       if (exists) {
@@ -668,7 +845,7 @@ export default function FusionSiteOptimizerPanel({
   const handleOptimize = useCallback(() => {
     if (onOptimize) {
       // Include auto-domestication info in optimization request
-      const domesticationInfo = autoDomesticationEnabled && domesticationSummary?.status !== 'compatible'
+      const domesticationInfo: AutoDomesticationInfo = autoDomesticationEnabled && domesticationSummary?.status !== 'compatible'
         ? {
             enabled: true,
             sites: domesticationSummary?.sites || [],
@@ -689,7 +866,7 @@ export default function FusionSiteOptimizerPanel({
   }, [algorithm, weights, constraints, bioContext, selectedCandidates, onOptimize, autoDomesticationEnabled, domesticationSummary, effectiveFragments]);
 
   // Filter and sort candidates for display
-  const displayCandidates = useMemo(() => {
+  const displayCandidates = useMemo<FusionCandidate[]>(() => {
     if (!candidates || candidates.length === 0) return [];
     const sorted = [...candidates].sort((a, b) => (b.composite || 0) - (a.composite || 0));
     return showAllCandidates ? sorted : sorted.slice(0, 20);
@@ -731,7 +908,6 @@ export default function FusionSiteOptimizerPanel({
         <div style={{ padding: '0 16px' }}>
           <DomesticationStatusBanner
             summary={domesticationSummary}
-            enzyme={enzyme}
             showDetails={showDomesticationDetails}
             onToggleDetails={() => setShowDomesticationDetails(!showDomesticationDetails)}
           />
@@ -747,7 +923,7 @@ export default function FusionSiteOptimizerPanel({
                 <input
                   type="checkbox"
                   checked={autoDomesticationEnabled}
-                  onChange={(e) => setAutoDomesticationEnabled(e.target.checked)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAutoDomesticationEnabled(e.target.checked)}
                   style={{ accentColor: '#f59e0b' }}
                 />
                 <span style={{ color: '#4b5563' }}>
@@ -772,13 +948,13 @@ export default function FusionSiteOptimizerPanel({
               Optimization Algorithm
             </h4>
             <div className="algorithm-selector">
-              {Object.entries(OPTIMIZER_ALGORITHMS).map(([key, alg]) => (
+              {Object.entries(OPTIMIZER_ALGORITHMS).map(([, alg]) => (
                 <button
                   key={alg.id}
                   className={`algorithm-btn ${algorithm === alg.id ? 'active' : ''}`}
                   onClick={() => setAlgorithm(alg.id)}
                   title={alg.description}
-                  disabled={alg.maxJunctions && numFragments - 1 > alg.maxJunctions}
+                  disabled={!!(alg.maxJunctions && numFragments - 1 > alg.maxJunctions)}
                 >
                   <span className="alg-icon">{alg.icon}</span>
                   <span className="alg-name">{alg.name}</span>
@@ -820,7 +996,7 @@ export default function FusionSiteOptimizerPanel({
                 <input
                   type="number"
                   value={constraints.minFragmentSize}
-                  onChange={(e) => setConstraints(c => ({ ...c, minFragmentSize: parseInt(e.target.value) || 200 }))}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConstraints(c => ({ ...c, minFragmentSize: parseInt(e.target.value) || 200 }))}
                   min={100}
                   max={1000}
                 />
@@ -831,7 +1007,7 @@ export default function FusionSiteOptimizerPanel({
                 <input
                   type="number"
                   value={constraints.maxFragmentSize}
-                  onChange={(e) => setConstraints(c => ({ ...c, maxFragmentSize: parseInt(e.target.value) || 3000 }))}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConstraints(c => ({ ...c, maxFragmentSize: parseInt(e.target.value) || 3000 }))}
                   min={500}
                   max={10000}
                 />
@@ -842,7 +1018,7 @@ export default function FusionSiteOptimizerPanel({
                 <input
                   type="range"
                   value={constraints.minSetFidelity}
-                  onChange={(e) => setConstraints(c => ({ ...c, minSetFidelity: parseFloat(e.target.value) }))}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConstraints(c => ({ ...c, minSetFidelity: parseFloat(e.target.value) }))}
                   min={0.7}
                   max={0.99}
                   step={0.01}
@@ -854,7 +1030,7 @@ export default function FusionSiteOptimizerPanel({
                   <input
                     type="checkbox"
                     checked={constraints.circular}
-                    onChange={(e) => setConstraints(c => ({ ...c, circular: e.target.checked }))}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConstraints(c => ({ ...c, circular: e.target.checked }))}
                   />
                   Circular Assembly
                 </label>
@@ -876,7 +1052,7 @@ export default function FusionSiteOptimizerPanel({
                   <input
                     type="checkbox"
                     checked={bioContext.isCodingSequence}
-                    onChange={(e) => setBioContext(c => ({ ...c, isCodingSequence: e.target.checked }))}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBioContext(c => ({ ...c, isCodingSequence: e.target.checked }))}
                   />
                   Coding Sequence
                 </label>
@@ -887,7 +1063,7 @@ export default function FusionSiteOptimizerPanel({
                     <label>Reading Frame</label>
                     <select
                       value={bioContext.codingFrame}
-                      onChange={(e) => setBioContext(c => ({ ...c, codingFrame: parseInt(e.target.value) }))}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setBioContext(c => ({ ...c, codingFrame: parseInt(e.target.value) }))}
                     >
                       <option value={0}>Frame 1 (0)</option>
                       <option value={1}>Frame 2 (+1)</option>
@@ -898,7 +1074,7 @@ export default function FusionSiteOptimizerPanel({
                     <label>Scar Preferences</label>
                     <select
                       value={bioContext.scarPreferences}
-                      onChange={(e) => setBioContext(c => ({ ...c, scarPreferences: e.target.value }))}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setBioContext(c => ({ ...c, scarPreferences: e.target.value }))}
                     >
                       <option value="coding">Coding (avoid stops)</option>
                       <option value="linker">Linker regions</option>
@@ -956,7 +1132,7 @@ export default function FusionSiteOptimizerPanel({
               disabled={!result?.failurePrediction}
             >
               Failure Analysis
-              {result?.failurePrediction?.summary?.highRiskCount > 0 && (
+              {result?.failurePrediction?.summary?.highRiskCount && result.failurePrediction.summary.highRiskCount > 0 && (
                 <span className="tab-badge danger">{result.failurePrediction.summary.highRiskCount}</span>
               )}
             </button>
@@ -989,7 +1165,7 @@ export default function FusionSiteOptimizerPanel({
                       )}
                     </div>
                     <div className="candidates-grid">
-                      {displayCandidates.map((candidate, i) => (
+                      {displayCandidates.map((candidate) => (
                         <FusionCandidateCard
                           key={candidate.position}
                           candidate={candidate}

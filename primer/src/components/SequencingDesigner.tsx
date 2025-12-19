@@ -7,10 +7,124 @@ import {
 import { translateDNA, reverseComplement } from '../lib/sequenceUtils.js';
 import { getAvailablePresets, getPreset, autoDetectPreset } from '../lib/presets.js';
 
+// Type definitions
+interface PrimerArrowProps {
+  direction: 'forward' | 'reverse';
+  color: string;
+  isSelected: boolean;
+}
+
+interface QualityBadgeProps {
+  quality: string;
+}
+
+interface Thermodynamics {
+  hairpinDG?: number;
+  homodimerDG?: number;
+  terminal3DG?: number;
+}
+
+interface GQuadruplex {
+  severity: 'none' | 'info' | 'warning' | 'critical';
+  message: string;
+}
+
+interface Alternative {
+  sequence: string;
+  length: number;
+  tm: string;
+  gcPercent: string;
+  compositeScore?: number;
+}
+
+interface Primer {
+  name: string;
+  sequence: string;
+  length: number;
+  tm: string;
+  gcPercent: string;
+  position: number;
+  direction: 'forward' | 'reverse';
+  compositeScore?: number;
+  qualityTier?: string;
+  quality?: string;
+  isRescue?: boolean;
+  alternatives?: Alternative[];
+  warnings?: string[];
+  issues?: string[];
+  gQuadruplex?: GQuadruplex;
+  thermodynamics?: Thermodynamics;
+  readStart?: number;
+  readEnd?: number;
+}
+
+interface PrimerCardProps {
+  primer: Primer;
+  copyToClipboard: (text: string) => void;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+}
+
+interface Gap {
+  start: number;
+  end: number;
+  length: number;
+}
+
+interface Coverage {
+  coveragePercent: string;
+  doubleCoveragePercent: string;
+  gaps: Gap[];
+}
+
+interface TmCompatibility {
+  compatible: boolean;
+  minTm: number;
+  maxTm: number;
+  recommendation?: string;
+}
+
+interface DesignResults {
+  templateLength: number;
+  primers: Primer[];
+  coverage: Coverage;
+  template: string;
+  primerCount: number;
+  forwardPrimers: Primer[];
+  reversePrimers: Primer[];
+  isCircular?: boolean;
+  circularWrapped?: boolean;
+  tmCompatibility?: TmCompatibility;
+}
+
+interface CoverageMapProps {
+  results: DesignResults;
+  onPrimerSelect: (primer: Primer | null) => void;
+  selectedPrimer: Primer | null;
+}
+
+interface ORF {
+  start: number;
+  end: number;
+  length: number;
+  proteinLength: number;
+  frame: number;
+  strand: '+' | '-';
+}
+
+interface DesignOptions {
+  optimalReadLength: number;
+  minPrimerLength: number;
+  maxPrimerLength: number;
+  optimalTm: number;
+  circular: boolean;
+  generateAlternatives: boolean;
+}
+
 /**
  * Arrow component for primer visualization
  */
-function PrimerArrow({ direction, color, isSelected }) {
+function PrimerArrow({ direction, color, isSelected }: PrimerArrowProps) {
   const arrowHeight = 20;
   const arrowWidth = 40;
   const headWidth = 12;
@@ -43,8 +157,8 @@ function PrimerArrow({ direction, color, isSelected }) {
 /**
  * Quality badge component with modern styling
  */
-function QualityBadge({ quality }) {
-  const colors = {
+function QualityBadge({ quality }: QualityBadgeProps) {
+  const colors: Record<string, { bg: string; text: string; border: string }> = {
     excellent: { bg: '#dcfce7', text: '#166534', border: '#86efac' },
     good: { bg: '#fef9c3', text: '#854d0e', border: '#fde047' },
     acceptable: { bg: '#fed7aa', text: '#9a3412', border: '#fdba74' },
@@ -77,11 +191,11 @@ function QualityBadge({ quality }) {
 /**
  * Modern Primer Card component - state-of-the-art design
  */
-function PrimerCard({ primer, copyToClipboard, isExpanded, onToggleExpand }) {
+function PrimerCard({ primer, copyToClipboard, isExpanded, onToggleExpand }: PrimerCardProps) {
   const hasAlternatives = primer.alternatives && primer.alternatives.length > 0;
 
   // Derive quality tier directly from composite score for consistency
-  const getQualityFromScore = (score) => {
+  const getQualityFromScore = (score: number): string => {
     if (score >= 90) return 'excellent';
     if (score >= 75) return 'good';
     if (score >= 60) return 'acceptable';
@@ -115,7 +229,8 @@ function PrimerCard({ primer, copyToClipboard, isExpanded, onToggleExpand }) {
     hasGQuadruplexWarning ||
     primer.thermodynamics;
 
-  const getScoreGradient = (score) => {
+  const getScoreGradient = (score: number | undefined): string => {
+    if (!score) return 'linear-gradient(90deg, #ef4444 0%, #f87171 100%)';
     if (score >= 90) return 'linear-gradient(90deg, #22c55e 0%, #4ade80 100%)';
     if (score >= 75) return 'linear-gradient(90deg, #84cc16 0%, #a3e635 100%)';
     if (score >= 60) return 'linear-gradient(90deg, #eab308 0%, #facc15 100%)';
@@ -169,7 +284,7 @@ function PrimerCard({ primer, copyToClipboard, isExpanded, onToggleExpand }) {
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <QualityBadge quality={displayQuality} />
+            <QualityBadge quality={displayQuality || 'acceptable'} />
           </div>
         </div>
 
@@ -358,7 +473,7 @@ function PrimerCard({ primer, copyToClipboard, isExpanded, onToggleExpand }) {
           )}
 
           {/* G-Quadruplex - only show if there's an actual warning/critical */}
-          {hasGQuadruplexWarning && (
+          {hasGQuadruplexWarning && primer.gQuadruplex && (
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -404,10 +519,10 @@ function PrimerCard({ primer, copyToClipboard, isExpanded, onToggleExpand }) {
           {hasAlternatives && (
             <div>
               <div style={{ fontWeight: '600', fontSize: '13px', color: '#475569', marginBottom: '10px' }}>
-                Alternative Primers ({primer.alternatives.length})
+                Alternative Primers ({primer.alternatives!.length})
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {primer.alternatives.map((alt, i) => (
+                {primer.alternatives!.map((alt, i) => (
                   <div key={i} style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -477,9 +592,9 @@ function PrimerCard({ primer, copyToClipboard, isExpanded, onToggleExpand }) {
  * Interactive Coverage Map Component
  * Shows primer positions and coverage regions on a linear map with arrow-style primers
  */
-function CoverageMap({ results, onPrimerSelect, selectedPrimer }) {
+function CoverageMap({ results, onPrimerSelect, selectedPrimer }: CoverageMapProps) {
   const { templateLength, primers, coverage, template } = results;
-  const [hoveredRegion, setHoveredRegion] = useState(null);
+  const [hoveredRegion, setHoveredRegion] = useState<number | null>(null);
 
   const mapWidth = 800;
 
@@ -489,13 +604,13 @@ function CoverageMap({ results, onPrimerSelect, selectedPrimer }) {
   const { orfs } = useMemo(() => {
     if (!template) return { orfs: [] };
 
-    const detectedOrfs = [];
+    const detectedOrfs: ORF[] = [];
     const minOrfLength = 90; // 30 codons minimum
 
     // Helper to detect ORFs in a translated protein sequence
-    const findOrfsInFrame = (protein, frame, isReverse, seqLength) => {
-      const starts = [];
-      const stops = [];
+    const findOrfsInFrame = (protein: string, frame: number, isReverse: boolean, seqLength: number) => {
+      const starts: number[] = [];
+      const stops: number[] = [];
 
       protein.split('').forEach((aa, idx) => {
         if (aa === 'M') starts.push(idx);
@@ -503,7 +618,7 @@ function CoverageMap({ results, onPrimerSelect, selectedPrimer }) {
       });
 
       // Find ORFs from each start codon to nearest downstream stop
-      const usedStops = new Set();
+      const usedStops = new Set<number>();
       for (const startIdx of starts) {
         const nextStop = stops.find(s => s > startIdx && !usedStops.has(s));
         if (nextStop) {
@@ -514,7 +629,7 @@ function CoverageMap({ results, onPrimerSelect, selectedPrimer }) {
             usedStops.add(nextStop);
 
             // Convert amino acid position to DNA position
-            let dnaStart, dnaEnd;
+            let dnaStart: number, dnaEnd: number;
             if (isReverse) {
               // For reverse strand, positions are from the 3' end
               const offset = Math.abs(frame) - 1;
@@ -562,7 +677,7 @@ function CoverageMap({ results, onPrimerSelect, selectedPrimer }) {
   // Also track which primers cover each bin for interactivity
   const { coverageData, primersByBin } = useMemo(() => {
     const data = new Array(Math.ceil(templateLength / 10)).fill(0);
-    const binPrimers = new Array(data.length).fill(null).map(() => []);
+    const binPrimers: Primer[][] = new Array(data.length).fill(null).map(() => []);
 
     for (const primer of primers) {
       const start = primer.readStart ?? 0;
@@ -577,7 +692,7 @@ function CoverageMap({ results, onPrimerSelect, selectedPrimer }) {
 
   // Generate ruler marks
   const rulerMarks = useMemo(() => {
-    const marks = [];
+    const marks: number[] = [];
     const step = templateLength <= 500 ? 100 : templateLength <= 2000 ? 200 : 500;
     for (let i = 0; i <= templateLength; i += step) {
       marks.push(i);
@@ -588,14 +703,14 @@ function CoverageMap({ results, onPrimerSelect, selectedPrimer }) {
     return marks;
   }, [templateLength]);
 
-  const getCoverageColor = (depth) => {
+  const getCoverageColor = (depth: number): string => {
     if (depth === 0) return '#fee2e2';
     if (depth === 1) return '#fef3c7';
     if (depth === 2) return '#d1fae5';
     return '#a7f3d0';
   };
 
-  const getPrimerColor = (primer, isSelected) => {
+  const getPrimerColor = (primer: Primer, isSelected: boolean): string => {
     if (isSelected) return '#3b82f6';
     if (primer.isRescue) return '#f59e0b';
     if (primer.direction === 'forward') return '#22c55e';
@@ -711,7 +826,7 @@ function CoverageMap({ results, onPrimerSelect, selectedPrimer }) {
                 const binEnd = Math.min((idx + 1) * 10, templateLength);
                 const binPrimers = primersByBin[idx] || [];
                 const isHovered = hoveredRegion === idx;
-                const hasSelection = binPrimers.includes(selectedPrimer);
+                const hasSelection = binPrimers.includes(selectedPrimer!);
 
                 return (
                   <div
@@ -975,7 +1090,7 @@ function CoverageMap({ results, onPrimerSelect, selectedPrimer }) {
       {/* Selected primer details - improved card layout */}
       {selectedPrimer && (() => {
         // Derive quality tier from composite score for consistency
-        const getQualityFromScore = (score) => {
+        const getQualityFromScore = (score: number): string => {
           if (score >= 90) return 'excellent';
           if (score >= 75) return 'good';
           if (score >= 60) return 'acceptable';
@@ -1003,7 +1118,7 @@ function CoverageMap({ results, onPrimerSelect, selectedPrimer }) {
                 {selectedPrimer.direction === 'forward' ? '→' : '←'}
               </span>
               <h5>{selectedPrimer.name}</h5>
-              <QualityBadge quality={displayQuality} />
+              <QualityBadge quality={displayQuality || 'acceptable'} />
               {selectedPrimer.isRescue && <span className="rescue-tag">Rescue</span>}
             </div>
             <button
@@ -1077,13 +1192,13 @@ function CoverageMap({ results, onPrimerSelect, selectedPrimer }) {
  * Designs primers optimized for Sanger sequencing with full coverage planning
  */
 export default function SequencingDesigner() {
-  const [template, setTemplate] = useState('');
-  const [results, setResults] = useState(null);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [selectedPrimer, setSelectedPrimer] = useState(null);
-  const [options, setOptions] = useState({
+  const [template, setTemplate] = useState<string>('');
+  const [results, setResults] = useState<DesignResults | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
+  const [selectedPrimer, setSelectedPrimer] = useState<Primer | null>(null);
+  const [options, setOptions] = useState<DesignOptions>({
     optimalReadLength: SEQUENCING_DEFAULTS.optimalReadLength,
     minPrimerLength: SEQUENCING_DEFAULTS.minPrimerLength,
     maxPrimerLength: SEQUENCING_DEFAULTS.maxPrimerLength,
@@ -1091,15 +1206,15 @@ export default function SequencingDesigner() {
     circular: false,
     generateAlternatives: true,
   });
-  const [expandedAlternatives, setExpandedAlternatives] = useState({});
-  const [selectedPreset, setSelectedPreset] = useState('default');
+  const [expandedAlternatives, setExpandedAlternatives] = useState<Record<string, boolean>>({});
+  const [selectedPreset, setSelectedPreset] = useState<string>('default');
 
   // Position-specific primer design
-  const [customPosition, setCustomPosition] = useState('');
-  const [customDirection, setCustomDirection] = useState('forward');
-  const [customPrimer, setCustomPrimer] = useState(null);
+  const [customPosition, setCustomPosition] = useState<string>('');
+  const [customDirection, setCustomDirection] = useState<'forward' | 'reverse'>('forward');
+  const [customPrimer, setCustomPrimer] = useState<Primer | null>(null);
 
-  const cleanSequence = useCallback((seq) => {
+  const cleanSequence = useCallback((seq: string): string => {
     return seq.toUpperCase().replace(/[^ATGC]/g, '');
   }, []);
 
@@ -1120,10 +1235,10 @@ export default function SequencingDesigner() {
     requestAnimationFrame(() => {
       setTimeout(() => {
         try {
-          const result = designSequencingPrimers(seq, options);
+          const result = designSequencingPrimers(seq, options as any);
           setResults(result);
         } catch (err) {
-          setError(err.message);
+          setError((err as Error).message);
         } finally {
           setLoading(false);
         }
@@ -1145,7 +1260,7 @@ export default function SequencingDesigner() {
       setCustomPrimer(primer);
       setError(null);
     } catch (err) {
-      setError(err.message);
+      setError((err as Error).message);
     }
   }, [template, customPosition, customDirection, options, cleanSequence]);
 
@@ -1154,7 +1269,7 @@ export default function SequencingDesigner() {
     setTemplate(`ATGGTGAGCAAGGGCGAGGAGCTGTTCACCGGGGTGGTGCCCATCCTGGTCGAGCTGGACGGCGACGTAAACGGCCACAAGTTCAGCGTGTCCGGCGAGGGCGAGGGCGATGCCACCTACGGCAAGCTGACCCTGAAGTTCATCTGCACCACCGGCAAGCTGCCCGTGCCCTGGCCCACCCTCGTGACCACCCTGACCTACGGCGTGCAGTGCTTCAGCCGCTACCCCGACCACATGAAGCAGCACGACTTCTTCAAGTCCGCCATGCCCGAAGGCTACGTCCAGGAGCGCACCATCTTCTTCAAGGACGACGGCAACTACAAGACCCGCGCCGAGGTGAAGTTCGAGGGCGACACCCTGGTGAACCGCATCGAGCTGAAGGGCATCGACTTCAAGGAGGACGGCAACATCCTGGGGCACAAGCTGGAGTACAACTACAACAGCCACAACGTCTATATCATGGCCGACAAGCAGAAGAACGGCATCAAGGTGAACTTCAAGATCCGCCACAACATCGAGGACGGCAGCGTGCAGCTCGCCGACCACTACCAGCAGAACACCCCCATCGGCGACGGCCCCGTGCTGCTGCCCGACAACCACTACCTGAGCACCCAGTCCGCCCTGAGCAAAGACCCCAACGAGAAGCGCGATCACATGGTCCTGCTGGAGTTCGTGACCGCCGCCGGGATCACTCTCGGCATGGACGAGCTGTACAAGTAA`);
   }, []);
 
-  const copyToClipboard = useCallback((text) => {
+  const copyToClipboard = useCallback((text: string) => {
     navigator.clipboard.writeText(text);
   }, []);
 
@@ -1179,7 +1294,7 @@ export default function SequencingDesigner() {
             <textarea
               id="template"
               value={template}
-              onChange={(e) => setTemplate(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setTemplate(e.target.value)}
               placeholder="Paste your DNA sequence here (ATGC only)..."
               rows={6}
               spellCheck={false}
@@ -1211,7 +1326,7 @@ export default function SequencingDesigner() {
                     <label>Application Preset</label>
                     <select
                       value={selectedPreset}
-                      onChange={(e) => {
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                         const presetId = e.target.value;
                         setSelectedPreset(presetId);
                         const preset = getPreset(presetId);
@@ -1234,7 +1349,7 @@ export default function SequencingDesigner() {
                   <button
                     type="button"
                     onClick={() => {
-                      const detected = autoDetectPreset(cleanSequence(template));
+                      const detected = autoDetectPreset(cleanSequence(template) as any);
                       if (detected && detected !== 'default') {
                         setSelectedPreset(detected);
                       }
@@ -1265,7 +1380,7 @@ export default function SequencingDesigner() {
                   <input
                     type="number"
                     value={options.optimalReadLength}
-                    onChange={(e) => setOptions({ ...options, optimalReadLength: parseInt(e.target.value) })}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOptions({ ...options, optimalReadLength: parseInt(e.target.value) })}
                     min={300}
                     max={1000}
                   />
@@ -1275,7 +1390,7 @@ export default function SequencingDesigner() {
                   <input
                     type="number"
                     value={options.minPrimerLength}
-                    onChange={(e) => setOptions({ ...options, minPrimerLength: parseInt(e.target.value) })}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOptions({ ...options, minPrimerLength: parseInt(e.target.value) })}
                     min={15}
                     max={25}
                   />
@@ -1285,7 +1400,7 @@ export default function SequencingDesigner() {
                   <input
                     type="number"
                     value={options.maxPrimerLength}
-                    onChange={(e) => setOptions({ ...options, maxPrimerLength: parseInt(e.target.value) })}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOptions({ ...options, maxPrimerLength: parseInt(e.target.value) })}
                     min={20}
                     max={35}
                   />
@@ -1295,7 +1410,7 @@ export default function SequencingDesigner() {
                   <input
                     type="number"
                     value={options.optimalTm}
-                    onChange={(e) => setOptions({ ...options, optimalTm: parseInt(e.target.value) })}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOptions({ ...options, optimalTm: parseInt(e.target.value) })}
                     min={45}
                     max={65}
                   />
@@ -1306,7 +1421,7 @@ export default function SequencingDesigner() {
                   <input
                     type="checkbox"
                     checked={options.circular}
-                    onChange={(e) => setOptions({ ...options, circular: e.target.checked })}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOptions({ ...options, circular: e.target.checked })}
                     style={{ marginTop: '2px' }}
                   />
                   <div>
@@ -1318,7 +1433,7 @@ export default function SequencingDesigner() {
                   <input
                     type="checkbox"
                     checked={options.generateAlternatives}
-                    onChange={(e) => setOptions({ ...options, generateAlternatives: e.target.checked })}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOptions({ ...options, generateAlternatives: e.target.checked })}
                     style={{ marginTop: '2px' }}
                   />
                   <div>
@@ -1673,7 +1788,7 @@ export default function SequencingDesigner() {
               <input
                 type="number"
                 value={customPosition}
-                onChange={(e) => setCustomPosition(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomPosition(e.target.value)}
                 min={0}
                 max={cleanSequence(template).length - 1}
                 placeholder="e.g., 500"
@@ -1683,7 +1798,7 @@ export default function SequencingDesigner() {
               <label>Direction</label>
               <select
                 value={customDirection}
-                onChange={(e) => setCustomDirection(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCustomDirection(e.target.value as 'forward' | 'reverse')}
               >
                 <option value="forward">Forward</option>
                 <option value="reverse">Reverse</option>

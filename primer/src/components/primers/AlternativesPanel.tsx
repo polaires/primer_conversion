@@ -33,6 +33,105 @@ import { get3PrimeStructureBadge, classify3PrimeStructureSeverity } from '../../
 import { foldSequence } from '../../lib/fold.js';
 
 // =============================================================================
+// Type Definitions
+// =============================================================================
+
+interface Primer {
+  sequence?: string;
+  tm?: number;
+  length?: number;
+  hasGCClamp?: boolean;
+}
+
+interface Design {
+  forward?: Primer;
+  reverse?: Primer;
+  compositeScore?: number;
+  score?: number;
+}
+
+interface Alternative extends Design {
+  originalIdx: number;
+  label?: string | { text: string; svgPath: string };
+  explanation?: string;
+  badges?: string[];
+  tradeOffs?: TradeOff[];
+  isBetterThanCurrent?: boolean;
+}
+
+interface AlternativeCategories {
+  [key: string]: Alternative[];
+}
+
+interface TradeOff {
+  type: string;
+  label: string;
+  delta: string;
+  detail?: string;
+}
+
+interface Features {
+  viewToggle?: boolean;
+  filters?: boolean;
+  sorting?: boolean;
+  exportCSV?: boolean;
+  compare?: boolean;
+  expandSequences?: boolean;
+  badges?: boolean;
+  showCurrentDesign?: boolean;
+}
+
+interface CategoryConfig {
+  svgPath: string;
+  title: string;
+  description: string;
+  color: string;
+}
+
+interface FilterState {
+  minScore: number;
+  maxTmDiff: number;
+  requireGcClamp: boolean;
+  maxLength?: number;
+}
+
+interface FilterPreset {
+  label: string;
+  minScore: number;
+  maxTmDiff: number;
+  requireGcClamp: boolean;
+  maxLength?: number;
+}
+
+interface SortConfig {
+  field: string;
+  direction: 'asc' | 'desc';
+}
+
+interface StructureSeverity {
+  level: string;
+  label: string;
+  tooltip: string;
+}
+
+interface StructureInfo {
+  fwd: { severity: StructureSeverity; energy: number } | null;
+  rev: { severity: StructureSeverity; energy: number } | null;
+  worst: { severity: StructureSeverity; energy: number } | null;
+  worstPrimer?: string;
+}
+
+interface DesignInsight {
+  label: string;
+  detail: string;
+}
+
+interface DesignInsights {
+  pros: DesignInsight[];
+  cons: DesignInsight[];
+}
+
+// =============================================================================
 // Category Configuration
 // =============================================================================
 
@@ -41,7 +140,7 @@ import { foldSequence } from '../../lib/fold.js';
  * Each category explains WHY these alternatives were selected
  * Professional design with SVG icons for state-of-art primer designer
  */
-const CATEGORY_CONFIG = {
+const CATEGORY_CONFIG: Record<string, CategoryConfig> = {
   highestScore: {
     // Star icon SVG path
     svgPath: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
@@ -82,7 +181,14 @@ const CATEGORY_CONFIG = {
 /**
  * SVG Icon component for professional rendering
  */
-function SvgIcon({ path, size = 16, color = 'currentColor', className = '' }) {
+interface SvgIconProps {
+  path: string;
+  size?: number;
+  color?: string;
+  className?: string;
+}
+
+function SvgIcon({ path, size = 16, color = 'currentColor', className = '' }: SvgIconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -100,7 +206,7 @@ function SvgIcon({ path, size = 16, color = 'currentColor', className = '' }) {
 /**
  * Label badge icons for alternative strengths
  */
-const LABEL_ICONS = {
+const LABEL_ICONS: Record<string, string> = {
   bestOverall: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z', // star
   bestTmMatch: 'M12 2a10 10 0 100 20 10 10 0 000-20zm0 18a8 8 0 110-16 8 8 0 010 16zm0-14a6 6 0 100 12 6 6 0 000-12zm0 10a4 4 0 110-8 4 4 0 010 8zm0-6a2 2 0 100 4 2 2 0 000-4z', // target
   safestDimer: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zm-1.5-5.5l-3-3 1.5-1.5 1.5 1.5 4-4 1.5 1.5-5.5 5.5z', // shield-check
@@ -115,7 +221,7 @@ const LABEL_ICONS = {
 const CATEGORY_ORDER = ['highestScore', 'fewestIssues', 'bestTmMatch', 'shortestPrimers', 'longestPrimers'];
 
 // Filter presets for quick filtering
-const FILTER_PRESETS = {
+const FILTER_PRESETS: Record<string, FilterPreset> = {
   all: { label: 'All', minScore: 0, maxTmDiff: 10, requireGcClamp: false },
   highQuality: { label: 'High Quality', minScore: 70, maxTmDiff: 10, requireGcClamp: false },
   tmMatched: { label: 'Tm-Matched', minScore: 0, maxTmDiff: 2, requireGcClamp: false },
@@ -130,7 +236,12 @@ const FILTER_PRESETS = {
 /**
  * Score bar visualization
  */
-function ScoreBar({ score, size = 'normal' }) {
+interface ScoreBarProps {
+  score: number;
+  size?: 'normal' | 'mini';
+}
+
+function ScoreBar({ score, size = 'normal' }: ScoreBarProps) {
   const tier = getQualityTier(score);
   const height = size === 'mini' ? '4px' : '8px';
 
@@ -147,7 +258,11 @@ function ScoreBar({ score, size = 'normal' }) {
 /**
  * Trade-off chip display
  */
-function TradeOffChip({ tradeOff }) {
+interface TradeOffChipProps {
+  tradeOff: TradeOff;
+}
+
+function TradeOffChip({ tradeOff }: TradeOffChipProps) {
   const { type, label, delta, detail } = tradeOff;
 
   return (
@@ -165,12 +280,16 @@ function TradeOffChip({ tradeOff }) {
  * 3' Structure Badge for alternative designs
  * Shows severity-based badge with tooltip explaining the impact
  */
-function Structure3PrimeBadge({ design }) {
+interface Structure3PrimeBadgeProps {
+  design: Design;
+}
+
+function Structure3PrimeBadge({ design }: Structure3PrimeBadgeProps) {
   const [showTooltip, setShowTooltip] = useState(false);
 
   // Compute structure severity for both primers
-  const structureInfo = useMemo(() => {
-    const results = { fwd: null, rev: null, worst: null };
+  const structureInfo = useMemo((): StructureInfo => {
+    const results: StructureInfo = { fwd: null, rev: null, worst: null };
 
     // Forward primer
     if (design.forward?.sequence) {
@@ -180,7 +299,7 @@ function Structure3PrimeBadge({ design }) {
           energy: fold?.e ?? 0,
           basePairs: fold?.ij ?? [],
           seqLength: design.forward.sequence.length,
-        });
+        } as any);
         results.fwd = { severity, energy: fold?.e ?? 0 };
       } catch (e) {
         results.fwd = null;
@@ -195,7 +314,7 @@ function Structure3PrimeBadge({ design }) {
           energy: fold?.e ?? 0,
           basePairs: fold?.ij ?? [],
           seqLength: design.reverse.sequence.length,
-        });
+        } as any);
         results.rev = { severity, energy: fold?.e ?? 0 };
       } catch (e) {
         results.rev = null;
@@ -226,7 +345,7 @@ function Structure3PrimeBadge({ design }) {
   const { severity, energy } = structureInfo.worst;
 
   // Badge styling based on severity
-  const badgeStyles = {
+  const badgeStyles: Record<string, { bg: string; text: string; border: string; icon: string }> = {
     critical: { bg: '#fee2e2', text: '#dc2626', border: '#fecaca', icon: '🔴' },
     warning: { bg: '#fef3c7', text: '#d97706', border: '#fde68a', icon: '⚠' },
     moderate: { bg: '#fef9c3', text: '#ca8a04', border: '#fef08a', icon: '△' },
@@ -319,7 +438,13 @@ function Structure3PrimeBadge({ design }) {
 /**
  * ΔTm indicator with consistent styling
  */
-function TmDiffIndicator({ tmDiff, showLabel = true, showWarning = true }) {
+interface TmDiffIndicatorProps {
+  tmDiff: number;
+  showLabel?: boolean;
+  showWarning?: boolean;
+}
+
+function TmDiffIndicator({ tmDiff, showLabel = true, showWarning = true }: TmDiffIndicatorProps) {
   const colorClass = getTmDiffColorClass(tmDiff);
 
   return (
@@ -336,9 +461,9 @@ function TmDiffIndicator({ tmDiff, showLabel = true, showWarning = true }) {
 /**
  * Generate pros and cons for a design
  */
-function generateDesignInsights(design) {
-  const pros = [];
-  const cons = [];
+function generateDesignInsights(design: Design): DesignInsights {
+  const pros: DesignInsight[] = [];
+  const cons: DesignInsight[] = [];
 
   const score = design.compositeScore || design.score || 0;
   const tmDiff = Math.abs((design.forward?.tm || 0) - (design.reverse?.tm || 0));
@@ -377,7 +502,7 @@ function generateDesignInsights(design) {
         energy: fold?.e ?? 0,
         basePairs: fold?.ij ?? [],
         seqLength: design.forward.sequence.length,
-      });
+      } as any);
       if (['critical', 'warning'].includes(severity.level) && severity.level !== 'none') {
         worstSeverity = severity.level;
         worstEnergy = fold?.e ?? 0;
@@ -390,7 +515,7 @@ function generateDesignInsights(design) {
         energy: fold?.e ?? 0,
         basePairs: fold?.ij ?? [],
         seqLength: design.reverse.sequence.length,
-      });
+      } as any);
       if (severity.level === 'critical' || (severity.level === 'warning' && worstSeverity !== 'critical')) {
         worstSeverity = severity.level;
         worstEnergy = fold?.e ?? 0;
@@ -416,6 +541,15 @@ function generateDesignInsights(design) {
 /**
  * Current/Original Design Card with Pros/Cons
  */
+interface CurrentDesignCardProps {
+  design: Design;
+  isActive: boolean;
+  isAlternativeSelected: boolean;
+  isBestOverall: boolean;
+  onSelect: () => void;
+  onCopy: (fwd?: string, rev?: string) => void;
+}
+
 function CurrentDesignCard({
   design,
   isActive,
@@ -423,7 +557,7 @@ function CurrentDesignCard({
   isBestOverall,
   onSelect,
   onCopy,
-}) {
+}: CurrentDesignCardProps) {
   const score = design.compositeScore || design.score || 0;
   const tmDiff = Math.abs((design.forward?.tm || 0) - (design.reverse?.tm || 0));
   const { pros, cons } = generateDesignInsights(design);
@@ -490,7 +624,7 @@ function CurrentDesignCard({
         <button
           type="button"
           className="action-btn"
-          onClick={(e) => {
+          onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
             e.stopPropagation();
             onCopy(design.forward?.sequence, design.reverse?.sequence);
           }}
@@ -509,7 +643,12 @@ function CurrentDesignCard({
 /**
  * Why This Alternative? Tooltip
  */
-function WhyThisTooltip({ alternative, isVisible }) {
+interface WhyThisTooltipProps {
+  alternative: Alternative;
+  isVisible: boolean;
+}
+
+function WhyThisTooltip({ alternative, isVisible }: WhyThisTooltipProps) {
   if (!isVisible || !alternative.explanation) return null;
 
   return (
@@ -530,6 +669,23 @@ function WhyThisTooltip({ alternative, isVisible }) {
 /**
  * Alternative Card Component with Quick Actions on Hover
  */
+interface AlternativeCardProps {
+  alternative: Alternative;
+  displayIndex: number;
+  isSelected: boolean;
+  isRecommended: boolean;
+  isExpanded: boolean;
+  isCompareSelected: boolean;
+  isFocused: boolean;
+  onSelect: () => void;
+  onToggleExpand: () => void;
+  onToggleCompare: () => void;
+  onCopy: (fwd?: string, rev?: string) => void;
+  onShowComparison: () => void;
+  tradeOffs?: TradeOff[];
+  copyFeedback: boolean;
+}
+
 function AlternativeCard({
   alternative,
   displayIndex,
@@ -545,7 +701,7 @@ function AlternativeCard({
   onShowComparison,
   tradeOffs,
   copyFeedback,
-}) {
+}: AlternativeCardProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const score = alternative.compositeScore || 0;
   const tmDiff = Math.abs((alternative.forward?.tm || 0) - (alternative.reverse?.tm || 0));
@@ -563,7 +719,7 @@ function AlternativeCard({
           <button
             type="button"
             className="quick-action-btn primary"
-            onClick={(e) => {
+            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
               e.stopPropagation();
               onSelect();
             }}
@@ -574,7 +730,7 @@ function AlternativeCard({
           <button
             type="button"
             className="quick-action-btn"
-            onClick={(e) => {
+            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
               e.stopPropagation();
               onCopy(alternative.forward?.sequence, alternative.reverse?.sequence);
             }}
@@ -585,7 +741,7 @@ function AlternativeCard({
           <button
             type="button"
             className={`quick-action-btn ${isCompareSelected ? 'active' : ''}`}
-            onClick={(e) => {
+            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
               e.stopPropagation();
               onToggleCompare();
             }}
@@ -611,7 +767,7 @@ function AlternativeCard({
                     <span className="label-text">{alternative.label.text}</span>
                   </>
                 ) : (
-                  alternative.label
+                  alternative.label as React.ReactNode
                 )}
                 <WhyThisTooltip alternative={alternative} isVisible={showTooltip} />
               </span>
@@ -657,7 +813,7 @@ function AlternativeCard({
         <button
           type="button"
           className="expand-seq-btn"
-          onClick={(e) => {
+          onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
             e.stopPropagation();
             onToggleExpand();
           }}
@@ -689,6 +845,16 @@ function AlternativeCard({
 /**
  * Table Row for Alternative
  */
+interface AlternativeTableRowProps {
+  alternative: Alternative;
+  displayIndex: number;
+  isSelected: boolean;
+  isCompareSelected: boolean;
+  onSelect: () => void;
+  onToggleCompare: () => void;
+  sortConfig: SortConfig;
+}
+
 function AlternativeTableRow({
   alternative,
   displayIndex,
@@ -697,7 +863,7 @@ function AlternativeTableRow({
   onSelect,
   onToggleCompare,
   sortConfig,
-}) {
+}: AlternativeTableRowProps) {
   const score = alternative.compositeScore || 0;
   const tmDiff = Math.abs((alternative.forward?.tm || 0) - (alternative.reverse?.tm || 0));
 
@@ -710,11 +876,11 @@ function AlternativeTableRow({
         <input
           type="checkbox"
           checked={isCompareSelected}
-          onChange={(e) => {
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
             e.stopPropagation();
             onToggleCompare();
           }}
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e: React.MouseEvent<HTMLInputElement>) => e.stopPropagation()}
         />
         #{displayIndex + 1}
         {alternative.label && (
@@ -725,7 +891,7 @@ function AlternativeTableRow({
                 {alternative.label.text}
               </>
             ) : (
-              alternative.label
+              alternative.label as React.ReactNode
             )}
           </span>
         )}
@@ -761,10 +927,17 @@ function AlternativeTableRow({
 /**
  * Side-by-side comparison modal for selected alternatives
  */
-function ComparisonModal({ alternatives, currentDesign, onClose, onSelect }) {
+interface ComparisonModalProps {
+  alternatives: Alternative[];
+  currentDesign: Design;
+  onClose: () => void;
+  onSelect: (alternative: Alternative) => void;
+}
+
+function ComparisonModal({ alternatives, currentDesign, onClose, onSelect }: ComparisonModalProps) {
   if (!alternatives || alternatives.length === 0) return null;
 
-  const getComparisonValue = (alt, metric) => {
+  const getComparisonValue = (alt: Alternative, metric: string): number => {
     switch (metric) {
       case 'score': return alt.compositeScore || 0;
       case 'tmDiff': return Math.abs((alt.forward?.tm || 0) - (alt.reverse?.tm || 0));
@@ -777,12 +950,12 @@ function ComparisonModal({ alternatives, currentDesign, onClose, onSelect }) {
     }
   };
 
-  const getBestValue = (metric, lower = false) => {
+  const getBestValue = (metric: string, lower = false): number => {
     const values = alternatives.map(alt => getComparisonValue(alt, metric));
     return lower ? Math.min(...values) : Math.max(...values);
   };
 
-  const metrics = [
+  const metrics: Array<{ key: string; label: string; unit: string; best: 'high' | 'low' | null }> = [
     { key: 'score', label: 'Score', unit: '', best: 'high' },
     { key: 'tmDiff', label: 'ΔTm', unit: '°C', best: 'low' },
     { key: 'fwdTm', label: 'Fwd Tm', unit: '°C', best: null },
@@ -794,7 +967,7 @@ function ComparisonModal({ alternatives, currentDesign, onClose, onSelect }) {
 
   return (
     <div className="comparison-modal-overlay" onClick={onClose}>
-      <div className="comparison-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="comparison-modal" onClick={(e: React.MouseEvent<HTMLDivElement>) => e.stopPropagation()}>
         <div className="comparison-header">
           <h3>Compare Alternatives</h3>
           <button type="button" className="close-btn" onClick={onClose}>×</button>
@@ -808,7 +981,7 @@ function ComparisonModal({ alternatives, currentDesign, onClose, onSelect }) {
                   <th key={idx} className="alt-col">
                     <div className="alt-header">
                       <span className="alt-rank">#{alt.originalIdx + 1}</span>
-                      {alt.label && <span className="alt-label">{alt.label}</span>}
+                      {alt.label && <span className="alt-label">{typeof alt.label === 'object' && 'text' in alt.label ? alt.label.text : alt.label}</span>}
                     </div>
                   </th>
                 ))}
@@ -877,20 +1050,21 @@ function ComparisonModal({ alternatives, currentDesign, onClose, onSelect }) {
 
 /**
  * AlternativesPanel - Unified component for displaying primer alternatives
- *
- * @param {Object} props
- * @param {Array} props.alternatives - Array of alternative primer pairs
- * @param {Object} props.alternativeCategories - Categorized alternatives from exhaustive search
- * @param {Object} props.currentDesign - Current/best design (forward, reverse, score)
- * @param {Object} props.originalDesign - Original design for revert functionality
- * @param {boolean} props.isAlternativeSelected - Whether an alternative is currently selected
- * @param {number} props.selectedIndex - Index of currently selected alternative
- * @param {Function} props.onSelectAlternative - Callback when alternative is selected
- * @param {Function} props.onRevert - Callback to revert to original design
- * @param {boolean} props.wasUpgraded - Whether design was auto-upgraded
- * @param {number} props.originalScore - Original score before upgrade
- * @param {Object} props.features - Feature toggles
  */
+interface AlternativesPanelProps {
+  alternatives?: Alternative[];
+  alternativeCategories?: AlternativeCategories | null;
+  currentDesign?: Design;
+  originalDesign?: Design | null;
+  isAlternativeSelected?: boolean;
+  selectedIndex?: number;
+  onSelectAlternative: (alternative: Alternative) => void;
+  onRevert: () => void;
+  wasUpgraded?: boolean;
+  originalScore?: number;
+  features?: Features;
+}
+
 export default function AlternativesPanel({
   alternatives = [],
   alternativeCategories = null,
@@ -903,7 +1077,7 @@ export default function AlternativesPanel({
   wasUpgraded = false,
   originalScore = 0,
   features = {},
-}) {
+}: AlternativesPanelProps) {
   // Default features
   const {
     viewToggle = true,
@@ -920,17 +1094,17 @@ export default function AlternativesPanel({
   const hasCategories = alternativeCategories && Object.keys(alternativeCategories).length > 0;
 
   // Refs
-  const panelRef = useRef(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   // State - default to 'grouped' if categories available, otherwise 'card'
-  const [viewMode, setViewMode] = useState(hasCategories ? 'grouped' : 'card'); // 'card' | 'table' | 'grouped'
+  const [viewMode, setViewMode] = useState<'card' | 'table' | 'grouped'>(hasCategories ? 'grouped' : 'card');
   const [showAll, setShowAll] = useState(false);
-  const [expandedSequences, setExpandedSequences] = useState(new Set());
-  const [compareSelection, setCompareSelection] = useState(new Set());
+  const [expandedSequences, setExpandedSequences] = useState<Set<number>>(new Set());
+  const [compareSelection, setCompareSelection] = useState<Set<number>>(new Set());
   const [dismissedBanner, setDismissedBanner] = useState(false);
-  const [copiedFeedback, setCopiedFeedback] = useState(null);
-  const [sortConfig, setSortConfig] = useState({ field: 'score', direction: 'desc' });
-  const [filterState, setFilterState] = useState({
+  const [copiedFeedback, setCopiedFeedback] = useState<string | null>(null);
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ field: 'score', direction: 'desc' });
+  const [filterState, setFilterState] = useState<FilterState>({
     minScore: 0,
     maxTmDiff: 10,
     requireGcClamp: false,
@@ -979,7 +1153,7 @@ export default function AlternativesPanel({
   const hasActiveFilters = filterState.minScore > 0 || filterState.maxTmDiff < 10 || filterState.requireGcClamp;
 
   // Handlers
-  const handleCopy = useCallback(async (fwd, rev) => {
+  const handleCopy = useCallback(async (fwd?: string, rev?: string) => {
     const text = `Forward: ${fwd}\nReverse: ${rev}`;
     try {
       await navigator.clipboard.writeText(text);
@@ -990,7 +1164,7 @@ export default function AlternativesPanel({
     }
   }, []);
 
-  const toggleExpand = useCallback((idx) => {
+  const toggleExpand = useCallback((idx: number) => {
     setExpandedSequences(prev => {
       const next = new Set(prev);
       if (next.has(idx)) {
@@ -1002,7 +1176,7 @@ export default function AlternativesPanel({
     });
   }, []);
 
-  const toggleCompare = useCallback((idx) => {
+  const toggleCompare = useCallback((idx: number) => {
     setCompareSelection(prev => {
       const next = new Set(prev);
       if (next.has(idx)) {
@@ -1023,7 +1197,7 @@ export default function AlternativesPanel({
     downloadFile(csv, 'alternative_primers.csv', 'text/csv');
   }, [processedAlternatives, compareSelection]);
 
-  const handleSort = useCallback((field) => {
+  const handleSort = useCallback((field: string) => {
     setSortConfig(prev => ({
       field,
       direction: prev.field === field && prev.direction === 'desc' ? 'asc' : 'desc',
@@ -1036,7 +1210,7 @@ export default function AlternativesPanel({
   }, []);
 
   // Apply filter preset
-  const applyPreset = useCallback((presetKey) => {
+  const applyPreset = useCallback((presetKey: string) => {
     const preset = FILTER_PRESETS[presetKey];
     if (preset) {
       setFilterState({
@@ -1057,14 +1231,14 @@ export default function AlternativesPanel({
 
   // Keyboard shortcuts
   useEffect(() => {
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       // Only handle when panel is focused or has focus within
       if (!panelRef.current?.contains(document.activeElement) && document.activeElement !== panelRef.current) {
         return;
       }
 
       // Don't handle if user is typing in an input
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') {
+      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'SELECT' || (e.target as HTMLElement).tagName === 'TEXTAREA') {
         return;
       }
 
@@ -1269,7 +1443,7 @@ export default function AlternativesPanel({
             <select
               id="filter-min-score"
               value={filterState.minScore}
-              onChange={(e) => setFilterState(f => ({ ...f, minScore: parseInt(e.target.value) }))}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterState(f => ({ ...f, minScore: parseInt(e.target.value) }))}
               className={filterState.minScore > 0 ? 'filter-active' : ''}
               aria-label="Filter by minimum score"
             >
@@ -1284,7 +1458,7 @@ export default function AlternativesPanel({
             <select
               id="filter-max-tm"
               value={filterState.maxTmDiff}
-              onChange={(e) => setFilterState(f => ({ ...f, maxTmDiff: parseFloat(e.target.value) }))}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterState(f => ({ ...f, maxTmDiff: parseFloat(e.target.value) }))}
               className={filterState.maxTmDiff < 10 ? 'filter-active' : ''}
               aria-label="Filter by maximum Tm difference"
             >
@@ -1299,7 +1473,7 @@ export default function AlternativesPanel({
               <input
                 type="checkbox"
                 checked={filterState.requireGcClamp}
-                onChange={(e) => setFilterState(f => ({ ...f, requireGcClamp: e.target.checked }))}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFilterState(f => ({ ...f, requireGcClamp: e.target.checked }))}
                 aria-label="Require both primers to have GC clamp"
               />
               Both GC clamps
@@ -1450,7 +1624,7 @@ export default function AlternativesPanel({
               alternative={alt}
               displayIndex={displayIdx}
               isSelected={selectedIndex === alt.originalIdx && isAlternativeSelected}
-              isRecommended={alt.isBetterThanCurrent}
+              isRecommended={alt.isBetterThanCurrent || false}
               isExpanded={expandSequences && expandedSequences.has(alt.originalIdx)}
               isCompareSelected={compare && compareSelection.has(alt.originalIdx)}
               isFocused={focusedIndex === displayIdx}

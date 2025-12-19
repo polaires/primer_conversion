@@ -26,8 +26,275 @@ import {
   DEFAULT_ASSEMBLY_CONFIG,
 } from '../lib/assemblyCore.js';
 
+// ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
+
+type QualityTier = 'excellent' | 'good' | 'acceptable' | 'marginal';
+type Direction = 'Forward' | 'Reverse';
+type ExportFormat = 'idt' | 'csv' | 'fasta';
+type ViewMode = 'circular' | 'linear';
+type PartType = 'promoter' | 'rbs' | 'cds' | 'terminator' | 'other';
+type WarningSeverity = 'high' | 'medium' | 'low' | 'info';
+
+interface PartTypeDefinition {
+  name: string;
+  color: string;
+  icon: string;
+}
+
+interface QualityColorScheme {
+  bg: string;
+  text: string;
+  border: string;
+  badge: string;
+}
+
+interface PrimerInfo {
+  name: string;
+  sequence: string;
+  direction: Direction;
+  fragmentId: string;
+  tm?: number;
+  gc?: number | string;
+  length?: number;
+}
+
+interface ScoreBreakdown {
+  tmInRange?: number;
+  gcInRange?: number;
+  lengthInRange?: number;
+  gcClamp?: number;
+  terminal3DG?: number;
+  hairpin?: number;
+  patternAvoidance?: number;
+  selfComplementarity?: number;
+  crossJunctionHairpin?: number;
+  balancedGC?: number;
+  homopolymer?: number;
+  threePrimeComp?: number;
+  gQuadruplex?: number;
+}
+
+interface ScoreWeights {
+  tmInRange?: number;
+  gcInRange?: number;
+  lengthInRange?: number;
+  gcClamp?: number;
+  terminal3DG?: number;
+  hairpin?: number;
+  patternAvoidance?: number;
+  selfComplementarity?: number;
+  crossJunctionHairpin?: number;
+  balancedGC?: number;
+  homopolymer?: number;
+  threePrimeComp?: number;
+  gQuadruplex?: number;
+}
+
+interface Primer {
+  sequence?: string;
+  tm?: number;
+  tmFull?: number;
+  gcPercent?: number | string;
+  length?: number;
+  hairpinDG?: number;
+  qualityTier?: QualityTier;
+  qualityScore?: number;
+  homologyTail?: string;
+  annealingRegion?: string;
+  scoreBreakdown?: ScoreBreakdown;
+}
+
+interface PrimerPair {
+  forward?: Primer;
+  reverse?: Primer;
+  pair?: {
+    qualityTier?: QualityTier;
+    pairScore?: number;
+    annealingTemp?: number;
+    tmDifference?: number;
+    heterodimerDG?: number;
+  };
+  alternatives?: Array<{
+    selectionReason?: string;
+    pairScore?: number;
+    compositeScore?: number;
+  }>;
+  warnings?: string[];
+}
+
+interface Overlap {
+  sequence?: string;
+  length?: number;
+  tm?: number;
+  gcPercent?: number | string;
+  terminal3DG?: number | string;
+  qualityTier?: QualityTier;
+  compositeScore?: number;
+  offset?: number;
+  warnings?: string[];
+  scores?: ScoreBreakdown;
+}
+
+interface Junction {
+  overlap?: Overlap;
+  alternatives?: Overlap[];
+  optimizationSummary?: OptimizationSummary;
+}
+
+interface Fragment {
+  id?: string;
+  sequence?: string;
+  length?: number;
+  originalLength?: number;
+  type?: PartType;
+  primers?: PrimerPair;
+  startAngle?: number;
+  sweepAngle?: number;
+  midAngle?: number;
+  index?: number;
+  displayLength?: number;
+}
+
+interface AssemblyQuality {
+  tier?: QualityTier;
+  averageScore?: number;
+  minimumScore?: number;
+  weakestJunction?: number;
+}
+
+interface OptimizationSummary {
+  totalEvaluated?: number;
+  validCount?: number;
+  bestScore?: number;
+  scoreDistribution?: {
+    excellent: number;
+    good: number;
+    acceptable: number;
+    marginal: number;
+  };
+}
+
+interface AssemblyResult {
+  fragments?: Fragment[];
+  junctions?: Junction[];
+  quality?: AssemblyQuality;
+  warnings?: string[];
+  optimization?: {
+    description?: string;
+  };
+  error?: string;
+  assembly?: {
+    totalLength?: number;
+  };
+}
+
+interface AssemblyConfig {
+  method?: string;
+  autoOptimize?: boolean;
+  [key: string]: unknown;
+}
+
+// ============================================================================
+// COMPONENT PROP INTERFACES
+// ============================================================================
+
+interface ExportPanelProps {
+  fragments?: Fragment[];
+  junctions?: Junction[];
+  variant?: string;
+  onExport?: (format: string, content: string) => void;
+}
+
+interface AssemblyQualityGaugeProps {
+  quality?: AssemblyQuality;
+  junctionCount?: number;
+  fragmentCount?: number;
+}
+
+interface ConstructVisualizationProps {
+  fragments?: Fragment[];
+  junctions?: Junction[];
+  variant?: string;
+  totalLength?: number;
+}
+
+interface JunctionCompatibilityMatrixProps {
+  junctions?: Junction[];
+}
+
+interface EnhancedPrimerCardProps {
+  primer?: Primer;
+  direction: Direction;
+  fragmentId: string;
+  onCopy?: (sequence: string) => void;
+}
+
+interface ScoreBarProps {
+  score: number;
+  label: string;
+  max?: number;
+  showValue?: boolean;
+}
+
+interface QualityBadgeProps {
+  tier?: QualityTier;
+  score?: number;
+}
+
+interface ScoreBreakdownPanelProps {
+  scores: ScoreBreakdown;
+  weights: ScoreWeights;
+  title?: string;
+}
+
+interface WarningItemProps {
+  warning: string;
+  severity?: WarningSeverity;
+}
+
+interface OverlapCardProps {
+  overlap: Overlap;
+  index: number;
+  isSelected?: boolean;
+  onSelect?: (overlap: Overlap) => void;
+  showDetails?: boolean;
+  isClickable?: boolean;
+}
+
+interface PairQualityPanelProps {
+  pair?: {
+    qualityTier?: QualityTier;
+    pairScore?: number;
+    annealingTemp?: number;
+    tmDifference?: number;
+    heterodimerDG?: number;
+  };
+}
+
+interface AlternativesPanelProps {
+  alternatives?: Array<{
+    selectionReason?: string;
+    pairScore?: number;
+    compositeScore?: number;
+  }>;
+  onSelect?: (alt: unknown) => void;
+}
+
+interface OptimizationSummaryProps {
+  summary?: OptimizationSummary;
+}
+
+interface IsothermalAssemblyPanelProps {
+  fragments?: Fragment[];
+  variant?: string;
+  config?: Partial<AssemblyConfig>;
+  onPrimersCopied?: (text: string) => void;
+}
+
 // Part type definitions with colors (matching Golden Gate)
-const PART_TYPES = {
+const PART_TYPES: Record<PartType, PartTypeDefinition> = {
   promoter: { name: 'Promoter', color: '#ef4444', icon: 'P' },
   rbs: { name: 'RBS', color: '#f97316', icon: 'R' },
   cds: { name: 'CDS', color: '#22c55e', icon: 'C' },
@@ -36,7 +303,7 @@ const PART_TYPES = {
 };
 
 // Quality tier color mapping
-const QUALITY_COLORS = {
+const QUALITY_COLORS: Record<QualityTier, QualityColorScheme> = {
   excellent: { bg: '#dcfce7', text: '#166534', border: '#86efac', badge: '#22c55e' },
   good: { bg: '#dbeafe', text: '#1e40af', border: '#93c5fd', badge: '#3b82f6' },
   acceptable: { bg: '#fef3c7', text: '#92400e', border: '#fcd34d', badge: '#f59e0b' },
@@ -44,7 +311,7 @@ const QUALITY_COLORS = {
 };
 
 // Score color gradient
-function getScoreColor(score) {
+function getScoreColor(score: number): string {
   if (score >= 80) return '#22c55e';
   if (score >= 65) return '#84cc16';
   if (score >= 50) return '#f59e0b';
@@ -53,7 +320,7 @@ function getScoreColor(score) {
 }
 
 // Get quality status text
-function getQualityStatus(score) {
+function getQualityStatus(score: number): string {
   if (score >= 80) return 'Excellent';
   if (score >= 65) return 'Good';
   if (score >= 50) return 'Acceptable';
@@ -63,18 +330,18 @@ function getQualityStatus(score) {
 // ============================================================================
 // EXPORT PANEL - IDT, CSV, FASTA formats
 // ============================================================================
-function ExportPanel({ fragments, junctions, variant, onExport }) {
-  const [copiedFormat, setCopiedFormat] = useState(null);
-  const [showExportMenu, setShowExportMenu] = useState(false);
+function ExportPanel({ fragments, junctions, variant, onExport }: ExportPanelProps): React.ReactElement {
+  const [copiedFormat, setCopiedFormat] = useState<ExportFormat | null>(null);
+  const [showExportMenu, setShowExportMenu] = useState<boolean>(false);
 
   // Generate all primers list
-  const allPrimers = useMemo(() => {
+  const allPrimers = useMemo<PrimerInfo[]>(() => {
     if (!fragments) return [];
     return fragments.flatMap((frag, i) => [
       {
         name: `${frag.id || `Fragment_${i + 1}`}_F`,
         sequence: frag.primers?.forward?.sequence || '',
-        direction: 'Forward',
+        direction: 'Forward' as Direction,
         fragmentId: frag.id || `Fragment ${i + 1}`,
         tm: frag.primers?.forward?.tm,
         gc: frag.primers?.forward?.gcPercent,
@@ -83,7 +350,7 @@ function ExportPanel({ fragments, junctions, variant, onExport }) {
       {
         name: `${frag.id || `Fragment_${i + 1}`}_R`,
         sequence: frag.primers?.reverse?.sequence || '',
-        direction: 'Reverse',
+        direction: 'Reverse' as Direction,
         fragmentId: frag.id || `Fragment ${i + 1}`,
         tm: frag.primers?.reverse?.tm,
         gc: frag.primers?.reverse?.gcPercent,
@@ -93,7 +360,7 @@ function ExportPanel({ fragments, junctions, variant, onExport }) {
   }, [fragments]);
 
   // IDT format (tab-separated for bulk order)
-  const generateIDTFormat = useCallback(() => {
+  const generateIDTFormat = useCallback((): string => {
     const lines = allPrimers.map(p =>
       `${p.name}\t${p.sequence}\t25nm\tSTD`
     );
@@ -101,7 +368,7 @@ function ExportPanel({ fragments, junctions, variant, onExport }) {
   }, [allPrimers]);
 
   // CSV format with full details
-  const generateCSVFormat = useCallback(() => {
+  const generateCSVFormat = useCallback((): string => {
     const headers = ['Name', 'Sequence', 'Direction', 'Fragment', 'Length (bp)', 'Tm (°C)', 'GC (%)'];
     const rows = allPrimers.map(p => [
       p.name,
@@ -116,13 +383,13 @@ function ExportPanel({ fragments, junctions, variant, onExport }) {
   }, [allPrimers]);
 
   // FASTA format
-  const generateFASTAFormat = useCallback(() => {
+  const generateFASTAFormat = useCallback((): string => {
     return allPrimers.map(p =>
       `>${p.name} ${p.fragmentId} ${p.direction} Tm=${p.tm?.toFixed(1) || '-'}C\n${p.sequence}`
     ).join('\n');
   }, [allPrimers]);
 
-  const handleExport = async (format) => {
+  const handleExport = async (format: ExportFormat): Promise<void> => {
     let content = '';
     let filename = '';
     let mimeType = 'text/plain';
@@ -157,7 +424,7 @@ function ExportPanel({ fragments, junctions, variant, onExport }) {
     onExport?.(format, content);
   };
 
-  const handleDownload = (format) => {
+  const handleDownload = (format: ExportFormat): void => {
     let content = '';
     let filename = '';
     let mimeType = 'text/plain';
@@ -269,7 +536,7 @@ function ExportPanel({ fragments, junctions, variant, onExport }) {
 // ============================================================================
 // ASSEMBLY QUALITY GAUGE - Visual circular progress indicator
 // ============================================================================
-function AssemblyQualityGauge({ quality, junctionCount, fragmentCount }) {
+function AssemblyQualityGauge({ quality, junctionCount, fragmentCount }: AssemblyQualityGaugeProps): React.ReactElement {
   const score = quality?.averageScore ?? 0;
   const minScore = quality?.minimumScore ?? 0;
   const tier = quality?.tier || 'marginal';
@@ -335,13 +602,13 @@ function AssemblyQualityGauge({ quality, junctionCount, fragmentCount }) {
 // ============================================================================
 // CONSTRUCT VISUALIZATION - Unified circular/linear view
 // ============================================================================
-function ConstructVisualization({ fragments, junctions, variant, totalLength }) {
-  const [viewMode, setViewMode] = useState('circular');
-  const [hoveredFragment, setHoveredFragment] = useState(null);
-  const [hoveredJunction, setHoveredJunction] = useState(null);
+function ConstructVisualization({ fragments, junctions, variant, totalLength }: ConstructVisualizationProps): React.ReactElement {
+  const [viewMode, setViewMode] = useState<ViewMode>('circular');
+  const [hoveredFragment, setHoveredFragment] = useState<number | null>(null);
+  const [hoveredJunction, setHoveredJunction] = useState<number | null>(null);
 
   // Calculate angles for circular view
-  const fragmentAngles = useMemo(() => {
+  const fragmentAngles = useMemo<Fragment[]>(() => {
     if (!fragments?.length) return [];
     const total = fragments.reduce((sum, f) => sum + (f.originalLength || f.length || 100), 0);
     let currentAngle = -90;
@@ -363,7 +630,7 @@ function ConstructVisualization({ fragments, junctions, variant, totalLength }) 
   }, [fragments]);
 
   // Generate arc path for SVG
-  const describeArc = (cx, cy, r, startAngle, endAngle) => {
+  const describeArc = (cx: number, cy: number, r: number, startAngle: number, endAngle: number): string => {
     const start = {
       x: cx + r * Math.cos(Math.PI * startAngle / 180),
       y: cy + r * Math.sin(Math.PI * startAngle / 180),
@@ -379,7 +646,7 @@ function ConstructVisualization({ fragments, junctions, variant, totalLength }) 
   const cx = 150, cy = 150, r = 100;
 
   // Get color for fragment
-  const getFragmentColor = (frag, index) => {
+  const getFragmentColor = (frag: Fragment, index: number): string => {
     if (frag.type && PART_TYPES[frag.type]) {
       return PART_TYPES[frag.type].color;
     }
@@ -426,7 +693,7 @@ function ConstructVisualization({ fragments, junctions, variant, totalLength }) 
               return (
                 <g key={i}>
                   <path
-                    d={describeArc(cx, cy, r, frag.startAngle, frag.startAngle + frag.sweepAngle - 2)}
+                    d={describeArc(cx, cy, r, frag.startAngle || 0, (frag.startAngle || 0) + (frag.sweepAngle || 0) - 2)}
                     fill="none"
                     stroke={color}
                     strokeWidth={isHovered ? 28 : 24}
@@ -443,11 +710,11 @@ function ConstructVisualization({ fragments, junctions, variant, totalLength }) 
             {junctions?.map((junction, i) => {
               const frag = fragmentAngles[i];
               if (!frag) return null;
-              const angle = (frag.startAngle * Math.PI) / 180;
+              const angle = ((frag.startAngle || 0) * Math.PI) / 180;
               const jx = cx + r * Math.cos(angle);
               const jy = cy + r * Math.sin(angle);
               const isHovered = hoveredJunction === i;
-              const colors = QUALITY_COLORS[junction.overlap?.qualityTier] || QUALITY_COLORS.good;
+              const colors = QUALITY_COLORS[junction.overlap?.qualityTier || 'good'] || QUALITY_COLORS.good;
 
               return (
                 <g
@@ -490,7 +757,7 @@ function ConstructVisualization({ fragments, junctions, variant, totalLength }) 
             {/* Part labels */}
             {fragmentAngles.map((frag, i) => {
               const labelR = r - 40;
-              const angle = (frag.midAngle * Math.PI) / 180;
+              const angle = ((frag.midAngle || 0) * Math.PI) / 180;
               const lx = cx + labelR * Math.cos(angle);
               const ly = cy + labelR * Math.sin(angle);
 
@@ -544,7 +811,7 @@ function ConstructVisualization({ fragments, junctions, variant, totalLength }) 
             {fragments?.map((frag, i) => {
               const color = getFragmentColor(frag, i);
               const junction = junctions?.[i];
-              const junctionColors = QUALITY_COLORS[junction?.overlap?.qualityTier] || QUALITY_COLORS.good;
+              const junctionColors = QUALITY_COLORS[junction?.overlap?.qualityTier || 'good'] || QUALITY_COLORS.good;
 
               return (
                 <React.Fragment key={i}>
@@ -578,10 +845,10 @@ function ConstructVisualization({ fragments, junctions, variant, totalLength }) 
               );
             })}
             {/* Final junction */}
-            {junctions?.length > 0 && (
+            {junctions && junctions.length > 0 && (
               <div
                 className={`iso-junction-node ${hoveredJunction === junctions.length ? 'highlighted' : ''}`}
-                style={{ borderColor: QUALITY_COLORS[junctions[0]?.overlap?.qualityTier]?.badge || '#3b82f6' }}
+                style={{ borderColor: QUALITY_COLORS[junctions[0]?.overlap?.qualityTier || 'good']?.badge || '#3b82f6' }}
               >
                 <span className="iso-junction-label">J1</span>
                 <span className="iso-junction-seq">circular</span>
@@ -606,7 +873,7 @@ function ConstructVisualization({ fragments, junctions, variant, totalLength }) 
           <div className="iso-tooltip-content">
             <span>{(fragments[hoveredFragment].originalLength || fragments[hoveredFragment].length || 0).toLocaleString()} bp</span>
             {fragments[hoveredFragment].type && (
-              <span className="iso-tooltip-type">{PART_TYPES[fragments[hoveredFragment].type]?.name || 'Other'}</span>
+              <span className="iso-tooltip-type">{PART_TYPES[fragments[hoveredFragment].type!]?.name || 'Other'}</span>
             )}
           </div>
         </div>
@@ -618,11 +885,11 @@ function ConstructVisualization({ fragments, junctions, variant, totalLength }) 
 // ============================================================================
 // OVERLAP TM COMPARISON - Shows Tm differences between junctions
 // ============================================================================
-function JunctionCompatibilityMatrix({ junctions }) {
+function JunctionCompatibilityMatrix({ junctions }: JunctionCompatibilityMatrixProps): React.ReactElement | null {
   if (!junctions || junctions.length < 2) return null;
 
   // Get junction Tms
-  const junctionTms = useMemo(() => {
+  const junctionTms = useMemo<number[]>(() => {
     return junctions.map(j => j.overlap?.tm || 50);
   }, [junctions]);
 
@@ -642,7 +909,7 @@ function JunctionCompatibilityMatrix({ junctions }) {
     );
   }, [junctions, junctionTms]);
 
-  const getCellColor = (cell) => {
+  const getCellColor = (cell: { type: string; tm?: number; tmDiff?: number; tm1?: number; tm2?: number }): string => {
     if (cell.type === 'self') return '#f3f4f6';
     if (cell.type === 'caution') return '#fef3c7'; // Yellow - similar Tm, mispriming risk
     if (cell.type === 'ok') return '#dbeafe'; // Blue - moderate
@@ -728,13 +995,13 @@ function JunctionCompatibilityMatrix({ junctions }) {
 // ============================================================================
 // ENHANCED PRIMER CARD - Better visual structure display
 // ============================================================================
-function EnhancedPrimerCard({ primer, direction, fragmentId, onCopy }) {
-  const [copied, setCopied] = useState(false);
-  const [showBreakdown, setShowBreakdown] = useState(false);
+function EnhancedPrimerCard({ primer, direction, fragmentId, onCopy }: EnhancedPrimerCardProps): React.ReactElement {
+  const [copied, setCopied] = useState<boolean>(false);
+  const [showBreakdown, setShowBreakdown] = useState<boolean>(false);
   const safePrimer = primer || {};
-  const colors = QUALITY_COLORS[safePrimer.qualityTier] || QUALITY_COLORS.marginal;
+  const colors = QUALITY_COLORS[safePrimer.qualityTier || 'marginal'] || QUALITY_COLORS.marginal;
 
-  const handleCopy = () => {
+  const handleCopy = (): void => {
     if (safePrimer.sequence) {
       navigator.clipboard.writeText(safePrimer.sequence);
       setCopied(true);
@@ -743,8 +1010,8 @@ function EnhancedPrimerCard({ primer, direction, fragmentId, onCopy }) {
     }
   };
 
-  const formatTm = (tm) => (typeof tm === 'number' && !isNaN(tm)) ? tm.toFixed(1) : '-';
-  const formatDG = (dg) => (typeof dg === 'number' && !isNaN(dg)) ? dg.toFixed(1) : '-';
+  const formatTm = (tm?: number): string => (typeof tm === 'number' && !isNaN(tm)) ? tm.toFixed(1) : '-';
+  const formatDG = (dg?: number): string => (typeof dg === 'number' && !isNaN(dg)) ? dg.toFixed(1) : '-';
 
   // Calculate tail and annealing lengths
   const tailLength = safePrimer.homologyTail?.length || 0;
@@ -877,7 +1144,7 @@ function EnhancedPrimerCard({ primer, direction, fragmentId, onCopy }) {
 }
 
 // Score bar component
-function ScoreBar({ score, label, max = 100, showValue = true }) {
+function ScoreBar({ score, label, max = 100, showValue = true }: ScoreBarProps): React.ReactElement {
   const percentage = Math.min(100, (score / max) * 100);
   const color = getScoreColor(score);
 
@@ -898,7 +1165,7 @@ function ScoreBar({ score, label, max = 100, showValue = true }) {
 }
 
 // Quality badge component
-function QualityBadge({ tier = 'marginal', score }) {
+function QualityBadge({ tier = 'marginal', score }: QualityBadgeProps): React.ReactElement {
   const safeTier = tier || 'marginal';
   const colors = QUALITY_COLORS[safeTier] || QUALITY_COLORS.marginal;
   return (
@@ -918,11 +1185,17 @@ function QualityBadge({ tier = 'marginal', score }) {
 }
 
 // Detailed score breakdown panel
-function ScoreBreakdownPanel({ scores, weights, title }) {
+function ScoreBreakdownPanel({ scores, weights, title }: ScoreBreakdownPanelProps): React.ReactElement {
   const weightedScores = useMemo(() => {
-    const entries = [];
+    const entries: Array<{
+      key: string;
+      label: string;
+      score: number;
+      weight: number;
+      contribution: number;
+    }> = [];
     for (const [key, score] of Object.entries(scores)) {
-      const weight = weights[key] || 0;
+      const weight = weights[key as keyof ScoreWeights] || 0;
       if (weight > 0) {
         entries.push({
           key,
@@ -964,8 +1237,8 @@ function ScoreBreakdownPanel({ scores, weights, title }) {
 }
 
 // Format score key to readable label
-function formatScoreLabel(key) {
-  const labels = {
+function formatScoreLabel(key: string): string {
+  const labels: Record<string, string> = {
     tmInRange: 'Tm in Range',
     gcInRange: 'GC in Range',
     lengthInRange: 'Length in Range',
@@ -984,7 +1257,7 @@ function formatScoreLabel(key) {
 }
 
 // Helper to classify warnings - shift messages are informational, not real warnings
-function classifyWarning(warning) {
+function classifyWarning(warning: string): { isOptimizationNote: boolean; severity: WarningSeverity } {
   const shiftPatterns = [
     /shifted/i,
     /position shifted/i,
@@ -1000,10 +1273,10 @@ function classifyWarning(warning) {
 }
 
 // Filter real warnings from optimization notes
-function filterWarnings(warnings) {
+function filterWarnings(warnings?: string[]): { realWarnings: string[]; optimizationNotes: string[] } {
   if (!warnings) return { realWarnings: [], optimizationNotes: [] };
-  const realWarnings = [];
-  const optimizationNotes = [];
+  const realWarnings: string[] = [];
+  const optimizationNotes: string[] = [];
   warnings.forEach(w => {
     const { isOptimizationNote } = classifyWarning(w);
     if (isOptimizationNote) {
@@ -1016,8 +1289,8 @@ function filterWarnings(warnings) {
 }
 
 // Warning item component
-function WarningItem({ warning, severity = 'medium' }) {
-  const severityColors = {
+function WarningItem({ warning, severity = 'medium' }: WarningItemProps): React.ReactElement {
+  const severityColors: Record<WarningSeverity, { bg: string; border: string; icon: string }> = {
     high: { bg: '#fef2f2', border: '#ef4444', icon: '#dc2626' },
     medium: { bg: '#fffbeb', border: '#f59e0b', icon: '#d97706' },
     low: { bg: '#eff6ff', border: '#3b82f6', icon: '#2563eb' },
@@ -1025,7 +1298,7 @@ function WarningItem({ warning, severity = 'medium' }) {
   };
   const colors = severityColors[severity] || severityColors.medium;
 
-  const icons = {
+  const icons: Record<WarningSeverity, React.ReactElement> = {
     high: <path d="M12 5.99L19.53 19H4.47L12 5.99M12 2L1 21h22L12 2zm1 14h-2v2h2v-2zm0-6h-2v4h2v-4z" />,
     medium: <path d="M12 5.99L19.53 19H4.47L12 5.99M12 2L1 21h22L12 2zm1 14h-2v2h2v-2zm0-6h-2v4h2v-4z" />,
     low: <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />,
@@ -1049,8 +1322,8 @@ function WarningItem({ warning, severity = 'medium' }) {
 }
 
 // Junction info tooltip component
-function JunctionInfoTooltip() {
-  const [show, setShow] = useState(false);
+function JunctionInfoTooltip(): React.ReactElement {
+  const [show, setShow] = useState<boolean>(false);
 
   return (
     <div className="iso-info-tooltip-wrapper">
@@ -1084,9 +1357,9 @@ function JunctionInfoTooltip() {
 }
 
 // Overlap card component
-function OverlapCard({ overlap, index, isSelected, onSelect, showDetails = false, isClickable = false }) {
-  const [expanded, setExpanded] = useState(false);
-  const colors = QUALITY_COLORS[overlap.qualityTier] || QUALITY_COLORS.marginal;
+function OverlapCard({ overlap, index, isSelected, onSelect, showDetails = false, isClickable = false }: OverlapCardProps): React.ReactElement {
+  const [expanded, setExpanded] = useState<boolean>(false);
+  const colors = QUALITY_COLORS[overlap.qualityTier || 'marginal'] || QUALITY_COLORS.marginal;
 
   return (
     <div
@@ -1099,7 +1372,7 @@ function OverlapCard({ overlap, index, isSelected, onSelect, showDetails = false
           <span className="iso-overlap-index">Junction {index + 1}</span>
           <QualityBadge tier={overlap.qualityTier} score={overlap.compositeScore} />
         </div>
-        {overlap.offset > 0 && (
+        {overlap.offset && overlap.offset > 0 && (
           <span className="iso-offset-badge">+{overlap.offset}bp shifted</span>
         )}
       </div>
@@ -1163,7 +1436,7 @@ function OverlapCard({ overlap, index, isSelected, onSelect, showDetails = false
 }
 
 // Pair quality panel
-function PairQualityPanel({ pair }) {
+function PairQualityPanel({ pair }: PairQualityPanelProps): React.ReactElement | null {
   if (!pair) return null;
 
   return (
@@ -1179,13 +1452,13 @@ function PairQualityPanel({ pair }) {
         </div>
         <div className="iso-pair-metric">
           <span className="iso-pair-label">Tm Difference</span>
-          <span className="iso-pair-value" style={{ color: pair.tmDifference <= 3 ? '#22c55e' : pair.tmDifference <= 5 ? '#f59e0b' : '#ef4444' }}>
+          <span className="iso-pair-value" style={{ color: (pair.tmDifference || 0) <= 3 ? '#22c55e' : (pair.tmDifference || 0) <= 5 ? '#f59e0b' : '#ef4444' }}>
             {pair.tmDifference}°C
           </span>
         </div>
         <div className="iso-pair-metric">
           <span className="iso-pair-label">Heterodimer ΔG</span>
-          <span className="iso-pair-value" style={{ color: pair.heterodimerDG >= -6 ? '#22c55e' : pair.heterodimerDG >= -9 ? '#f59e0b' : '#ef4444' }}>
+          <span className="iso-pair-value" style={{ color: (pair.heterodimerDG || 0) >= -6 ? '#22c55e' : (pair.heterodimerDG || 0) >= -9 ? '#f59e0b' : '#ef4444' }}>
             {pair.heterodimerDG} kcal/mol
           </span>
         </div>
@@ -1195,7 +1468,7 @@ function PairQualityPanel({ pair }) {
 }
 
 // Alternatives panel
-function AlternativesPanel({ alternatives, onSelect }) {
+function AlternativesPanel({ alternatives, onSelect }: AlternativesPanelProps): React.ReactElement | null {
   if (!alternatives || alternatives.length === 0) return null;
 
   return (
@@ -1218,7 +1491,7 @@ function AlternativesPanel({ alternatives, onSelect }) {
 }
 
 // Optimization summary
-function OptimizationSummary({ summary }) {
+function OptimizationSummary({ summary }: OptimizationSummaryProps): React.ReactElement | null {
   if (!summary) return null;
 
   return (
@@ -1239,7 +1512,7 @@ function OptimizationSummary({ summary }) {
           <span className="iso-stat-label">Valid Candidates</span>
         </div>
         <div className="iso-stat">
-          <span className="iso-stat-value" style={{ color: getScoreColor(summary.bestScore) }}>
+          <span className="iso-stat-value" style={{ color: getScoreColor(summary.bestScore || 0) }}>
             {summary.bestScore?.toFixed(1)}
           </span>
           <span className="iso-stat-label">Best Score</span>
@@ -1289,13 +1562,13 @@ export default function IsothermalAssemblyPanel({
   variant = 'nebuilder_hifi',
   config = {},
   onPrimersCopied,
-}) {
-  const [activeTab, setActiveTab] = useState('overview');
-  const [selectedJunction, setSelectedJunction] = useState(0);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+}: IsothermalAssemblyPanelProps): React.ReactElement {
+  const [activeTab, setActiveTab] = useState<'overview' | 'construct' | 'primers' | 'junctions' | 'protocol'>('overview');
+  const [selectedJunction, setSelectedJunction] = useState<number>(0);
+  const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
 
   // Merge config with defaults and enable autoOptimize
-  const assemblyConfig = useMemo(() => ({
+  const assemblyConfig = useMemo<AssemblyConfig>(() => ({
     ...DEFAULT_ASSEMBLY_CONFIG,
     ...config,
     method: variant === 'nebuilder_hifi' ? 'NEBUILDER_HIFI' : 'GIBSON',
@@ -1303,19 +1576,19 @@ export default function IsothermalAssemblyPanel({
   }), [variant, config]);
 
   // Run assembly design
-  const assemblyResult = useMemo(() => {
+  const assemblyResult = useMemo<AssemblyResult | null>(() => {
     if (!fragments || fragments.length < 2) return null;
 
     try {
-      return designAssembly(fragments, assemblyConfig);
+      return designAssembly(fragments, assemblyConfig) as AssemblyResult;
     } catch (error) {
       console.error('Assembly design error:', error);
-      return { error: error.message };
+      return { error: (error as Error).message };
     }
   }, [fragments, assemblyConfig]);
 
   // Get total length from assembly result (already calculated by designAssembly)
-  const totalLength = useMemo(() => {
+  const totalLength = useMemo<number>(() => {
     // Use pre-calculated totalLength from assembly result, or calculate from fragments
     if (assemblyResult?.assembly?.totalLength) {
       return assemblyResult.assembly.totalLength;
@@ -1325,7 +1598,7 @@ export default function IsothermalAssemblyPanel({
   }, [assemblyResult]);
 
   // Handle copy
-  const handleCopy = useCallback((text) => {
+  const handleCopy = useCallback((text: string) => {
     onPrimersCopied?.(text);
   }, [onPrimersCopied]);
 
@@ -1363,7 +1636,7 @@ export default function IsothermalAssemblyPanel({
   }
 
   const { fragments: fragmentDesigns, junctions, quality = {}, warnings, optimization } = assemblyResult;
-  const safeQuality = {
+  const safeQuality: AssemblyQuality = {
     tier: quality?.tier || 'good',
     averageScore: quality?.averageScore ?? 0,
     minimumScore: quality?.minimumScore ?? 0,
@@ -1418,13 +1691,13 @@ export default function IsothermalAssemblyPanel({
           className={`iso-tab ${activeTab === 'primers' ? 'active' : ''}`}
           onClick={() => setActiveTab('primers')}
         >
-          Primers ({fragmentDesigns?.length * 2})
+          Primers ({(fragmentDesigns?.length || 0) * 2})
         </button>
         <button
           className={`iso-tab ${activeTab === 'junctions' ? 'active' : ''}`}
           onClick={() => setActiveTab('junctions')}
         >
-          Junctions ({junctions?.length})
+          Junctions ({junctions?.length || 0})
         </button>
         <button
           className={`iso-tab ${activeTab === 'protocol' ? 'active' : ''}`}
@@ -1559,7 +1832,7 @@ export default function IsothermalAssemblyPanel({
             </div>
 
             {/* Junction Compatibility Matrix */}
-            {junctions?.length >= 2 && (
+            {junctions && junctions.length >= 2 && (
               <JunctionCompatibilityMatrix junctions={junctions} />
             )}
           </div>
@@ -1578,26 +1851,26 @@ export default function IsothermalAssemblyPanel({
 
                 <div className="iso-primers-grid">
                   <EnhancedPrimerCard
-                    primer={frag.primers.forward}
+                    primer={frag.primers?.forward}
                     direction="Forward"
                     fragmentId={frag.id || `Fragment_${i + 1}`}
                     onCopy={handleCopy}
                   />
                   <EnhancedPrimerCard
-                    primer={frag.primers.reverse}
+                    primer={frag.primers?.reverse}
                     direction="Reverse"
                     fragmentId={frag.id || `Fragment_${i + 1}`}
                     onCopy={handleCopy}
                   />
                 </div>
 
-                <PairQualityPanel pair={frag.primers.pair} />
+                <PairQualityPanel pair={frag.primers?.pair} />
 
-                {frag.primers.alternatives && frag.primers.alternatives.length > 0 && (
+                {frag.primers?.alternatives && frag.primers.alternatives.length > 0 && (
                   <AlternativesPanel alternatives={frag.primers.alternatives} />
                 )}
 
-                {frag.primers.warnings && frag.primers.warnings.length > 0 && (
+                {frag.primers?.warnings && frag.primers.warnings.length > 0 && (
                   <div className="iso-primer-warnings">
                     {frag.primers.warnings.map((w, j) => (
                       <WarningItem key={j} warning={w} severity="low" />
@@ -1638,20 +1911,20 @@ export default function IsothermalAssemblyPanel({
                   <span>Current Selection</span>
                 </div>
                 <OverlapCard
-                  overlap={junctions[selectedJunction].overlap}
+                  overlap={junctions[selectedJunction].overlap!}
                   index={selectedJunction}
                   isSelected={true}
                   showDetails={true}
                 />
 
-                {junctions[selectedJunction].alternatives?.length > 0 && (
+                {junctions[selectedJunction].alternatives && junctions[selectedJunction].alternatives!.length > 0 && (
                   <div className="iso-junction-alternatives">
                     <h5>
                       Alternative Overlaps
                       <span className="iso-alt-hint">Click to use instead</span>
                     </h5>
                     <div className="iso-alternatives-grid">
-                      {junctions[selectedJunction].alternatives.map((alt, i) => (
+                      {junctions[selectedJunction].alternatives!.map((alt, i) => (
                         <OverlapCard
                           key={i}
                           overlap={alt}
@@ -1735,8 +2008,8 @@ export default function IsothermalAssemblyPanel({
                   <div className="iso-step-content">
                     <span className="iso-step-title">Incubate</span>
                     <span className="iso-step-detail">
-                      50°C for {fragmentDesigns?.length <= 3 ? '15 minutes' : '60 minutes'}
-                      {fragmentDesigns?.length > 3 && ' (extended time for >3 fragments)'}
+                      50°C for {(fragmentDesigns?.length || 0) <= 3 ? '15 minutes' : '60 minutes'}
+                      {(fragmentDesigns?.length || 0) > 3 && ' (extended time for >3 fragments)'}
                     </span>
                   </div>
                 </div>

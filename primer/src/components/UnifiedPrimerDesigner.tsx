@@ -34,6 +34,214 @@ import HairpinDiagram from './HairpinDiagram.jsx';
 import { AlternativesPanel, EnhancedAnalysisSection } from './primers/index.js';
 import ScoreBreakdownPopup from './primers/ScoreBreakdownPopup.jsx';
 
+// Type definitions
+interface SequenceInfo {
+  format: string;
+  id: string;
+  description: string;
+}
+
+interface PrimerData {
+  sequence: string;
+  tm: number;
+  gc: number;
+  hasGCClamp?: boolean;
+  gcPercent?: string;
+  length?: number;
+  start?: number;
+  end?: number;
+  terminal3DG?: number;
+  hairpinDG?: number;
+  selfDimerDG?: number;
+  gcContent?: number;
+}
+
+interface DesignResult {
+  forward: PrimerData;
+  reverse: PrimerData;
+  quality?: string;
+  qualityTier?: string;
+  compositeScore?: number;
+  effectiveScore?: number;
+  criticalWarnings?: number;
+  tmDifference?: number;
+  annealingTemp?: number;
+  description?: string;
+  type?: string;
+  design?: string;
+  strategy?: string;
+  isLibrary?: boolean;
+  protocol?: Protocol;
+  alternateDesigns?: AlternateDesign[];
+  alternativePrimers?: AlternateDesign[];
+  alternativeCategories?: any;
+  isAlternativeSelected?: boolean;
+  selectedAlternateIdx?: number;
+  wasUpgraded?: boolean;
+  originalScore?: number;
+  originalSequence?: string;
+  mutatedSequence?: string;
+  position?: number;
+  nucleotidePosition?: number;
+  deleteLength?: number;
+  deletionLength?: number;
+  deletedSequence?: string;
+  insertSequence?: string;
+  replacement?: string;
+  oldCodon?: string;
+  newCodon?: string;
+  codonUsage?: number;
+  forwardPiecewiseScores?: any;
+  reversePiecewiseScores?: any;
+}
+
+interface AlternateDesign {
+  forward: PrimerData;
+  reverse: PrimerData;
+  compositeScore?: number;
+  score?: number;
+  qualityTier?: string;
+  design?: string;
+  heterodimerDG?: number;
+  originalIdx?: number;
+}
+
+interface Protocol {
+  name: string;
+  steps?: ProtocolStep[];
+  notes?: string[];
+}
+
+interface ProtocolStep {
+  name: string;
+  temp?: string;
+  time?: string;
+  substeps?: SubStep[];
+}
+
+interface SubStep {
+  name: string;
+  temp: string;
+  time: string;
+}
+
+interface EnhancedAnalysis {
+  forward?: {
+    hairpinDG?: number;
+    selfDimerDG?: number;
+  };
+  reverse?: {
+    hairpinDG?: number;
+    selfDimerDG?: number;
+  };
+  heterodimer?: {
+    heterodimerDG?: number;
+    severity?: string;
+    dimerType?: string;
+    isExpectedOverlap?: boolean;
+    overlapLength?: number;
+  };
+  offTargets?: {
+    forward?: {
+      offTargetCount?: number;
+    };
+    reverse?: {
+      offTargetCount?: number;
+    };
+  };
+  fwdTmComparison?: any;
+}
+
+interface CollapsedSections {
+  summary: boolean;
+  primers: boolean;
+  analysis: boolean;
+  pcr: boolean;
+  visualization: boolean;
+  protocol: boolean;
+  alternates: boolean;
+}
+
+interface DesignOptions {
+  strategy: string;
+  optimalTm: number;
+  minTm: number;
+  maxTm: number;
+  minPrimerLength: number;
+  maxPrimerLength: number;
+  minGC: number;
+  maxGC: number;
+  circular: boolean;
+  useSmartDesign: boolean;
+  confineTo5Tails: boolean;
+  exhaustiveSearch: boolean;
+}
+
+interface LibraryInfo {
+  isLibrary: boolean;
+  size: number;
+}
+
+interface SelectionInfo {
+  start: number;
+  end: number;
+  length: number;
+  sequence: string;
+  isWrapped: boolean;
+}
+
+interface BatchItem {
+  id: number;
+  label: string;
+  start: number;
+  end: number;
+  replacement?: string | null;
+  aaHelper?: {
+    newAA: string;
+    codonPosition: number;
+    organism: string;
+  };
+}
+
+interface BatchResult {
+  success: boolean;
+  forward?: PrimerData;
+  reverse?: PrimerData;
+  originalSpec?: BatchItem;
+  description?: string;
+  error?: string;
+}
+
+interface StatusCheck {
+  label: string;
+  status: string;
+  value: string;
+  section: string;
+  threshold: string;
+}
+
+interface SummaryStatus {
+  checks: Record<string, StatusCheck>;
+  overall: string;
+}
+
+interface AlternatesSort {
+  field: string;
+  direction: string;
+}
+
+interface AlternatesFilters {
+  minScore: number;
+  maxTmDiff: number;
+  requireGcClamp: boolean;
+}
+
+interface Section {
+  id: string;
+  label: string;
+  icon: string;
+}
+
 /**
  * Unified Primer Designer Component
  *
@@ -44,39 +252,39 @@ import ScoreBreakdownPopup from './primers/ScoreBreakdownPopup.jsx';
  */
 export default function UnifiedPrimerDesigner() {
   // Template state
-  const [template, setTemplate] = useState('');
-  const [sequenceInfo, setSequenceInfo] = useState(null);
-  const [selectedVector, setSelectedVector] = useState('');
-  const [useReverseComplement, setUseReverseComplement] = useState(false);
-  const fileInputRef = useRef(null);
+  const [template, setTemplate] = useState<string>('');
+  const [sequenceInfo, setSequenceInfo] = useState<SequenceInfo | null>(null);
+  const [selectedVector, setSelectedVector] = useState<string>('');
+  const [useReverseComplement, setUseReverseComplement] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Selection state
-  const [selectionStart, setSelectionStart] = useState('');
-  const [selectionEnd, setSelectionEnd] = useState('');
+  const [selectionStart, setSelectionStart] = useState<string>('');
+  const [selectionEnd, setSelectionEnd] = useState<string>('');
 
   // Replacement mode
-  const [replacementMode, setReplacementMode] = useState('amplify'); // amplify | delete | aa | direct
-  const [directSequence, setDirectSequence] = useState('');
-  const [aaOldAA, setAaOldAA] = useState('');
-  const [aaPosition, setAaPosition] = useState('');
-  const [aaNewAA, setAaNewAA] = useState('');
-  const [organism, setOrganism] = useState('ecoli');
-  const [orfStart, setOrfStart] = useState('1');
+  const [replacementMode, setReplacementMode] = useState<string>('amplify'); // amplify | delete | aa | direct
+  const [directSequence, setDirectSequence] = useState<string>('');
+  const [aaOldAA, setAaOldAA] = useState<string>('');
+  const [aaPosition, setAaPosition] = useState<string>('');
+  const [aaNewAA, setAaNewAA] = useState<string>('');
+  const [organism, setOrganism] = useState<string>('ecoli');
+  const [orfStart, setOrfStart] = useState<string>('1');
 
   // Batch state
-  const [batchItems, setBatchItems] = useState([]);
-  const [showBatch, setShowBatch] = useState(false);
+  const [batchItems, setBatchItems] = useState<BatchItem[]>([]);
+  const [showBatch, setShowBatch] = useState<boolean>(false);
 
   // Results
-  const [results, setResults] = useState(null);
-  const [originalDesign, setOriginalDesign] = useState(null);
-  const [batchResults, setBatchResults] = useState([]);
-  const [enhancedAnalysis, setEnhancedAnalysis] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [results, setResults] = useState<DesignResult | null>(null);
+  const [originalDesign, setOriginalDesign] = useState<DesignResult | null>(null);
+  const [batchResults, setBatchResults] = useState<BatchResult[]>([]);
+  const [enhancedAnalysis, setEnhancedAnalysis] = useState<EnhancedAnalysis | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Collapsible sections (matches legacy MutagenesisDesigner)
-  const [collapsedSections, setCollapsedSections] = useState({
+  const [collapsedSections, setCollapsedSections] = useState<CollapsedSections>({
     summary: false,
     primers: false,
     analysis: false,
@@ -85,30 +293,30 @@ export default function UnifiedPrimerDesigner() {
     protocol: true,  // Collapsed by default
     alternates: false,
   });
-  const [activeSection, setActiveSection] = useState(null);
-  const [showThermodynamics, setShowThermodynamics] = useState(false);
-  const [showScoreBreakdown, setShowScoreBreakdown] = useState(false);
-  const resultsRef = useRef(null);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [showThermodynamics, setShowThermodynamics] = useState<boolean>(false);
+  const [showScoreBreakdown, setShowScoreBreakdown] = useState<boolean>(false);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   // Alternative options view state
-  const [alternatesViewMode, setAlternatesViewMode] = useState('card'); // 'card' | 'table'
-  const [showAllAlternates, setShowAllAlternates] = useState(false);
-  const [expandedSequences, setExpandedSequences] = useState(new Set());
-  const [compareSelection, setCompareSelection] = useState(new Set());
-  const [alternatesSort, setAlternatesSort] = useState({ field: 'score', direction: 'desc' });
-  const [alternatesFilters, setAlternatesFilters] = useState({
+  const [alternatesViewMode, setAlternatesViewMode] = useState<string>('card'); // 'card' | 'table'
+  const [showAllAlternates, setShowAllAlternates] = useState<boolean>(false);
+  const [expandedSequences, setExpandedSequences] = useState<Set<number>>(new Set());
+  const [compareSelection, setCompareSelection] = useState<Set<number>>(new Set());
+  const [alternatesSort, setAlternatesSort] = useState<AlternatesSort>({ field: 'score', direction: 'desc' });
+  const [alternatesFilters, setAlternatesFilters] = useState<AlternatesFilters>({
     minScore: 0,
     maxTmDiff: 10,
     requireGcClamp: false,
   });
-  const [showCompareModal, setShowCompareModal] = useState(false);
-  const [toastMessage, setToastMessage] = useState(null);
-  const [dismissedBanner, setDismissedBanner] = useState(false);
-  const [copiedFeedback, setCopiedFeedback] = useState(null); // 'fwd' | 'rev' | 'pair' | null
+  const [showCompareModal, setShowCompareModal] = useState<boolean>(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [dismissedBanner, setDismissedBanner] = useState<boolean>(false);
+  const [copiedFeedback, setCopiedFeedback] = useState<string | null>(null); // 'fwd' | 'rev' | 'pair' | null
 
   // Advanced options
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [designOptions, setDesignOptions] = useState({
+  const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
+  const [designOptions, setDesignOptions] = useState<DesignOptions>({
     strategy: 'back-to-back',
     optimalTm: 62,
     minTm: 55,
@@ -122,8 +330,8 @@ export default function UnifiedPrimerDesigner() {
     confineTo5Tails: false,  // Keep mutations in 5' non-annealing tail
     exhaustiveSearch: true,  // Exhaustive search enabled by default for optimal results
   });
-  const [loadingMessage, setLoadingMessage] = useState('');
-  const [isPreviewResult, setIsPreviewResult] = useState(false);  // Track if showing preview vs final result
+  const [loadingMessage, setLoadingMessage] = useState<string>('');
+  const [isPreviewResult, setIsPreviewResult] = useState<boolean>(false);  // Track if showing preview vs final result
 
   // Computed template sequence
   const templateSeq = useMemo(() => {
@@ -132,7 +340,7 @@ export default function UnifiedPrimerDesigner() {
   }, [template, useReverseComplement]);
 
   // Computed selection info - handles circular wrap-around when start > end
-  const selectionInfo = useMemo(() => {
+  const selectionInfo = useMemo((): SelectionInfo | null => {
     const start = parseInt(selectionStart);
     const end = parseInt(selectionEnd);
 
@@ -145,8 +353,8 @@ export default function UnifiedPrimerDesigner() {
     const isWrapped = clampedStart > clampedEnd && isCircular;
 
     // Calculate length based on whether selection wraps around origin
-    let length;
-    let sequence;
+    let length: number;
+    let sequence: string;
     if (isWrapped) {
       // Circular wrap-around: length is (seqLen - start) + end
       length = (seqLen - clampedStart) + clampedEnd;
@@ -171,7 +379,7 @@ export default function UnifiedPrimerDesigner() {
   }, [selectionStart, selectionEnd, templateSeq, designOptions.circular]);
 
   // Library info for direct mode
-  const libraryInfo = useMemo(() => {
+  const libraryInfo = useMemo((): LibraryInfo | null => {
     if (!directSequence || !hasAmbiguousBases(directSequence)) return null;
     return {
       isLibrary: true,
@@ -180,10 +388,10 @@ export default function UnifiedPrimerDesigner() {
   }, [directSequence]);
 
   // Compute summary status for key metrics
-  const summaryStatus = useMemo(() => {
+  const summaryStatus = useMemo((): SummaryStatus | null => {
     if (!results || !results.forward) return null;
 
-    const checks = {
+    const checks: Record<string, StatusCheck> = {
       quality: {
         label: 'Primer Quality',
         status: results.quality === 'excellent' || results.quality === 'good' ? 'pass' :
@@ -304,15 +512,15 @@ export default function UnifiedPrimerDesigner() {
   }, [results, enhancedAnalysis]);
 
   // Toggle section collapse state
-  const toggleSection = useCallback((sectionId) => {
+  const toggleSection = useCallback((sectionId: string) => {
     setCollapsedSections(prev => ({
       ...prev,
-      [sectionId]: !prev[sectionId]
+      [sectionId]: !prev[sectionId as keyof CollapsedSections]
     }));
   }, []);
 
   // Scroll to section
-  const scrollToSection = useCallback((sectionId) => {
+  const scrollToSection = useCallback((sectionId: string) => {
     const element = document.getElementById(`section-${sectionId}`);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -326,10 +534,10 @@ export default function UnifiedPrimerDesigner() {
   }, []);
 
   // Define available sections for navigation (matches legacy MutagenesisDesigner)
-  const getAvailableSections = useCallback(() => {
+  const getAvailableSections = useCallback((): Section[] => {
     if (!results || results.isLibrary) return [];
 
-    const sections = [
+    const sections: Section[] = [
       { id: 'summary', label: 'Summary', icon: '📊' },
       { id: 'primers', label: 'Designed Primers', icon: '🧬' },
     ];
@@ -350,11 +558,11 @@ export default function UnifiedPrimerDesigner() {
 
     // Sequence comparison is now integrated into the primers section
 
-    if (results.alternateDesigns?.length > 0) {
+    if (results.alternateDesigns?.length && results.alternateDesigns.length > 0) {
       sections.push({ id: 'alternates', label: 'Alternate Designs', icon: '🔄' });
     }
 
-    if (results.alternativePrimers?.length > 0) {
+    if (results.alternativePrimers?.length && results.alternativePrimers.length > 0) {
       sections.push({ id: 'alternates', label: 'Alternative Primers', icon: '🔄' });
     }
 
@@ -367,7 +575,7 @@ export default function UnifiedPrimerDesigner() {
 
     const handleScroll = () => {
       const sections = ['summary', 'primers', 'analysis', 'pcr', 'visualization', 'protocol', 'alternates'];
-      let currentSection = null;
+      let currentSection: string | null = null;
 
       for (const sectionId of sections) {
         const element = document.getElementById(`section-${sectionId}`);
@@ -389,14 +597,14 @@ export default function UnifiedPrimerDesigner() {
   }, [results, activeSection]);
 
   // Handle file upload
-  const handleFileUpload = useCallback((event) => {
-    const file = event.target.files[0];
+  const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = (e: ProgressEvent<FileReader>) => {
       try {
-        const content = e.target.result;
+        const content = e.target?.result as string;
         const parsed = parseSequenceFile(content);
 
         if (parsed.entries.length > 0) {
@@ -410,14 +618,14 @@ export default function UnifiedPrimerDesigner() {
           setError(null);
         }
       } catch (err) {
-        setError('Failed to parse file: ' + err.message);
+        setError('Failed to parse file: ' + (err as Error).message);
       }
     };
     reader.readAsText(file);
   }, []);
 
   // Handle vector selection
-  const handleVectorSelect = useCallback((vectorName) => {
+  const handleVectorSelect = useCallback((vectorName: string) => {
     setSelectedVector(vectorName);
     if (vectorName && COMMON_VECTORS[vectorName]?.sequence) {
       setTemplate(COMMON_VECTORS[vectorName].sequence);
@@ -466,7 +674,7 @@ export default function UnifiedPrimerDesigner() {
   }, [replacementMode, selectionStart, selectionEnd, templateSeq, aaPosition, aaNewAA, orfStart, organism, directSequence]);
 
   // Helper to process design result and add metadata
-  const processDesignResult = useCallback((result) => {
+  const processDesignResult = useCallback((result: DesignResult): DesignResult => {
     // Add GC clamp info
     if (result.forward?.sequence) {
       const fwdLast = result.forward.sequence[result.forward.sequence.length - 1];
@@ -489,7 +697,7 @@ export default function UnifiedPrimerDesigner() {
   }, []);
 
   // Helper to run enhanced analysis
-  const runEnhancedAnalysis = useCallback((result) => {
+  const runEnhancedAnalysis = useCallback((result: DesignResult) => {
     if (result.forward && result.reverse) {
       try {
         const analysis = analyzePrimerPair(
@@ -500,7 +708,7 @@ export default function UnifiedPrimerDesigner() {
         const heterodimerCheck = checkHeterodimer(
           result.forward.sequence,
           result.reverse.sequence,
-          { designType: result.design }
+          { designType: result.design } as any
         );
         let fwdTmComparison = null;
         if (result.forward.start !== undefined) {
@@ -554,7 +762,7 @@ export default function UnifiedPrimerDesigner() {
       setTimeout(() => {
         try {
           const quickOptions = { ...apiOptions, exhaustiveSearch: false };
-          const quickResult = designUnified(templateSeq, spec, quickOptions);
+          const quickResult = designUnified(templateSeq, spec as any, quickOptions);
           const processedQuick = processDesignResult(quickResult);
 
           // Show preview results immediately
@@ -569,7 +777,7 @@ export default function UnifiedPrimerDesigner() {
           // Step 2: Run exhaustive search in background
           setTimeout(() => {
             try {
-              const exhaustiveResult = designUnified(templateSeq, spec, apiOptions);
+              const exhaustiveResult = designUnified(templateSeq, spec as any, apiOptions);
               const processedExhaustive = processDesignResult(exhaustiveResult);
 
               // Update with final optimal result
@@ -589,7 +797,7 @@ export default function UnifiedPrimerDesigner() {
             }
           }, 10);
         } catch (err) {
-          setError(err.message);
+          setError((err as Error).message);
           setLoading(false);
           setLoadingMessage('');
         }
@@ -600,14 +808,14 @@ export default function UnifiedPrimerDesigner() {
 
       setTimeout(() => {
         try {
-          const result = designUnified(templateSeq, spec, apiOptions);
+          const result = designUnified(templateSeq, spec as any, apiOptions);
           const processedResult = processDesignResult(result);
 
           setResults(processedResult);
           setOriginalDesign(processedResult);
           runEnhancedAnalysis(processedResult);
         } catch (err) {
-          setError(err.message);
+          setError((err as Error).message);
         } finally {
           setLoading(false);
           setLoadingMessage('');
@@ -622,8 +830,8 @@ export default function UnifiedPrimerDesigner() {
       const spec = buildSpec();
 
       // Create a label for this item
-      let label;
-      if (spec.aaHelper) {
+      let label: string;
+      if ((spec as any).aaHelper) {
         label = `${aaOldAA || '?'}${aaPosition}${aaNewAA}`;
       } else if (spec.replacement === null) {
         label = `Amplify ${spec.start + 1}-${spec.end}`;
@@ -635,15 +843,15 @@ export default function UnifiedPrimerDesigner() {
         label = `Replace ${spec.start + 1}-${spec.end}`;
       }
 
-      setBatchItems(prev => [...prev, { ...spec, label, id: Date.now() }]);
+      setBatchItems(prev => [...prev, { ...spec, label, id: Date.now() } as BatchItem]);
       setShowBatch(true);
     } catch (err) {
-      setError(err.message);
+      setError((err as Error).message);
     }
   }, [buildSpec, aaOldAA, aaPosition, aaNewAA]);
 
   // Remove from batch
-  const handleRemoveFromBatch = useCallback((id) => {
+  const handleRemoveFromBatch = useCallback((id: number) => {
     setBatchItems(prev => prev.filter(item => item.id !== id));
   }, []);
 
@@ -668,7 +876,7 @@ export default function UnifiedPrimerDesigner() {
         const results = designBatch(templateSeq, batchItems, designOptions);
         setBatchResults(results);
       } catch (err) {
-        setError(err.message);
+        setError((err as Error).message);
       } finally {
         setLoading(false);
       }
@@ -683,15 +891,15 @@ export default function UnifiedPrimerDesigner() {
     const rows = ['Mutation,Direction,Sequence,Tm,GC,Length'];
     for (const result of successfulResults) {
       const label = result.originalSpec?.label || result.description || '';
-      rows.push(`${label},Forward,${result.forward.sequence},${result.forward.tm?.toFixed(1) || ''},${((result.forward.gc || 0) * 100).toFixed(1)}%,${result.forward.sequence.length}`);
-      rows.push(`${label},Reverse,${result.reverse.sequence},${result.reverse.tm?.toFixed(1) || ''},${((result.reverse.gc || 0) * 100).toFixed(1)}%,${result.reverse.sequence.length}`);
+      rows.push(`${label},Forward,${result.forward!.sequence},${result.forward!.tm?.toFixed(1) || ''},${((result.forward!.gc || 0) * 100).toFixed(1)}%,${result.forward!.sequence.length}`);
+      rows.push(`${label},Reverse,${result.reverse!.sequence},${result.reverse!.tm?.toFixed(1) || ''},${((result.reverse!.gc || 0) * 100).toFixed(1)}%,${result.reverse!.sequence.length}`);
     }
 
     downloadFile(rows.join('\n'), 'batch_primers.csv', 'text/csv');
   }, [batchResults]);
 
   // Copy primer to clipboard
-  const copyToClipboard = useCallback((text) => {
+  const copyToClipboard = useCallback((text: string) => {
     navigator.clipboard.writeText(text);
   }, []);
 
@@ -726,13 +934,13 @@ export default function UnifiedPrimerDesigner() {
   }, [results]);
 
   // Show toast notification
-  const showToast = useCallback((message, duration = 3000) => {
+  const showToast = useCallback((message: string, duration: number = 3000) => {
     setToastMessage(message);
     setTimeout(() => setToastMessage(null), duration);
   }, []);
 
   // Select an alternative design
-  const handleSelectAlternate = useCallback((alt) => {
+  const handleSelectAlternate = useCallback((alt: AlternateDesign) => {
     if (!results) return;
 
     const fwdTm = alt.forward.tm;
@@ -746,7 +954,7 @@ export default function UnifiedPrimerDesigner() {
                         score >= 70 ? 'good' :
                         score >= 60 ? 'acceptable' : 'poor');
 
-    const updatedResults = {
+    const updatedResults: DesignResult = {
       ...results,
       forward: alt.forward,
       reverse: alt.reverse,
@@ -772,7 +980,7 @@ export default function UnifiedPrimerDesigner() {
       const heterodimerCheck = checkHeterodimer(
         alt.forward.sequence,
         alt.reverse.sequence,
-        { designType: alt.design || results.design }
+        { designType: alt.design || results.design } as any
       );
       setEnhancedAnalysis({
         ...analysis,
@@ -799,7 +1007,7 @@ export default function UnifiedPrimerDesigner() {
       const heterodimerCheck = checkHeterodimer(
         originalDesign.forward.sequence,
         originalDesign.reverse.sequence,
-        { designType: originalDesign.design }
+        { designType: originalDesign.design } as any
       );
       setEnhancedAnalysis({
         ...analysis,
@@ -813,7 +1021,7 @@ export default function UnifiedPrimerDesigner() {
   }, [originalDesign, templateSeq, scrollToSection]);
 
   // Copy sequence to clipboard with feedback
-  const handleCopySequence = useCallback(async (sequence, label = 'Sequence') => {
+  const handleCopySequence = useCallback(async (sequence: string, label: string = 'Sequence') => {
     try {
       await navigator.clipboard.writeText(sequence);
       setCopiedFeedback(label);
@@ -824,7 +1032,7 @@ export default function UnifiedPrimerDesigner() {
   }, []);
 
   // Copy primer pair to clipboard with feedback
-  const handleCopyPrimerPair = useCallback(async (fwd, rev) => {
+  const handleCopyPrimerPair = useCallback(async (fwd: string, rev: string) => {
     const text = `Forward: ${fwd}\nReverse: ${rev}`;
     try {
       await navigator.clipboard.writeText(text);
@@ -836,7 +1044,7 @@ export default function UnifiedPrimerDesigner() {
   }, []);
 
   // Toggle sequence expansion for card view
-  const toggleSequenceExpansion = useCallback((idx) => {
+  const toggleSequenceExpansion = useCallback((idx: number) => {
     setExpandedSequences(prev => {
       const next = new Set(prev);
       if (next.has(idx)) {
@@ -849,7 +1057,7 @@ export default function UnifiedPrimerDesigner() {
   }, []);
 
   // Toggle compare selection
-  const toggleCompareSelection = useCallback((idx) => {
+  const toggleCompareSelection = useCallback((idx: number) => {
     setCompareSelection(prev => {
       const next = new Set(prev);
       if (next.has(idx)) {
@@ -888,9 +1096,9 @@ export default function UnifiedPrimerDesigner() {
   }, [results, compareSelection]);
 
   // Sort alternatives by field
-  const sortAlternatives = useCallback((alternatives, sortConfig) => {
+  const sortAlternatives = useCallback((alternatives: AlternateDesign[], sortConfig: AlternatesSort): AlternateDesign[] => {
     return [...alternatives].sort((a, b) => {
-      let aVal, bVal;
+      let aVal: number, bVal: number;
       switch (sortConfig.field) {
         case 'score':
           aVal = a.compositeScore || 0;
@@ -926,7 +1134,7 @@ export default function UnifiedPrimerDesigner() {
   }, []);
 
   // Filter alternatives
-  const filterAlternatives = useCallback((alternatives, filters) => {
+  const filterAlternatives = useCallback((alternatives: AlternateDesign[], filters: AlternatesFilters): AlternateDesign[] => {
     return alternatives.filter(alt => {
       if (filters.minScore > 0 && (alt.compositeScore || 0) < filters.minScore) return false;
       const tmDiff = Math.abs(alt.forward.tm - alt.reverse.tm);
@@ -940,7 +1148,7 @@ export default function UnifiedPrimerDesigner() {
   }, []);
 
   // Update AA info when position changes
-  const handleAAPositionChange = useCallback((pos) => {
+  const handleAAPositionChange = useCallback((pos: string) => {
     setAaPosition(pos);
     const codonPos = parseInt(pos);
     if (!isNaN(codonPos) && templateSeq) {
@@ -1038,7 +1246,7 @@ export default function UnifiedPrimerDesigner() {
 
         {templateSeq.length > 0 && (
           <>
-            <div className="sequence-bar" onClick={(e) => {
+            <div className="sequence-bar" onClick={(e: React.MouseEvent<HTMLDivElement>) => {
               const rect = e.currentTarget.getBoundingClientRect();
               const pos = Math.round((e.clientX - rect.left) / rect.width * templateSeq.length);
               if (!selectionStart || selectionEnd) {
@@ -1703,7 +1911,7 @@ export default function UnifiedPrimerDesigner() {
                       <div className="quality-details">
                         <span className="quality-title">
                           Quality Score: <span className={`quality-tier tier-${results.quality || results.qualityTier || 'good'}`}>{results.quality || results.qualityTier || 'good'}</span>
-                          {results.criticalWarnings > 0 && (
+                          {results.criticalWarnings && results.criticalWarnings > 0 && (
                             <span style={{ fontSize: '11px', color: '#ef4444', marginLeft: '6px' }}>
                               ({results.criticalWarnings} critical)
                             </span>
@@ -2018,7 +2226,7 @@ export default function UnifiedPrimerDesigner() {
               {/* Enhanced Analysis Section - Using shared component */}
               {enhancedAnalysis && (
                 <EnhancedAnalysisSection
-                  analysis={enhancedAnalysis}
+                  analysis={enhancedAnalysis as any}
                   collapsible={true}
                   defaultCollapsed={collapsedSections.analysis}
                 />
@@ -2180,17 +2388,17 @@ export default function UnifiedPrimerDesigner() {
                   </button>
                   {!collapsedSections.alternates && (
                     <AlternativesPanel
-                      alternatives={results.alternateDesigns}
+                      alternatives={results.alternateDesigns as any}
                       currentDesign={{
                         forward: results.forward,
                         reverse: results.reverse,
                         compositeScore: results.compositeScore,
                         score: results.compositeScore,
                       }}
-                      originalDesign={originalDesign}
+                      originalDesign={originalDesign as any}
                       isAlternativeSelected={results.isAlternativeSelected || false}
                       selectedIndex={results.selectedAlternateIdx || -1}
-                      onSelectAlternative={handleSelectAlternate}
+                      onSelectAlternative={handleSelectAlternate as any}
                       onRevert={handleRevertDesign}
                       features={{
                         viewToggle: true,
@@ -2220,18 +2428,18 @@ export default function UnifiedPrimerDesigner() {
                   </button>
                   {!collapsedSections.alternates && (
                     <AlternativesPanel
-                      alternatives={results.alternativePrimers}
-                      alternativeCategories={results.alternativeCategories}
+                      alternatives={results.alternativePrimers as any}
+                      alternativeCategories={results.alternativeCategories as any}
                       currentDesign={{
                         forward: results.forward,
                         reverse: results.reverse,
                         compositeScore: results.compositeScore,
                         score: results.compositeScore,
                       }}
-                      originalDesign={originalDesign}
+                      originalDesign={originalDesign as any}
                       isAlternativeSelected={results.isAlternativeSelected || false}
                       selectedIndex={results.selectedAlternateIdx || -1}
-                      onSelectAlternative={(alt) => handleSelectAlternate(alt)}
+                      onSelectAlternative={(alt) => handleSelectAlternate(alt as any)}
                       onRevert={handleRevertDesign}
                       wasUpgraded={results.wasUpgraded}
                       originalScore={results.originalScore}
@@ -2276,8 +2484,8 @@ export default function UnifiedPrimerDesigner() {
                   <>
                     <span className="batch-label">{result.originalSpec?.label || result.description}</span>
                     <div className="batch-primers">
-                      <code title="Forward">{result.forward.sequence}</code>
-                      <code title="Reverse">{result.reverse.sequence}</code>
+                      <code title="Forward">{result.forward!.sequence}</code>
+                      <code title="Reverse">{result.reverse!.sequence}</code>
                     </div>
                   </>
                 ) : (
@@ -2322,7 +2530,7 @@ export default function UnifiedPrimerDesigner() {
                       <div key={alt.originalIdx} className="compare-column">
                         <div className="compare-column-header">
                           <span className="compare-rank">#{colIdx + 1}</span>
-                          <span className={`compare-score ${alt.compositeScore >= 80 ? 'excellent' : alt.compositeScore >= 70 ? 'good' : alt.compositeScore >= 60 ? 'acceptable' : 'poor'}`}>
+                          <span className={`compare-score ${alt.compositeScore! >= 80 ? 'excellent' : alt.compositeScore! >= 70 ? 'good' : alt.compositeScore! >= 60 ? 'acceptable' : 'poor'}`}>
                             Score: {alt.compositeScore}
                             {scoreDelta !== 0 && (
                               <span className={`score-delta ${scoreDelta > 0 ? 'better' : 'worse'}`}>
