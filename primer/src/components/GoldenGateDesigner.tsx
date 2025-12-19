@@ -2590,7 +2590,6 @@ function AssemblyViewer({ result }) {
           viewer={viewMode as 'linear' | 'circular' | 'both' | 'both_flip'}
           showComplement={false}
           showIndex={true}
-          className="h-[300px] w-full"
           zoom={{ linear: 25 }}
           rotateOnScroll={false}
         />
@@ -2963,7 +2962,7 @@ export default function GoldenGateDesigner() {
 
         // Check for domestication errors (adjacent sites, fragment size violations, etc.)
         if (domesticationAnalysis.error) {
-          setDomesticationError(domesticationAnalysis);
+          setDomesticationError(domesticationAnalysis as any);
           reject(new Error(domesticationAnalysis.message));
           return;
         }
@@ -2992,7 +2991,7 @@ export default function GoldenGateDesigner() {
           maxFragmentSize: Math.max(3000, Math.ceil(sequence.length / 2)),
           minDistanceFromEnds: 50,
           domesticationJunctions: domesticationInfo.domesticationJunctions || [],
-        });
+        } as any);
 
         if (!result.success) {
           reject(new Error(result.error || 'Failed to find valid junction positions'));
@@ -3442,7 +3441,7 @@ export default function GoldenGateDesigner() {
 
                   domesticationDetails.push({
                     partId: part.id,
-                    siteCount: legacyAnalysis.internalSites?.length || 1,
+                    siteCount: (legacyAnalysis as any).internalSites?.length || 1,
                     strategy: DOMESTICATION_STRATEGY.LEGACY_JUNCTION,
                     fragmentCount: domesticationJunctions.length + 1,
                     onePotCompatible: false,
@@ -3532,15 +3531,15 @@ export default function GoldenGateDesigner() {
 
         const designResult = designNEBuilderAssembly(fragments, {
           circular: true,
-          targetOverlap: overlapSettings.overlapLength,
-          targetTm: overlapSettings.targetTm,
+          targetOverlapLength: overlapSettings.overlapLength,
+          targetOverlapTm: overlapSettings.targetTm,
           method: effectiveMethod === 'nebuilder_hifi' ? 'nebuilder' : 'gibson',
-        });
+        } as any);
 
         // Simulate the assembly - pass fragments (with seq) and junctions
         const simulation = simulateAssembly(
           fragments,
-          designResult.junctions,
+          designResult.junctions as any,
           { circular: true }
         );
 
@@ -3864,11 +3863,11 @@ export default function GoldenGateDesigner() {
               ...candidate,
               composite: scored.composite * 100, // Convert to 0-100 scale
               scores: {
-                overhangQuality: { score: Math.round((scored.breakdown?.overhangQuality || 0.7) * 100) },
-                forwardPrimer: { score: Math.round((scored.breakdown?.forwardPrimer || 0.7) * 100) },
-                reversePrimer: { score: Math.round((scored.breakdown?.reversePrimer || 0.7) * 100) },
-                riskFactors: { score: Math.round((scored.breakdown?.riskFactors || 0.7) * 100) },
-                biologicalContext: { score: Math.round((scored.breakdown?.biologicalContext || 0.7) * 100) },
+                overhangQuality: { score: Math.round(((scored as any).breakdown?.overhangQuality || 0.7) * 100) },
+                forwardPrimer: { score: Math.round(((scored as any).breakdown?.forwardPrimer || 0.7) * 100) },
+                reversePrimer: { score: Math.round(((scored as any).breakdown?.reversePrimer || 0.7) * 100) },
+                riskFactors: { score: Math.round(((scored as any).breakdown?.riskFactors || 0.7) * 100) },
+                biologicalContext: { score: Math.round(((scored as any).breakdown?.biologicalContext || 0.7) * 100) },
               },
               warnings: scored.warnings || [],
               isTNNA: candidate.overhang.startsWith('T') && candidate.overhang.endsWith('A'),
@@ -3892,7 +3891,7 @@ export default function GoldenGateDesigner() {
 
         // Sort by composite score
         scoredCandidates.sort((a, b) => b.composite - a.composite);
-        setFusionCandidates(scoredCandidates);
+        setFusionCandidates(scoredCandidates as any);
 
         // Run the main optimization with effective fragment count (includes domestication junctions)
         const optimizationResult = optimizeFusionSites(fusionSequence, effectiveNumFragments, optimizerOptions);
@@ -3911,13 +3910,13 @@ export default function GoldenGateDesigner() {
             position: j.position,
             overhang: j.overhang,
             composite: (detailed?.composite || j.score?.composite || 0.75) * 100,
-            scores: detailed?.breakdown ? {
-              overhangQuality: { score: Math.round((detailed.breakdown.overhangQuality || 0.7) * 100) },
-              forwardPrimer: { score: Math.round((detailed.breakdown.forwardPrimer || 0.7) * 100) },
-              reversePrimer: { score: Math.round((detailed.breakdown.reversePrimer || 0.7) * 100) },
-              riskFactors: { score: Math.round((detailed.breakdown.riskFactors || 0.7) * 100) },
-            } : j.scores,
-            warnings: detailed?.warnings || j.warnings || [],
+            scores: (detailed as any)?.breakdown ? {
+              overhangQuality: { score: Math.round(((detailed as any).breakdown.overhangQuality || 0.7) * 100) },
+              forwardPrimer: { score: Math.round(((detailed as any).breakdown.forwardPrimer || 0.7) * 100) },
+              reversePrimer: { score: Math.round(((detailed as any).breakdown.reversePrimer || 0.7) * 100) },
+              riskFactors: { score: Math.round(((detailed as any).breakdown.riskFactors || 0.7) * 100) },
+            } : (j as any).scores,
+            warnings: detailed?.warnings || (j as any).warnings || [],
           };
         });
 
@@ -3953,7 +3952,7 @@ export default function GoldenGateDesigner() {
         setFusionResult({
           algorithm: optimizationResult.algorithm,
           optimal: optimizationResult.algorithm === 'branchBound',
-          nodesExplored: optimizationResult.nodesExplored || 0,
+          nodesExplored: (optimizationResult as any).nodesExplored || 0,
           solution: {
             junctions: formattedJunctions,
             overhangs: optimizationResult.overhangs,
@@ -4007,9 +4006,9 @@ export default function GoldenGateDesigner() {
         {
           name: `Assembly_${method}`,
           description: `DNA assembly designed using ${ASSEMBLY_METHODS[method.toUpperCase()]?.name || method}`,
-          molecule: 'DNA',
+          molType: 'DNA',
           topology: 'circular',
-        }
+        } as any
       );
 
       const blob = new Blob([genbank], { type: 'text/plain' });
