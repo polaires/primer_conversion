@@ -1852,3 +1852,33 @@ npm run validate
 3. Visual diff < 1% pixels
 4. All calculations produce identical results
 5. No runtime errors in any workflow
+
+---
+
+## 19. Conversion Progress Log
+
+### Session: 2025-12-19
+
+**Commits in primer/ repo:**
+1. `Phase 1: Set up TypeScript + Tailwind foundation` (7924889)
+2. `Phase 2 (partial): Convert small components to TypeScript` (9c662bf)
+
+**Files Converted:**
+- ✅ `main.jsx` → `main.tsx`
+- ✅ `App.jsx` → `App.tsx`
+- ✅ `PrimerForm.jsx` → `PrimerForm.tsx`
+- ✅ `primers/SummaryStatusPanel.jsx` → `primers/SummaryStatusPanel.tsx`
+
+**Configuration Files Created:**
+- `tsconfig.json`
+- `tsconfig.node.json`
+- `tailwind.config.js`
+- `postcss.config.js`
+- `vite.config.ts`
+- `src/types/index.ts`
+- `src/styles/index.css`
+
+**Bug Fixed:**
+- `SequenceConflictMap.jsx` line 530: `>` → `&gt;` (JSX syntax error)
+
+**Remaining:** 21 components + 60+ library files
