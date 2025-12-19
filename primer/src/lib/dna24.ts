@@ -2491,7 +2491,7 @@ export const DNA24_ENERGIES = {
 };
 
 // Add reverse complements to energy maps
-function reverseString(s) {
+function reverseString(s: string) {
   return s.split("").reverse().join("");
 }
 
@@ -2499,7 +2499,7 @@ Object.keys(DNA24_NN).forEach((k) => {
   if (k.includes("/")) {
     const rev = reverseString(k);
     if (!(rev in DNA24_NN)) {
-      DNA24_NN[rev] = DNA24_NN[k];
+      (DNA24_NN as any)[rev] = (DNA24_NN as any)[k];
     }
   }
 });
@@ -2507,14 +2507,14 @@ Object.keys(DNA24_NN).forEach((k) => {
 Object.keys(DNA24_TERMINAL_MM).forEach((k) => {
   const rev = reverseString(k);
   if (!(rev in DNA24_TERMINAL_MM)) {
-    DNA24_TERMINAL_MM[rev] = DNA24_TERMINAL_MM[k];
+    (DNA24_TERMINAL_MM as any)[rev] = (DNA24_TERMINAL_MM as any)[k];
   }
 });
 
 Object.keys(DNA24_DE).forEach((k) => {
   const rev = reverseString(k);
   if (!(rev in DNA24_DE)) {
-    DNA24_DE[rev] = DNA24_DE[k];
+    (DNA24_DE as any)[rev] = (DNA24_DE as any)[k];
   }
 });
 

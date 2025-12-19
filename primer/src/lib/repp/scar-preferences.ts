@@ -473,7 +473,6 @@ export function scoreScarSet(overhangs: string[], context: CodonContext = 'nonCo
  */
 export function findBestScarCandidate(candidates: string[], context: CodonContext = 'nonCoding'): BestScarResult {
   const scored: ScarCandidate[] = candidates.map(oh => ({
-    overhang: oh.toUpperCase(),
     ...scoreScarSequence(oh, context),
   }));
 

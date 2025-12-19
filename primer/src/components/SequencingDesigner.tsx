@@ -311,7 +311,7 @@ function PrimerCard({ primer, copyToClipboard, isExpanded, onToggleExpand }: Pri
             className="flex items-center justify-center gap-1.5 p-2 bg-transparent border-none text-slate-500 text-xs cursor-pointer border-t border-slate-200 mt-1 -mx-5 -mb-4"
           >
             {isExpanded ? '▲ Hide Details' : '▼ Show Details'}
-            {hasAlternatives && ` (${primer.alternatives.length} alternatives)`}
+            {hasAlternatives && ` (${primer.alternatives?.length || 0} alternatives)`}
           </button>
         )}
       </div>

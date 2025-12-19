@@ -517,7 +517,7 @@ export function analyzeSequenceForDomestication(
   }
 
   // Analyze each site - placeholder for now
-  const siteAnalyses: SiteAnalysis[] = internalSites.sites.map(site => ({
+  const siteAnalyses: SiteAnalysis[] = internalSites.sites.map((site: any) => ({
     site,
     position: site.position,
     sequence: site.sequence,
@@ -778,7 +778,7 @@ function designFragmentPrimers(
         homology: reverseComplement(revHomology),
       },
     },
-    tmDifference: Math.abs(fwdAnalysis.homologyTm || 0 - (revAnalysis.homologyTm || 0)),
+    tmDifference: Math.abs((fwdAnalysis.homologyTm || 0) - (revAnalysis.homologyTm || 0)),
     pairQuality: Math.round((fwdAnalysis.score + revAnalysis.score) / 2),
   };
 }
@@ -827,7 +827,6 @@ function designMutagenesisPrimers(
   return {
     forward: {
       sequence: fwdSequence,
-      length: fwdSequence.length,
       ...fwdAnalysis,
       mutationPosition: mutPosInPrimer,
       hasMutation: true,
@@ -844,7 +843,6 @@ function designMutagenesisPrimers(
     },
     reverse: {
       sequence: revSequence,
-      length: revSequence.length,
       ...revAnalysis,
       hasMutation: true,
       components: {

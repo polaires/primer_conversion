@@ -738,7 +738,7 @@ export const OPTIMAL_SPACERS: Record<string, OptimalSpacers> = {
  * @param {string} name - Parameter name for error messages
  * @throws {Error} If validation fails
  */
-function validateNonEmptyArray(arr, name) {
+function validateNonEmptyArray(arr: any, name: any) {
   if (!Array.isArray(arr)) {
     throw new Error(`${name} must be an array`);
   }
@@ -753,7 +753,7 @@ function validateNonEmptyArray(arr, name) {
  * @param {string} name - Parameter name for error messages
  * @throws {Error} If validation fails
  */
-function validateDNASequence(seq, name) {
+function validateDNASequence(seq: any, name: any) {
   if (typeof seq !== 'string') {
     throw new Error(`${name} must be a string`);
   }
@@ -771,7 +771,7 @@ function validateDNASequence(seq, name) {
  * @param {number} expectedLength - Expected length (default 4)
  * @throws {Error} If validation fails
  */
-function validateOverhang(overhang, expectedLength = 4) {
+function validateOverhang(overhang: any, expectedLength = 4) {
   validateDNASequence(overhang, 'Overhang');
   if (overhang.length !== expectedLength) {
     throw new Error(`Overhang must be exactly ${expectedLength} bases, got ${overhang.length}`);
@@ -789,10 +789,10 @@ function validateOverhang(overhang, expectedLength = 4) {
  * @param {Object} config - Configuration options
  * @returns {Object} Pairing information
  */
-export function canPair(base1, base2, config: any = {}) {
+export function canPair(base1: any, base2: any, config: any = {}) {
   const { gtMismatchFactor = GG_OPTIMIZER_DEFAULTS.gtMismatchFactor } = config;
 
-  const wc = { 'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G' };
+  const wc: any = { 'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G' };
 
   // Normalize to uppercase
   const b1 = (base1 || '').toUpperCase();
@@ -818,7 +818,7 @@ export function canPair(base1, base2, config: any = {}) {
  * @param {Object} config - Configuration options
  * @returns {Array} Array of risk objects
  */
-export function findGTMismatchRisks(overhangs, config: any = {}) {
+export function findGTMismatchRisks(overhangs: any, config: any = {}) {
   const {
     gtMismatchFactor = GG_OPTIMIZER_DEFAULTS.gtMismatchFactor,
     gtRiskMatchThreshold = GG_OPTIMIZER_DEFAULTS.gtRiskMatchThreshold,
@@ -899,7 +899,7 @@ export function findGTMismatchRisks(overhangs, config: any = {}) {
  * @param {Object} config - Configuration options
  * @returns {Object} Enhanced fidelity data
  */
-export function calculateEnhancedFidelity(overhangs, enzyme = 'BsaI', config: any = {}) {
+export function calculateEnhancedFidelity(overhangs: any, enzyme = 'BsaI', config: any = {}) {
   const {
     defaultFidelityFallback = GG_OPTIMIZER_DEFAULTS.defaultFidelityFallback,
     gtMismatchFactor = GG_OPTIMIZER_DEFAULTS.gtMismatchFactor,
@@ -923,7 +923,7 @@ export function calculateEnhancedFidelity(overhangs, enzyme = 'BsaI', config: an
   }
 
   let baseFidelity = 1.0;
-  let junctionFidelities = [];
+  let junctionFidelities: any[] = [];
   let calculationMethod = 'static';
 
   // PRIMARY: Use matrix-based calculation (accounts for cross-reactivity within this set)
@@ -1010,7 +1010,7 @@ export function calculateEnhancedFidelity(overhangs, enzyme = 'BsaI', config: an
  * @param {number} minRun - Minimum run length to flag (default 3)
  * @returns {boolean} True if homopolymer found
  */
-function hasHomopolymer(seq, minRun = 3) {
+function hasHomopolymer(seq: any, minRun = 3) {
   if (!seq) return false;
   const pattern = new RegExp(`(.)\\1{${minRun - 1},}`);
   return pattern.test(seq);
@@ -1028,7 +1028,7 @@ function hasHomopolymer(seq, minRun = 3) {
  * @param {Object} options - Configuration options
  * @returns {Object} Mispriming risk assessment
  */
-function checkFlankingMispriming(flanking, template, options: any = {}) {
+function checkFlankingMispriming(flanking: any, template: any, options: any = {}) {
   const {
     minMatchLength = 5,      // Minimum consecutive match to flag
     maxMismatches = 1,       // Allow 1 mismatch in longer matches
@@ -1145,7 +1145,7 @@ function generateFlankingCandidates(length = 6, maxCandidates = 20) {
  * @param {string} seq - Sequence to check
  * @returns {boolean} True if palindromic
  */
-function isPalindrome(seq) {
+function isPalindrome(seq: any) {
   if (!seq) return false;
   return seq.toUpperCase() === reverseComplement(seq.toUpperCase());
 }
@@ -1155,7 +1155,7 @@ function isPalindrome(seq) {
  * @param {string} seq - Sequence
  * @returns {number} GC content (0-1)
  */
-function gcContent(seq) {
+function gcContent(seq: any) {
   if (!seq || seq.length === 0) return 0;
   const gc = (seq.match(/[GC]/gi) || []).length;
   return gc / seq.length;
@@ -1177,7 +1177,7 @@ function gcContent(seq) {
  * @param {Object} config - Configuration options
  * @returns {Object} Score and analysis
  */
-function scoreFlanking(flanking, recognitionSite, overhang, homologyStart, config: any = {}) {
+function scoreFlanking(flanking: any, recognitionSite: any, overhang: any, homologyStart: any, config: any = {}) {
   const {
     optimalFlankingLength = GG_OPTIMIZER_DEFAULTS.optimalFlankingLength,
     gcAcceptableMin = GG_OPTIMIZER_DEFAULTS.gcAcceptableMin,
@@ -1284,7 +1284,7 @@ function scoreFlanking(flanking, recognitionSite, overhang, homologyStart, confi
  * @param {number} options.acceptableThreshold - Minimum score to accept default (default: 70)
  * @returns {Object} Best flanking sequence with analysis
  */
-export function selectOptimalFlankingSequence(enzyme, overhang, homologyStart, options: any = {}) {
+export function selectOptimalFlankingSequence(enzyme: any, overhang: any, homologyStart: any, options: any = {}) {
   const {
     template = null,
     customFlanking = null,
@@ -1408,7 +1408,7 @@ export function selectOptimalFlankingSequence(enzyme, overhang, homologyStart, o
  * @param {string} pattern - Pattern to match (use '.' for wildcard)
  * @returns {boolean} True if matches
  */
-function matchesPattern(overhang, pattern) {
+function matchesPattern(overhang: any, pattern: any) {
   if (!pattern) return true;
   if (overhang.length !== pattern.length) return false;
 
@@ -1429,7 +1429,7 @@ function matchesPattern(overhang, pattern) {
  * @param {Object} options - Options
  * @returns {Object|null} Best alternative or null
  */
-function findBestAlternativeOverhang(currentOH, allOverhangs, position, enzyme, options: any = {}) {
+function findBestAlternativeOverhang(currentOH: any, allOverhangs: any, position: any, enzyme: any, options: any = {}) {
   const {
     requiredPattern = null,
     defaultFidelityFallback = GG_OPTIMIZER_DEFAULTS.defaultFidelityFallback,
@@ -1442,7 +1442,7 @@ function findBestAlternativeOverhang(currentOH, allOverhangs, position, enzyme, 
 
   // Filter out already used overhangs and their reverse complements
   const usedSet = new Set(
-    allOverhangs.flatMap(oh => [oh.toUpperCase(), reverseComplement(oh.toUpperCase())])
+    allOverhangs.flatMap((oh: any) => [oh.toUpperCase(), reverseComplement(oh.toUpperCase())])
   );
 
   candidates = candidates.filter(c => {
@@ -1509,7 +1509,7 @@ function findBestAlternativeOverhang(currentOH, allOverhangs, position, enzyme, 
  * @param {Object} options - Optimization options
  * @returns {Object} Optimization result
  */
-export function autoOptimizeOverhangs(requestedOverhangs, options: any = {}) {
+export function autoOptimizeOverhangs(requestedOverhangs: any, options: any = {}) {
   const {
     enzyme = 'BsaI',
     requiredIndices = [],     // Indices of overhangs that cannot be changed
@@ -1627,7 +1627,7 @@ export function autoOptimizeOverhangs(requestedOverhangs, options: any = {}) {
  * @param {Object} config - Configuration options
  * @returns {Object} GG-specific score
  */
-function scoreGoldenGateSpecific(primer, enzyme = 'BsaI', config: any = {}) {
+function scoreGoldenGateSpecific(primer: any, enzyme = 'BsaI', config: any = {}) {
   const {
     optimalFlankingLength = GG_OPTIMIZER_DEFAULTS.optimalFlankingLength,
     homologyMinLength = GG_OPTIMIZER_DEFAULTS.homologyMinLength,
@@ -1726,7 +1726,7 @@ function scoreGoldenGateSpecific(primer, enzyme = 'BsaI', config: any = {}) {
  * @param {Object} options - Scoring options
  * @returns {Object} Comprehensive quality score
  */
-export function scoreGoldenGatePrimer(primer, options: any = {}) {
+export function scoreGoldenGatePrimer(primer: any, options: any = {}) {
   const {
     enzyme = 'BsaI',
     weights = GG_OPTIMIZER_DEFAULTS.scoringWeights,
@@ -1947,7 +1947,7 @@ export function scoreGoldenGatePrimer(primer, options: any = {}) {
  * @param {Object} options - Scoring options
  * @returns {Object} Pair quality score
  */
-export function scoreGoldenGatePrimerPair(primers, options: any = {}) {
+export function scoreGoldenGatePrimerPair(primers: any, options: any = {}) {
   const {
     enzyme = 'BsaI',
     tmDiffWarningThreshold = GG_OPTIMIZER_DEFAULTS.tmDiffWarningThreshold,
@@ -2041,7 +2041,7 @@ export function scoreGoldenGatePrimerPair(primers, options: any = {}) {
  * @param {string} seq - Primer sequence
  * @returns {number} Melting temperature in °C
  */
-function calculateTmSimple(seq) {
+function calculateTmSimple(seq: any) {
   if (!seq || seq.length < 8) return 40;
   const gc = (seq.match(/[GC]/gi) || []).length;
   const at = seq.length - gc;
@@ -2058,7 +2058,7 @@ function calculateTmSimple(seq) {
  * @param {string} seq - Primer sequence
  * @returns {Object} Analysis results
  */
-function analyze3PrimeEnd(seq) {
+function analyze3PrimeEnd(seq: any) {
   if (!seq || seq.length < 5) {
     return { quality: 'poor', gcClamp: 0, issues: ['Sequence too short'] };
   }
@@ -2126,7 +2126,7 @@ function analyze3PrimeEnd(seq) {
  * @param {Object} options - Optimization options
  * @returns {Object} Optimized homology region info
  */
-function findOptimalHomologyWithQuality(templateSeq, isForward, currentLength, options: any = {}) {
+function findOptimalHomologyWithQuality(templateSeq: any, isForward: any, currentLength: any, options: any = {}) {
   const {
     targetTm = 60,
     minLength = 15,
@@ -2172,7 +2172,7 @@ function findOptimalHomologyWithQuality(templateSeq, isForward, currentLength, o
       else if (gc < 0.40 || gc > 0.60) score -= 5;
 
       // 3' end quality (major factor)
-      score += (analysis3Prime.score - 70) * 0.5;
+      score += ((analysis3Prime?.score ?? 70) - 70) * 0.5;
 
       // Length penalty (prefer shorter if quality is same)
       if (len > 25) score -= (len - 25) * 2;
@@ -2230,7 +2230,7 @@ function findOptimalHomologyWithQuality(templateSeq, isForward, currentLength, o
  * @param {Object} options - Options
  * @returns {Object} Optimized primer
  */
-function optimizeGoldenGatePrimer(primer, templateSeq, isForward, enzyme, options: any = {}) {
+function optimizeGoldenGatePrimer(primer: any, templateSeq: any, isForward: any, enzyme: any, options: any = {}) {
   const structure = primer?.structure || {};
   const currentHomology = structure.homology || primer?.homologyRegion || '';
   const extra = structure.extra || 'GGTGCG';
@@ -2293,7 +2293,7 @@ function optimizeGoldenGatePrimer(primer, templateSeq, isForward, enzyme, option
  * @param {string} enzyme - Enzyme name
  * @returns {string} New primer sequence
  */
-function rebuildPrimerSequence(primer, newFlanking, enzyme) {
+function rebuildPrimerSequence(primer: any, newFlanking: any, enzyme: any) {
   const structure = primer?.structure || {};
   const recognitionSite = structure.recognitionSite || structure.bsaISite || '';
   const spacer = structure.spacer || 'A';
@@ -2320,7 +2320,7 @@ function rebuildPrimerSequence(primer, newFlanking, enzyme) {
  * @param {boolean} options.checkMispriming - Enable mispriming check (default: true)
  * @returns {Object} Optimized primer design
  */
-export function designOptimizedGoldenGatePrimers(targetSeq, leftOverhang, rightOverhang, options: any = {}) {
+export function designOptimizedGoldenGatePrimers(targetSeq: any, leftOverhang: any, rightOverhang: any, options: any = {}) {
   const {
     enzyme = 'BsaI',
     customFlanking = null,
@@ -2524,15 +2524,15 @@ export function designOptimizedGoldenGatePrimers(targetSeq, leftOverhang, rightO
  * @param {Array} primers - Optional primer objects with optimization info
  * @returns {Array} Recommendations
  */
-function generateRecommendations(fidelity, primerScores, config: any = {}, primers = []) {
+function generateRecommendations(fidelity: any, primerScores: any, config: any = {}, primers: any = []) {
   const {
     minAcceptableFidelity = GG_OPTIMIZER_DEFAULTS.minAcceptableFidelity,
   } = config;
 
-  const recommendations = [];
+  const recommendations: any[] = [];
 
   // Count auto-optimized primers
-  const optimizedPrimers = primers.filter(p =>
+  const optimizedPrimers = primers.filter((p: any) =>
     p?.optimization?.homology?.forward?.wasOptimized ||
     p?.optimization?.homology?.reverse?.wasOptimized
   );
@@ -2550,7 +2550,7 @@ function generateRecommendations(fidelity, primerScores, config: any = {}, prime
 
   // G:T mismatch warnings
   if (fidelity?.gtRisks && fidelity.gtRisks.length > 0) {
-    const criticalRisks = fidelity.gtRisks.filter(r => r.risk === 'critical' || r.risk === 'high');
+    const criticalRisks = fidelity.gtRisks.filter((r: any) => r.risk === 'critical' || r.risk === 'high');
     if (criticalRisks.length > 0) {
       recommendations.push({
         type: 'gt_mismatch',
@@ -2573,13 +2573,13 @@ function generateRecommendations(fidelity, primerScores, config: any = {}, prime
 
   // Primer quality recommendations
   if (primerScores && primerScores.length > 0) {
-    const poorPrimers = primerScores.filter(s => s?.pair?.quality === 'poor');
-    const acceptablePrimers = primerScores.filter(s => s?.pair?.quality === 'acceptable');
-    const goodPrimers = primerScores.filter(s => s?.pair?.quality === 'good' || s?.pair?.quality === 'excellent');
+    const poorPrimers = primerScores.filter((s: any) => s?.pair?.quality === 'poor');
+    const acceptablePrimers = primerScores.filter((s: any) => s?.pair?.quality === 'acceptable');
+    const goodPrimers = primerScores.filter((s: any) => s?.pair?.quality === 'good' || s?.pair?.quality === 'excellent');
 
     // Report auto-optimization results
     if (optimizedPrimers.length > 0) {
-      const improvedCount = optimizedPrimers.filter(p => {
+      const improvedCount = optimizedPrimers.filter((p: any) => {
         const fwdImproved = p?.optimization?.homology?.forward?.wasOptimized &&
           p?.optimization?.homology?.forward?.newQuality !== p?.optimization?.homology?.forward?.originalQuality;
         const revImproved = p?.optimization?.homology?.reverse?.wasOptimized &&
@@ -2647,7 +2647,7 @@ function generateRecommendations(fidelity, primerScores, config: any = {}, prime
  * @param {Object} options - Assembly options
  * @returns {Object} Complete optimized assembly design
  */
-export function designOptimizedGoldenGateAssembly(parts, options: any = {}) {
+export function designOptimizedGoldenGateAssembly(parts: any, options: any = {}) {
   const {
     enzyme = 'BsaI',
     overhangs = null,
@@ -2715,8 +2715,8 @@ export function designOptimizedGoldenGateAssembly(parts, options: any = {}) {
   }
 
   // Step 3: Design optimized primers for each part
-  const primers = [];
-  const errors = [];
+  const primers: any[] = [];
+  const errors: any[] = [];
 
   for (let idx = 0; idx < parts.length; idx++) {
     const part = parts[idx];
@@ -2738,15 +2738,15 @@ export function designOptimizedGoldenGateAssembly(parts, options: any = {}) {
         ...options.primerOptions,
       });
       primers.push(primer);
-    } catch (e) {
-      errors.push({ index: idx, error: e.message });
+    } catch (e: any) {
+      errors.push({ index: idx, error: e?.message || String(e) });
       primers.push(null);
     }
   }
 
   // Step 4: Score all primer pairs (filter out nulls)
-  const validPrimers = primers.filter(p => p !== null);
-  const primerScores = validPrimers.map(p => scoreGoldenGatePrimerPair(p, { enzyme }));
+  const validPrimers = primers.filter((p: any) => p !== null);
+  const primerScores = validPrimers.map((p: any) => scoreGoldenGatePrimerPair(p, { enzyme }));
 
   // Step 5: Calculate overall assembly quality using ligation frequency matrix
   // This calculates fidelity based on actual cross-reactivity between overhangs in this specific set
@@ -2769,14 +2769,14 @@ export function designOptimizedGoldenGateAssembly(parts, options: any = {}) {
 
   // Safe average calculation (avoid division by zero)
   const avgPrimerScore = primerScores.length > 0
-    ? primerScores.reduce((sum, s) => sum + (s?.pair?.score || 0), 0) / primerScores.length
+    ? primerScores.reduce((sum: any, s: any) => sum + (s?.pair?.score || 0), 0) / primerScores.length
     : 0;
 
   // Step 6: Generate recommendations (pass primers for optimization tracking)
-  const recommendations = generateRecommendations(overallFidelity, primerScores, options, primers);
+  const recommendations = generateRecommendations(overallFidelity, primerScores, options, primers as any[]);
 
   // Add errors to recommendations
-  errors.forEach(err => {
+  errors.forEach((err: any) => {
     recommendations.push({
       type: 'error',
       severity: 'warning',
@@ -2843,7 +2843,7 @@ export function designOptimizedGoldenGateAssembly(parts, options: any = {}) {
  * @param {string} enzyme - Enzyme name
  * @returns {Object} Protocol object
  */
-function generateProtocol(parts, enzyme) {
+function generateProtocol(parts: any, enzyme: any) {
   const totalVolume = 20; // µL
   const dnaPerPart = 2; // µL of 75 ng/µL
   const enzymeVol = 2;
@@ -2911,7 +2911,7 @@ function generateProtocol(parts, enzyme) {
  * @param {Object} options - Options for assembly design
  * @returns {Object} Result in UI-compatible format
  */
-export function designOptimizedGoldenGateAssemblyForUI(parts, options: any = {}) {
+export function designOptimizedGoldenGateAssemblyForUI(parts: any, options: any = {}) {
   const {
     enzyme = 'BsaI',
     circular = true,
@@ -2979,7 +2979,7 @@ export function designOptimizedGoldenGateAssemblyForUI(parts, options: any = {})
   const primerScores = optimizedResult.quality?.primerScores || [];
 
   // Transform primers to designed parts structure
-  const designedParts = parts.map((part, i) => {
+  const designedParts = parts.map((part: any, i: any) => {
     const primerData = optimizedResult.primers[i];
     const leftOH = finalOverhangs[i] || '';
     const rightOH = finalOverhangs[i + 1] || '';
@@ -3053,7 +3053,7 @@ export function designOptimizedGoldenGateAssemblyForUI(parts, options: any = {})
   // Add G:T mismatch warnings
   if (optimizedResult.quality.gtRisks && optimizedResult.quality.gtRisks.length > 0) {
     for (const risk of optimizedResult.quality.gtRisks) {
-      warnings.push(`⚠️ G:T mismatch risk between ${risk.overhang1} and ${risk.overhang2} (positions ${risk.positions?.join(', ') || 'unknown'})`);
+      warnings.push(`⚠️ G:T mismatch risk between ${(risk as any).overhang1} and ${(risk as any).overhang2} (positions ${(risk as any).positions?.join(', ') || 'unknown'})`);
     }
   }
 

@@ -511,14 +511,14 @@ export function analyzeForDomestication(
   }
 
   // For each internal site, find optimal junction positions
-  const domesticationOptions = internalSites.sites.map(site => {
+  const domesticationOptions = internalSites.sites.map((site: any) => {
     return findDomesticationJunctions(sequence, site, enzyme);
   });
 
   // Validate that resulting fragments meet size constraints
   const junctionPositions = domesticationOptions
-    .filter(opt => opt.hasValidOption && opt.recommended)
-    .map(opt => opt.recommended!.position);
+    .filter((opt: any) => opt.hasValidOption && opt.recommended)
+    .map((opt: any) => opt.recommended!.position);
 
   const fragmentValidation = validateFragmentSizes(sequence, junctionPositions, { minFragmentSize });
 
@@ -550,7 +550,7 @@ export function analyzeForDomestication(
   }
 
   // Check if any domestication options lack valid junctions
-  const invalidOptions = domesticationOptions.filter(opt => !opt.hasValidOption);
+  const invalidOptions = domesticationOptions.filter((opt: any) => !opt.hasValidOption);
   if (invalidOptions.length > 0) {
     const alternatives = recommendAlternativeEnzymes(sequence, enzyme);
     const compatibleAlternatives = alternatives.filter(a => a.isCompatible);
@@ -564,7 +564,7 @@ export function analyzeForDomestication(
       error: {
         type: 'NO_VALID_JUNCTION',
         message: `${invalidOptions.length} site(s) have no valid junction options (all candidates would recreate the site or have low quality).`,
-        details: invalidOptions.map(opt => ({
+        details: invalidOptions.map((opt: any) => ({
           position: opt.sitePosition,
           sequence: opt.siteSequence,
           candidateCount: opt.candidates?.length || 0,
@@ -751,8 +751,8 @@ function scoreOverhangForDomestication(
   // Try to get experimental fidelity data
   try {
     const ligData = getEnzymeLigationData(enzyme);
-    if (ligData && ligData[overhang]) {
-      const selfLigation = ligData[overhang][overhang] || 0;
+    if (ligData && (ligData as any)[overhang]) {
+      const selfLigation = (ligData as any)[overhang][overhang] || 0;
       if (selfLigation > 0.9) {
         score += 15;
         benefits.push('High self-ligation efficiency');

@@ -1343,9 +1343,9 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
         <div className="results-title">
           <h3>Assembly Design Complete</h3>
           <p>
-            {result.parts.length} {isGoldenGate ? 'parts' : 'fragments'} • {result.assembledLength.toLocaleString()} bp
+            {result.parts.length} {isGoldenGate ? 'parts' : 'fragments'} • {result.assembledLength?.toLocaleString()} bp
             {isGoldenGate ? (
-              <> • {result.fidelity.percentage} fidelity</>
+              <> • {result.fidelity?.percentage} fidelity</>
             ) : (
               <> • {result.parts.length} junctions</>
             )}
@@ -1471,7 +1471,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                   .filter(d => d.workflowSteps?.length > 0)
                   .flatMap((detail: any, di: number) =>
                     detail.workflowSteps
-                      .filter(step => step.type === 'pcr_mutagenesis' && step.primers?.length > 0)
+                      .filter((step: any) => step.type === 'pcr_mutagenesis' && step.primers?.length > 0)
                       .flatMap((step: any, si: number) => step.primers.map((primer: any, pi: number) => (
                         <div key={`mut-${di}-${si}-${pi}`} className="primer-block mutagenesis">
                           <div className="primer-block-header">
@@ -1530,15 +1530,15 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                 </div>
               </div>
             )}
-            {result.parts.map((part: Part, i: number) => {
+            {result.parts.filter((part: Part) => part.primers).map((part: Part, i: number) => {
               // Extract quality data
-              const fwdQuality = part.primers.forward.qualityScore;
-              const revQuality = part.primers.reverse.qualityScore;
-              const fwdTier = part.primers.forward.qualityTier;
-              const revTier = part.primers.reverse.qualityTier;
-              const pairQuality = part.primers.pairQuality;
-              const fwdBreakdown = part.primers.forward.breakdown;
-              const revBreakdown = part.primers.reverse.breakdown;
+              const fwdQuality = part.primers?.forward.qualityScore;
+              const revQuality = part.primers?.reverse.qualityScore;
+              const fwdTier = part.primers?.forward.qualityTier;
+              const revTier = part.primers?.reverse.qualityTier;
+              const pairQuality = part.primers?.pairQuality;
+              const fwdBreakdown = part.primers?.forward.breakdown;
+              const revBreakdown = part.primers?.reverse.breakdown;
 
               // Helper to get quality color
               const getQualityColor = (tier: string) => {
@@ -1557,16 +1557,16 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
               };
 
               // Check for 3' GC clamp
-              const fwdHomology = part.primers.forward.structure?.homology || '';
-              const revHomology = part.primers.reverse.structure?.homology || '';
+              const fwdHomology = part.primers?.forward.structure?.homology || '';
+              const revHomology = part.primers?.reverse.structure?.homology || '';
               const fwdLast2 = fwdHomology.slice(-2).toUpperCase();
               const revLast2 = revHomology.slice(-2).toUpperCase();
               const fwdGCClamp = (fwdLast2.match(/[GC]/g) || []).length;
               const revGCClamp = (revLast2.match(/[GC]/g) || []).length;
 
               // Check for G-Quadruplex risk
-              const fwdG4 = fwdBreakdown?.ggSpecific?.issues?.find(i => i.type === 'g_quadruplex');
-              const revG4 = revBreakdown?.ggSpecific?.issues?.find(i => i.type === 'g_quadruplex');
+              const fwdG4 = fwdBreakdown?.ggSpecific?.issues?.find((i: any) => i.type === 'g_quadruplex');
+              const revG4 = revBreakdown?.ggSpecific?.issues?.find((i: any) => i.type === 'g_quadruplex');
               const fwdHasGGGG = /GGGG/i.test(fwdHomology);
               const revHasGGGG = /GGGG/i.test(revHomology);
 
@@ -1610,7 +1610,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                       {/* Tm Difference */}
                       <span className={`status-chip ${(pairQuality?.tmDifference?.value || 0) <= 2 ? 'pass' : (pairQuality?.tmDifference?.value || 0) <= 5 ? 'warning' : 'fail'}`}
                         title={`Tm difference: ≤2°C ideal, 2-5°C acceptable, >5°C problematic`}>
-                        {(pairQuality?.tmDifference?.value || 0) <= 2 ? '✓' : (pairQuality?.tmDifference?.value || 0) <= 5 ? '⚠' : '✕'} ΔTm {(pairQuality?.tmDifference?.value || Math.abs(part.primers.forward.tm - part.primers.reverse.tm)).toFixed(1)}°C
+                        {(pairQuality?.tmDifference?.value || 0) <= 2 ? '✓' : (pairQuality?.tmDifference?.value || 0) <= 5 ? '⚠' : '✕'} ΔTm {(pairQuality?.tmDifference?.value || Math.abs((part.primers?.forward.tm || 0) - (part.primers?.reverse.tm || 0))).toFixed(1)}°C
                       </span>
                       {/* GC Clamp */}
                       <span className={`status-chip ${fwdGCClamp >= 1 && revGCClamp >= 1 ? 'pass' : 'warning'}`}
@@ -1669,18 +1669,18 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                     <span className="direction-badge fwd">FWD</span>
                     <div className="primer-sequence-display">
                       <code>
-                        <span className="seq-segment extra" title="Extra bases for cutting">{part.primers.forward.structure.extra}</span>
-                        <span className="seq-segment enzyme" title="Enzyme recognition site">{part.primers.forward.structure.bsaISite || part.primers.forward.structure.recognitionSite}</span>
-                        <span className="seq-segment spacer" title="Spacer">{part.primers.forward.structure.spacer}</span>
-                        <span className="seq-segment overhang" title="Overhang sequence">{part.primers.forward.structure.overhang}</span>
-                        <span className="seq-segment homology" title="Homology tail (overlap region)">{part.primers.forward.structure.homology}</span>
-                        <span className="seq-segment annealing" title="Template annealing region">{part.primers.forward.structure.annealing}</span>
+                        <span className="seq-segment extra" title="Extra bases for cutting">{part.primers?.forward.structure?.extra}</span>
+                        <span className="seq-segment enzyme" title="Enzyme recognition site">{part.primers?.forward.structure?.bsaISite || part.primers?.forward.structure?.recognitionSite}</span>
+                        <span className="seq-segment spacer" title="Spacer">{part.primers?.forward.structure?.spacer}</span>
+                        <span className="seq-segment overhang" title="Overhang sequence">{part.primers?.forward.structure?.overhang}</span>
+                        <span className="seq-segment homology" title="Homology tail (overlap region)">{part.primers?.forward.structure?.homology}</span>
+                        <span className="seq-segment annealing" title="Template annealing region">{part.primers?.forward.structure?.annealing}</span>
                       </code>
                     </div>
                     <div className="primer-stats-inline">
-                      <span>{part.primers.forward.length}bp</span>
-                      <span>Tm {part.primers.forward.tm?.toFixed(1) || '?'}°C</span>
-                      <span>{part.primers.forward.gc?.toFixed(0) || '?'}% GC</span>
+                      <span>{part.primers?.forward.length}bp</span>
+                      <span>Tm {part.primers?.forward.tm?.toFixed(1) || '?'}°C</span>
+                      <span>{part.primers?.forward.gc?.toFixed(0) || '?'}% GC</span>
                       {/* Individual primer quality */}
                       {fwdQuality != null && (
                         <span className="primer-score" style={{ color: getScoreColor(fwdQuality) }}>
@@ -1695,7 +1695,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                     {fwdHasGGGG && <span className="g4-warning-badge" title="GGGG run - G-quadruplex risk">G4</span>}
                     <button
                       className={`copy-btn-small ${copiedId === `${part.id}-fwd` ? 'copied' : ''}`}
-                      onClick={() => copyToClipboard(part.primers.forward.sequence, `${part.id}-fwd`)}
+                      onClick={() => copyToClipboard(part.primers?.forward.sequence || '', `${part.id}-fwd`)}
                     >
                       {copiedId === `${part.id}-fwd` ? '✓' : 'Copy'}
                     </button>
@@ -1775,18 +1775,18 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                     <span className="direction-badge rev">REV</span>
                     <div className="primer-sequence-display">
                       <code>
-                        <span className="seq-segment extra">{part.primers.reverse.structure.extra}</span>
-                        <span className="seq-segment enzyme">{part.primers.reverse.structure.bsaISite || part.primers.reverse.structure.recognitionSite}</span>
-                        <span className="seq-segment spacer">{part.primers.reverse.structure.spacer}</span>
-                        <span className="seq-segment overhang">{part.primers.reverse.structure.overhang}</span>
-                        <span className="seq-segment homology" title="Homology tail (overlap region)">{part.primers.reverse.structure.homology}</span>
-                        <span className="seq-segment annealing" title="Template annealing region">{part.primers.reverse.structure.annealing}</span>
+                        <span className="seq-segment extra">{part.primers?.reverse.structure?.extra}</span>
+                        <span className="seq-segment enzyme">{part.primers?.reverse.structure?.bsaISite || part.primers?.reverse.structure?.recognitionSite}</span>
+                        <span className="seq-segment spacer">{part.primers?.reverse.structure?.spacer}</span>
+                        <span className="seq-segment overhang">{part.primers?.reverse.structure?.overhang}</span>
+                        <span className="seq-segment homology" title="Homology tail (overlap region)">{part.primers?.reverse.structure?.homology}</span>
+                        <span className="seq-segment annealing" title="Template annealing region">{part.primers?.reverse.structure?.annealing}</span>
                       </code>
                     </div>
                     <div className="primer-stats-inline">
-                      <span>{part.primers.reverse.length}bp</span>
-                      <span>Tm {part.primers.reverse.tm?.toFixed(1) || '?'}°C</span>
-                      <span>{part.primers.reverse.gc?.toFixed(0) || '?'}% GC</span>
+                      <span>{part.primers?.reverse.length}bp</span>
+                      <span>Tm {part.primers?.reverse.tm?.toFixed(1) || '?'}°C</span>
+                      <span>{part.primers?.reverse.gc?.toFixed(0) || '?'}% GC</span>
                       {/* Individual primer quality */}
                       {revQuality != null && (
                         <span className="primer-score" style={{ color: getScoreColor(revQuality) }}>
@@ -1801,7 +1801,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                     {revHasGGGG && <span className="g4-warning-badge" title="GGGG run - G-quadruplex risk">G4</span>}
                     <button
                       className={`copy-btn-small ${copiedId === `${part.id}-rev` ? 'copied' : ''}`}
-                      onClick={() => copyToClipboard(part.primers.reverse.sequence, `${part.id}-rev`)}
+                      onClick={() => copyToClipboard(part.primers?.reverse.sequence || '', `${part.id}-rev`)}
                     >
                       {copiedId === `${part.id}-rev` ? '✓' : 'Copy'}
                     </button>
@@ -1877,13 +1877,13 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                   )}
 
                   {/* PCR Conditions */}
-                  {part.primers.pcr && (
+                  {part.primers?.pcr && (
                     <div className="pcr-conditions-bar">
                       <span className="pcr-label">PCR:</span>
                       <span>Ta = {part.primers.pcr.annealingTemp}°C</span>
                       <span>Ext: {part.primers.pcr.extensionTime}s</span>
-                      {(part.primers.pcr.tmDifference || Math.abs(part.primers.forward.tm - part.primers.reverse.tm)) > 3 && (
-                        <span className="pcr-warning">⚠ ΔTm = {(part.primers.pcr.tmDifference || Math.abs(part.primers.forward.tm - part.primers.reverse.tm)).toFixed(1)}°C</span>
+                      {(part.primers.pcr.tmDifference || Math.abs((part.primers?.forward.tm || 0) - (part.primers?.reverse.tm || 0))) > 3 && (
+                        <span className="pcr-warning">⚠ ΔTm = {(part.primers.pcr.tmDifference || Math.abs((part.primers?.forward.tm || 0) - (part.primers?.reverse.tm || 0))).toFixed(1)}°C</span>
                       )}
                     </div>
                   )}
@@ -1983,11 +1983,11 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
             {isGoldenGate ? (
               <>
                 <div className="fidelity-list">
-                  {result.fidelity.individual.map((item, i) => {
-                    const getColor = (f) => f >= 0.95 ? '#22c55e' : f >= 0.90 ? '#84cc16' : f >= 0.80 ? '#f59e0b' : '#ef4444';
+                  {result.fidelity?.individual?.map((item: any, i: number) => {
+                    const getColor = (f: number) => f >= 0.95 ? '#22c55e' : f >= 0.90 ? '#84cc16' : f >= 0.80 ? '#f59e0b' : '#ef4444';
                     // Find cross-ligation hotspots for this overhang
                     const overhangUpper = item.overhang?.toUpperCase();
-                    const junctionHotspots = crossLigationData?.hotspots?.filter(h =>
+                    const junctionHotspots = crossLigationData?.hotspots?.filter((h: any) =>
                       h.source?.toUpperCase() === overhangUpper || h.target?.toUpperCase() === overhangUpper
                     ) || [];
                     const hasHotspot = junctionHotspots.length > 0;
@@ -2017,7 +2017,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                         {hasHotspot && (
                           <div className="crosslig-details">
                             <span className="crosslig-label">Cross-ligation risk with:</span>
-                            {junctionHotspots.slice(0, 3).map((h, j) => {
+                            {junctionHotspots.slice(0, 3).map((h: any, j: number) => {
                               const pairOH = h.source?.toUpperCase() === overhangUpper ? h.target : h.source;
                               return (
                                 <span key={j} className={`crosslig-pair severity-${h.severity}`}>
@@ -2062,7 +2062,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                 </div>
 
                 <div className="overlap-junction-list">
-                  {(result.overlapAnalysis || result.fidelity?.individual || []).map((junction, i) => {
+                  {(result.overlapAnalysis || result.fidelity?.individual || []).map((junction: any, i: number) => {
                     const overlap = junction;
                     const score = overlap.score || overlap.fidelity || 0.8;
                     const tm = overlap.tm || 55;
@@ -2071,10 +2071,10 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                     const sequence = overlap.sequence || overlap.overhang || '';
                     const warnings = overlap.warnings || [];
 
-                    const getScoreColor = (s) => s >= 0.8 ? '#22c55e' : s >= 0.6 ? '#84cc16' : s >= 0.4 ? '#f59e0b' : '#ef4444';
-                    const getScoreTier = (s) => s >= 0.8 ? 'Excellent' : s >= 0.6 ? 'Good' : s >= 0.4 ? 'Acceptable' : 'Poor';
-                    const getTmStatus = (t) => Math.abs(t - 55) <= 3 ? 'optimal' : Math.abs(t - 55) <= 7 ? 'acceptable' : 'suboptimal';
-                    const getGcStatus = (g) => g >= 40 && g <= 60 ? 'optimal' : g >= 30 && g <= 70 ? 'acceptable' : 'suboptimal';
+                    const getScoreColor = (s: number) => s >= 0.8 ? '#22c55e' : s >= 0.6 ? '#84cc16' : s >= 0.4 ? '#f59e0b' : '#ef4444';
+                    const getScoreTier = (s: number) => s >= 0.8 ? 'Excellent' : s >= 0.6 ? 'Good' : s >= 0.4 ? 'Acceptable' : 'Poor';
+                    const getTmStatus = (t: number) => Math.abs(t - 55) <= 3 ? 'optimal' : Math.abs(t - 55) <= 7 ? 'acceptable' : 'suboptimal';
+                    const getGcStatus = (g: number) => g >= 40 && g <= 60 ? 'optimal' : g >= 30 && g <= 70 ? 'acceptable' : 'suboptimal';
 
                     return (
                       <div key={i} className="overlap-junction-card">
@@ -2157,7 +2157,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                           {/* Warnings */}
                           {warnings.length > 0 && (
                             <div className="junction-warnings">
-                              {warnings.map((w, wi) => (
+                              {warnings.map((w: any, wi: number) => (
                                 <div key={wi} className="junction-warning-item">
                                   <svg viewBox="0 0 24 24" width="12" height="12" fill="#f59e0b">
                                     <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
@@ -2178,21 +2178,21 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                   <div className="summary-stat">
                     <span className="stat-label">Average Tm</span>
                     <span className="stat-value">
-                      {((result.overlapAnalysis || result.fidelity?.individual || []).reduce((sum, j) => sum + (j.tm || 55), 0) /
+                      {((result.overlapAnalysis || result.fidelity?.individual || []).reduce((sum: any, j: any) => sum + (j.tm || 55), 0) /
                         Math.max(1, (result.overlapAnalysis || result.fidelity?.individual || []).length)).toFixed(1)}°C
                     </span>
                   </div>
                   <div className="summary-stat">
                     <span className="stat-label">Average GC</span>
                     <span className="stat-value">
-                      {((result.overlapAnalysis || result.fidelity?.individual || []).reduce((sum, j) => sum + (j.gc || 50), 0) /
+                      {((result.overlapAnalysis || result.fidelity?.individual || []).reduce((sum: any, j: any) => sum + (j.gc || 50), 0) /
                         Math.max(1, (result.overlapAnalysis || result.fidelity?.individual || []).length)).toFixed(0)}%
                     </span>
                   </div>
                   <div className="summary-stat">
                     <span className="stat-label">Overall Quality</span>
                     <span className="stat-value">
-                      {Math.round(((result.overlapAnalysis || result.fidelity?.individual || []).reduce((sum, j) => sum + (j.score || j.fidelity || 0.8), 0) /
+                      {Math.round(((result.overlapAnalysis || result.fidelity?.individual || []).reduce((sum: any, j: any) => sum + (j.score || j.fidelity || 0.8), 0) /
                         Math.max(1, (result.overlapAnalysis || result.fidelity?.individual || []).length)) * 100)}%
                     </span>
                   </div>
@@ -2384,7 +2384,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
               <div className="opt-section warning-section">
                 <h4>Internal Restriction Sites</h4>
                 <div className="site-issues-list">
-                  {result.internalSiteIssues.map((issue, i) => (
+                  {result.internalSiteIssues?.map((issue: any, i: number) => (
                     <div
                       key={i}
                       className={`site-issue-card ${issue.domesticated ? 'domesticated' : ''}`}
@@ -2411,7 +2411,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                               <div>Silent mutations in primer homology region. One-pot compatible.</div>
                               {issue.mutations && issue.mutations.length > 0 && (
                                 <div className="mt-1 font-mono text-[11px]">
-                                  Mutations: {issue.mutations.map(m => `${m.originalBase}${m.position}${m.newBase}`).join(', ')}
+                                  Mutations: {issue.mutations.map((m: any) => `${m.originalBase}${m.position}${m.newBase}`).join(', ')}
                                 </div>
                               )}
                             </>
@@ -2432,7 +2432,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                       ) : (
                         <>
                           <div className="issue-sites">
-                            {issue.sites.map((site, j) => (
+                            {issue.sites.map((site: any, j: number) => (
                               <div key={j} className="site-detail">
                                 <code className="site-pos">pos {site.position}</code>
                                 <code className="site-seq">{site.sequence}</code>
@@ -2442,7 +2442,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                           {issue.domestication && issue.domestication.suggestions?.length > 0 && (
                             <div className="domestication-suggestions">
                               <span className="dom-label">Suggested fixes:</span>
-                              {issue.domestication.suggestions.slice(0, 2).map((sug, k) => (
+                              {issue.domestication.suggestions.slice(0, 2).map((sug: any, k: number) => (
                                 sug.mutations?.[0] && (
                                   <div key={k} className="dom-suggestion">
                                     <code>{sug.mutations[0].originalBase}{sug.mutations[0].position + 1}</code>
@@ -2483,7 +2483,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                 {result._optimizedData.overhangs.optimization?.replacements?.length > 0 && (
                   <div className="opt-replacements">
                     <span className="repl-label">Changes:</span>
-                    {result._optimizedData.overhangs.optimization.replacements.map((r, i) => (
+                    {result._optimizedData.overhangs.optimization.replacements.map((r: any, i: number) => (
                       <span key={i} className="repl-item">
                         <code>{r.original}</code>
                         <span className="repl-fidelity">({(r.originalFidelity * 100).toFixed(0)}%)</span>
@@ -2502,7 +2502,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
               <div className="opt-section">
                 <h4>Recommendations</h4>
                 <ul className="recommendations-list">
-                  {result._optimizedData.recommendations.map((rec, i) => (
+                  {result._optimizedData.recommendations.map((rec: any, i: number) => (
                     <li key={i} className={`recommendation-item rec-${rec.severity || rec.type || 'info'}`}>
                       <span className="rec-icon">{rec.severity === 'warning' || rec.type === 'warning' ? '⚠️' : rec.severity === 'error' ? '❌' : '💡'}</span>
                       <span className="rec-content">
@@ -2537,13 +2537,13 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
         <div className="export-card-header">
           <h4>Assembled Sequence</h4>
           <div className="export-card-actions">
-            <button onClick={() => copyToClipboard(result.assembledSequence, 'sequence')}>Copy</button>
+            <button onClick={() => copyToClipboard(result.assembledSequence || '', 'sequence')}>Copy</button>
             <button onClick={downloadFasta}>FASTA</button>
           </div>
         </div>
         <div className="sequence-preview-text">
-          <code>{result.assembledSequence.slice(0, 100)}...</code>
-          <span className="seq-length-badge">{result.assembledSequence.length} bp</span>
+          <code>{result.assembledSequence?.slice(0, 100)}...</code>
+          <span className="seq-length-badge">{result.assembledSequence?.length} bp</span>
         </div>
       </div>
     </div>
@@ -2551,12 +2551,12 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
 }
 
 // Assembly Viewer with SeqViz
-function AssemblyViewer({ result }) {
+function AssemblyViewer({ result }: { result: any }) {
   const [viewMode, setViewMode] = useState<string>('circular');
 
   const annotations = useMemo(() => {
     if (!result?.parts) return [];
-    const annots = [];
+    const annots: any[] = [];
     let pos = 0;
     result.parts.forEach((part: any, i: number) => {
       const len = part.length || part.seq?.length || 0;
@@ -2566,7 +2566,7 @@ function AssemblyViewer({ result }) {
           start: pos,
           end: pos + len,
           direction: 1,
-          color: PART_TYPES[part.type]?.color || '#8b5cf6',
+          color: (PART_TYPES as any)[part.type]?.color || '#8b5cf6',
         });
         pos += len;
       }
@@ -2611,7 +2611,7 @@ function AssemblyViewer({ result }) {
 }
 
 // Overlap Settings Component for Gibson/HiFi methods
-function OverlapSettings({ settings, onChange, variant }) {
+function OverlapSettings({ settings, onChange, variant }: { settings: any; onChange: any; variant: any }) {
   const isHiFi = variant === 'nebuilder_hifi';
   const defaults = isHiFi ? NEBUILDER_PARAMS : { MIN_OVERLAP: 15, MAX_OVERLAP: 40, TARGET_TM: 55 };
 
@@ -2664,7 +2664,7 @@ function OverlapSettings({ settings, onChange, variant }) {
 }
 
 // Overlap Quality Gauge for Gibson/HiFi Assembly Plan preview
-function OverlapQualityGauge({ overlapLength, targetTm, fragmentCount, variant }) {
+function OverlapQualityGauge({ overlapLength, targetTm, fragmentCount, variant }: { overlapLength: any; targetTm: any; fragmentCount: any; variant: any }) {
   const isHiFi = variant === 'nebuilder_hifi';
 
   // Calculate estimated quality based on parameters
@@ -2699,14 +2699,14 @@ function OverlapQualityGauge({ overlapLength, targetTm, fragmentCount, variant }
   const quality = getOverlapQuality();
   const qualityPercent = quality.toFixed(0);
 
-  const getQualityColor = (q) => {
+  const getQualityColor = (q: number) => {
     if (q >= 85) return '#22c55e';
     if (q >= 70) return '#84cc16';
     if (q >= 55) return '#f59e0b';
     return '#ef4444';
   };
 
-  const getQualityStatus = (q) => {
+  const getQualityStatus = (q: number) => {
     if (q >= 85) return 'Excellent';
     if (q >= 70) return 'Good';
     if (q >= 55) return 'Acceptable';
@@ -2799,7 +2799,7 @@ function OverlapQualityGauge({ overlapLength, targetTm, fragmentCount, variant }
 }
 
 // Overlap Analysis Display for Gibson/HiFi results
-function OverlapAnalysisDisplay({ overlaps }) {
+function OverlapAnalysisDisplay({ overlaps }: { overlaps: any }) {
   if (!overlaps || overlaps.length === 0) return null;
 
   const getScoreColor = (score: number) => {
@@ -2813,7 +2813,7 @@ function OverlapAnalysisDisplay({ overlaps }) {
     <div className="overlap-analysis">
       <h4>Junction Analysis</h4>
       <div className="overlap-list">
-        {overlaps.map((overlap, i) => (
+        {overlaps.map((overlap: any, i: number) => (
           <div key={i} className="overlap-item">
             <span className="overlap-label">Junction {i + 1}</span>
             <div className="overlap-details">
@@ -2832,7 +2832,7 @@ function OverlapAnalysisDisplay({ overlaps }) {
             </div>
             {overlap.warnings && overlap.warnings.length > 0 && (
               <div className="overlap-warnings">
-                {overlap.warnings.map((w, j) => (
+                {overlap.warnings.map((w: any, j: number) => (
                   <span key={j} className="warning-tag">{w}</span>
                 ))}
               </div>
@@ -2955,7 +2955,7 @@ export default function GoldenGateDesigner() {
    * This runs the Fusion Site Optimizer and replaces the part with fragment parts
    * Includes auto-domestication support to break internal enzyme sites
    */
-  const handleSplitSequenceFromPart = useCallback((partIndex, sequence, numFragments, enzymeToUse) => {
+  const handleSplitSequenceFromPart = useCallback((partIndex: any, sequence: any, numFragments: any, enzymeToUse: any) => {
     return new Promise((resolve, reject) => {
       try {
         // First, analyze for domestication and check for errors
@@ -3009,8 +3009,8 @@ export default function GoldenGateDesigner() {
         }
 
         // Convert junctions to fragment parts
-        const junctions = [...result.junctions].sort((a, b) => a.position - b.position);
-        const fragmentParts = [];
+        const junctions = [...(result.junctions || [])].sort((a: any, b: any) => a.position - b.position);
+        const fragmentParts: any[] = [];
 
         // Get enzyme-specific overhang length (4 for BsaI/BsmBI/BbsI, 3 for SapI)
         const overhangLength = GOLDEN_GATE_ENZYMES[enzymeToUse]?.overhangLength || 4;
@@ -3051,7 +3051,7 @@ export default function GoldenGateDesigner() {
         const domesticationNote = domesticationInfo.needsDomestication
           ? ` (includes ${domesticationInfo.additionalFragmentsNeeded} domestication junction${domesticationInfo.additionalFragmentsNeeded > 1 ? 's' : ''})`
           : '';
-        setCopyMessage(`Split into ${effectiveFragments} optimized fragments${domesticationNote} (${(result.score?.fidelity * 100 || 90).toFixed(0)}% predicted fidelity)`);
+        setCopyMessage(`Split into ${effectiveFragments} optimized fragments${domesticationNote} (${((result.score?.fidelity || 0.9) * 100).toFixed(0)}% predicted fidelity)`);
         resolve({ ...result, domesticationInfo });
       } catch (err: unknown) {
         reject(err);
@@ -3060,17 +3060,17 @@ export default function GoldenGateDesigner() {
   }, [minFragmentSize]);
 
   // Drag and drop handlers
-  const handleDragStart = (e, index) => {
+  const handleDragStart = (e: any, index: any) => {
     setDraggedIndex(index);
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleDragOver = (e, index) => {
+  const handleDragOver = (e: any, index: any) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleDrop = (e, dropIndex) => {
+  const handleDrop = (e: any, dropIndex: any) => {
     e.preventDefault();
     if (draggedIndex === null || draggedIndex === dropIndex) return;
 
@@ -3208,7 +3208,7 @@ export default function GoldenGateDesigner() {
               for (let i = 0; i <= junctions.length; i++) {
                 const isFirst = i === 0;
                 const isLast = i === junctions.length;
-                const juncPos = j => j.junctionPosition ?? j.position ?? 0;
+                const juncPos = (j: any) => j.junctionPosition ?? j.position ?? 0;
                 const fragStart = isFirst ? 0 : juncPos(junctions[i - 1]);
                 const fragEnd = isLast ? part.seq.length : juncPos(junctions[i]) + domesticationOverhangLen;
                 const fragSeq = part.seq.slice(fragStart, fragEnd);
@@ -3314,7 +3314,7 @@ export default function GoldenGateDesigner() {
               if (mutagenicResult.success && mutagenicResult.junctions.length > 0) {
                 // Create fragments with mutagenic primers
                 // Note: junctions have junctionPosition property, not position
-                const junctions = mutagenicResult.junctions.sort((a, b) => a.junctionPosition - b.junctionPosition);
+                const junctions = mutagenicResult.junctions.sort((a: any, b: any) => a.junctionPosition - b.junctionPosition);
                 const domesticationOverhangLen = GOLDEN_GATE_ENZYMES[enzyme]?.overhangLength || 4;
 
                 // Track mutations for this part
@@ -3410,12 +3410,12 @@ export default function GoldenGateDesigner() {
 
               // If mutagenic junction failed, fall back to legacy approach but warn user
               const legacyAnalysis = analyzeForDomestication(part.seq, enzyme);
-              if (legacyAnalysis.needsDomestication && legacyAnalysis.domesticationOptions?.length > 0) {
-                const domesticationJunctions = legacyAnalysis.domesticationOptions
-                  .filter(opt => opt.hasValidOption && opt.recommended)
-                  .map(opt => ({
-                    position: opt.recommended.position,
-                    overhang: opt.recommended.overhang,
+              if (legacyAnalysis.needsDomestication && (legacyAnalysis.domesticationOptions?.length || 0) > 0) {
+                const domesticationJunctions = (legacyAnalysis.domesticationOptions || [])
+                  .filter((opt: any) => opt.hasValidOption && opt.recommended)
+                  .map((opt: any) => ({
+                    position: opt.recommended?.position,
+                    overhang: opt.recommended?.overhang,
                   }))
                   .sort((a, b) => a.position - b.position);
 
@@ -3469,8 +3469,8 @@ export default function GoldenGateDesigner() {
         expandedParts = partsToExpand;
 
         if (domesticationApplied) {
-          const onePotCount = domesticationDetails.filter(d => d.onePotCompatible).length;
-          const legacyCount = domesticationDetails.filter(d => !d.onePotCompatible).length;
+          const onePotCount = domesticationDetails.filter((d: any) => d.onePotCompatible).length;
+          const legacyCount = domesticationDetails.filter((d: any) => !d.onePotCompatible).length;
           console.log(`Auto-domestication: Expanded ${validParts.length} parts to ${expandedParts.length} fragments`);
           console.log(`  One-pot compatible: ${onePotCount}, Legacy (requires sequential): ${legacyCount}`);
         }
@@ -3492,12 +3492,12 @@ export default function GoldenGateDesigner() {
         // Add domestication info to result
         if (domesticationApplied) {
           console.log('[Domestication] domesticationDetails:', JSON.stringify(domesticationDetails, null, 2));
-          console.log('[Domestication] Has workflowSteps:', domesticationDetails.some(d => d.workflowSteps?.length > 0));
+          console.log('[Domestication] Has workflowSteps:', domesticationDetails.some((d: any) => d.workflowSteps?.length > 0));
 
-          const onePotCompatible = domesticationDetails.every(d => d.onePotCompatible);
-          const strategies = [...new Set(domesticationDetails.map(d => d.strategy))];
+          const onePotCompatible = domesticationDetails.every((d: any) => d.onePotCompatible);
+          const strategies = [...new Set(domesticationDetails.map((d: any) => d.strategy))];
 
-          assemblyResult._autoDomestication = {
+          (assemblyResult as any)._autoDomestication = {
             applied: true,
             originalParts: validParts.length,
             expandedParts: expandedParts.length,
@@ -3507,13 +3507,13 @@ export default function GoldenGateDesigner() {
             details: domesticationDetails,
             // Summarize mutations for display
             mutationSummary: domesticationDetails
-              .filter(d => d.mutations && d.mutations.length > 0)
-              .flatMap(d => d.mutations)
-              .map(m => ({
-                partId: m.partId,
-                sitePosition: m.sitePosition,
-                strategy: m.strategy,
-                baseChanges: m.mutations ? m.mutations.map(mut =>
+              .filter((d: any) => d.mutations && d.mutations.length > 0)
+              .flatMap((d: any) => d.mutations)
+              .map((m: any) => ({
+                partId: (m as any).partId,
+                sitePosition: (m as any).sitePosition,
+                strategy: (m as any).strategy,
+                baseChanges: (m as any).mutations ? (m as any).mutations.map((mut: any) =>
                   `${mut.originalBase}${mut.position}${mut.newBase}`
                 ).join(', ') : null,
               })),
@@ -3621,7 +3621,7 @@ export default function GoldenGateDesigner() {
         };
       }
 
-      setResult(assemblyResult);
+      setResult(assemblyResult as any);
 
       // After design, assess if boundary optimization could help (Golden Gate only)
       if (isGoldenGate && validParts.length >= 2) {
@@ -3666,7 +3666,7 @@ export default function GoldenGateDesigner() {
         minFragmentSize: MIN_SEQUENCE_LENGTH,
       });
 
-      if (optimized.success && optimized.summary.boundariesOptimized > 0) {
+      if (optimized.success && (optimized.summary?.boundariesOptimized || 0) > 0) {
         // Update parts with optimized sequences
         const newParts = optimized.optimizedFragments.map((frag: any, i: number) => ({
           ...parts[i],
@@ -3828,7 +3828,7 @@ export default function GoldenGateDesigner() {
         // Build optimizer options from UI settings
         const optimizerOptions = {
           enzyme,
-          algorithm: algorithmMap[options.algorithm] || 'auto',
+          algorithm: (algorithmMap as any)[options.algorithm] || 'auto',
           minFragmentSize: options.constraints?.minFragmentSize || OPTIMIZER_DEFAULTS.minFragmentSize,
           maxFragmentSize: options.constraints?.maxFragmentSize || OPTIMIZER_DEFAULTS.maxFragmentSize,
           minDistanceFromEnds: OPTIMIZER_DEFAULTS.minDistanceFromEnds,
@@ -3908,7 +3908,7 @@ export default function GoldenGateDesigner() {
         }
 
         // Format the junctions for UI display
-        const formattedJunctions = optimizationResult.junctions.map((j, i) => {
+        const formattedJunctions = (optimizationResult.junctions || []).map((j: any, i: number) => {
           const detailed = optimizationResult.detailedJunctions?.[i];
           return {
             position: j.position,
@@ -3932,9 +3932,9 @@ export default function GoldenGateDesigner() {
           summary: {
             predictedSuccessRate: successRate,
             predictedSuccessPercent: `${(successRate * 100).toFixed(0)}%`,
-            highRiskCount: (failurePred.predictions || []).filter(p => p.severity === 'high').length,
-            mediumRiskCount: (failurePred.predictions || []).filter(p => p.severity === 'medium').length,
-            lowRiskCount: (failurePred.predictions || []).filter(p => p.severity === 'low').length,
+            highRiskCount: (failurePred.predictions || []).filter((p: any) => p.severity === 'high').length,
+            mediumRiskCount: (failurePred.predictions || []).filter((p: any) => p.severity === 'medium').length,
+            lowRiskCount: (failurePred.predictions || []).filter((p: any) => p.severity === 'low').length,
             recommendation: failurePred.recommendations?.[0] ||
               (successRate >= 0.9
                 ? 'Assembly design meets quality thresholds. Proceed with confidence.'
@@ -3942,7 +3942,7 @@ export default function GoldenGateDesigner() {
                 ? 'Consider optimizing low-scoring junctions for better reliability.'
                 : 'Multiple high-risk junctions detected. Consider revising the design.'),
           },
-          predictions: (failurePred.predictions || []).map(p => ({
+          predictions: (failurePred.predictions || []).map((p: any) => ({
             type: p.type || 'risk',
             severity: p.severity || 'medium',
             fragment: p.fragment || '',
@@ -4009,7 +4009,7 @@ export default function GoldenGateDesigner() {
         result.simulation || { sequence: result.assembledSequence, features: result.parts },
         {
           name: `Assembly_${method}`,
-          description: `DNA assembly designed using ${ASSEMBLY_METHODS[method.toUpperCase()]?.name || method}`,
+          description: `DNA assembly designed using ${(ASSEMBLY_METHODS as any)[method.toUpperCase()]?.name || method}`,
           molType: 'DNA',
           topology: 'circular',
         } as any
@@ -4683,12 +4683,12 @@ export default function GoldenGateDesigner() {
                     onChange={handlePartChange}
                     onRemove={removePart}
                     canRemove={true}
-                    enzyme={isGoldenGate ? enzyme : null}
+                    enzyme={isGoldenGate ? enzyme : null as any}
                     onDragStart={handleDragStart}
                     onDragOver={handleDragOver}
                     onDrop={handleDrop}
                     isDragging={draggedIndex === i}
-                    onSplitSequence={isGoldenGate ? handleSplitSequenceFromPart : null}
+                    onSplitSequence={isGoldenGate ? handleSplitSequenceFromPart : null as any}
                     useEnhancedWorkflow={useEnhancedWorkflow}
                     onOpenEnhancedDomestication={(partData) => {
                       setEnhancedDomesticationPart(partData);
@@ -4917,7 +4917,7 @@ export default function GoldenGateDesigner() {
                       {boundaryAssessment.needsOptimization && boundaryAssessment.issues?.length > 0 && (
                         <div className="mb-3 p-2 bg-white/70 rounded text-xs">
                           <strong className="block mb-1">Issues found:</strong>
-                          {boundaryAssessment.issues.slice(0, 3).map((issue, i) => (
+                          {boundaryAssessment.issues.slice(0, 3).map((issue: any, i: number) => (
                             <div key={i} className="text-amber-900 ml-2">
                               • Junction {issue.junction + 1} ({issue.side}): {issue.quality} quality
                               {issue.issues?.[0] && ` - ${issue.issues[0]}`}
@@ -5008,7 +5008,7 @@ export default function GoldenGateDesigner() {
                   const originalSeq = enhancedDomesticationPart._originalSequence || enhancedDomesticationPart.seq;
 
                   const updatedPart = {
-                    ...updatedParts[enhancedDomesticationPart.index],
+                    ...updatedParts[enhancedDomesticationPart.index || 0],
                     seq: result.domesticatedSequence || enhancedDomesticationPart.seq,
                     _originalSequence: originalSeq,
                     _domesticationApproved: true,
@@ -5024,7 +5024,7 @@ export default function GoldenGateDesigner() {
                     _domesticationJunctions: updatedPart._domesticationJunctions,
                     _domesticationStrategy: updatedPart._domesticationStrategy,
                   });
-                  updatedParts[enhancedDomesticationPart.index] = updatedPart;
+                  updatedParts[enhancedDomesticationPart.index || 0] = updatedPart;
                   setParts(updatedParts);
 
                   // Set flag to trigger redesign after state update

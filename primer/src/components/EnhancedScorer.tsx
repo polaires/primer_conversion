@@ -223,7 +223,7 @@ const EnhancedScorer: FC = () => {
         // Run unified analysis
         const analysis = analyzePrimers(
           { seq: fwdSeq, tm: fwdTm, gc: fwdGc },
-          revSeq ? { seq: revSeq, tm: revTm, gc: revGc } : undefined,
+          revSeq ? { seq: revSeq, tm: revTm, gc: revGc } as any : undefined,
           { mode: mode as any, template: templateSeq }
         ) as any;
 

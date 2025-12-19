@@ -896,7 +896,7 @@ export function score(
     resultRev,
     annealingTemperature,
     parsedOfftargetCheck || parsedSeq
-  );
+  ) as [Primer, Primer];
 
   return [resultFwd, resultRev];
 }
@@ -1773,11 +1773,11 @@ function chooseBest(
   const selectFromTiers = (tiers: PrimerTiers, byScore: boolean): { best: PairCandidate | null; tier: number } => {
     if (byScore) {
       for (const tier of Object.values(tiers)) {
-        tier.sort((a, b) => b.score - a.score);
+        tier.sort((a: any, b: any) => b.score - a.score);
       }
     } else {
       for (const tier of Object.values(tiers)) {
-        tier.sort((a, b) => a.penalty - b.penalty);
+        tier.sort((a: any, b: any) => a.penalty - b.penalty);
       }
     }
 
@@ -2622,7 +2622,7 @@ export function generateAlternatives(
   const tiers = assignPrimerTiers(tieredCandidates);
 
   for (const tier of Object.values(tiers)) {
-    tier.sort((a, b) => b.score - a.score);
+    tier.sort((a: any, b: any) => b.score - a.score);
   }
 
   const sortedPairs = [

@@ -420,7 +420,7 @@ export function createDomesticationPlan(
     plan.userActions.push({
       type: 'CONFIRM_FRAME',
       priority: 'critical',
-      message: frameStep.userMessage,
+      message: frameStep.userMessage || '',
       options: frameStep.frameOptions,
       defaultOption: frameStep.recommendedFrame,
     });
@@ -449,7 +449,7 @@ export function createDomesticationPlan(
       plan.userActions.push({
         type: 'RESOLVE_ADJACENT_SITES',
         priority: 'high',
-        message: adjacentStep.message,
+        message: adjacentStep.message || '',
         options: adjacentStep.resolutionOptions,
       });
     }
@@ -966,7 +966,7 @@ function generateStrategyOptions(
       `Adds ${mutagenicResult.additionalFragments || internalSites.count} additional fragment(s)`,
       'Requires more primers',
     ],
-    feasible: mutagenicResult.success || (mutagenicResult.junctions && mutagenicResult.junctions.length > 0),
+    feasible: !!(mutagenicResult.success || (mutagenicResult.junctions && mutagenicResult.junctions.length > 0)),
     details: {
       sitesHandled: mutagenicResult.junctions?.length || 0,
       sitesFailed: mutagenicResult.failedSites?.length || 0,
@@ -1088,7 +1088,7 @@ function handleFrameDetection(
 
   if (orfResult.recommendation.confidence === 'high') {
     step.status = 'complete';
-    step.confirmedFrame = orfResult.recommendation.recommendedFrame;
+    step.confirmedFrame = orfResult.recommendation.recommendedFrame ?? null;
     step.orfDetection = orfResult;
     step.requiresUserAction = false;
     return step;
@@ -1096,7 +1096,7 @@ function handleFrameDetection(
 
   if (orfResult.recommendation.confidence === 'medium') {
     step.status = 'pending';
-    step.recommendedFrame = orfResult.recommendation.recommendedFrame;
+    step.recommendedFrame = orfResult.recommendation.recommendedFrame ?? undefined;
     step.orfDetection = orfResult;
     step.requiresUserAction = true;
     step.userMessage = `ORF detected with medium confidence. Recommended: frame ${orfResult.recommendation.recommendedFrame}. Please confirm.`;

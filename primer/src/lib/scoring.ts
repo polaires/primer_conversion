@@ -1367,7 +1367,7 @@ export function analyzePrimerPair(
   } = options;
 
   // Get preset configuration
-  const preset = SCORING_PRESETS[mode] || SCORING_PRESETS.amplification;
+  const preset = (SCORING_PRESETS as any)[mode] || SCORING_PRESETS.amplification;
   const effectiveWeights = weights || DEFAULT_WEIGHTS;
 
   const warnings: string[] = [];

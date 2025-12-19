@@ -360,7 +360,7 @@ export function EnhancedDomesticationPanel({
 
     try {
       const result = executeDomesticationPlan(plan as any, {
-        frame: selectedFrame,
+        frame: selectedFrame ?? undefined,
         strategy: selectedStrategy,
         ...mutationSelections,
       }) as ExecutionResult;
@@ -375,7 +375,7 @@ export function EnhancedDomesticationPanel({
             result as any,  // strategyResult - contains strategy, mutations, junctions
             enzyme,
             {
-              frame: selectedFrame,
+              frame: selectedFrame ?? 0,
               organism: 'ecoli',
               targetTm: 60,
               existingOverhangs: [],

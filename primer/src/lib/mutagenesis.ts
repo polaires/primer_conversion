@@ -1140,7 +1140,7 @@ export function checkMutantSecondaryStructure(mutantPrimer: string, originalPrim
       dG: foldDg,
       severity: threePrimeSeverity.level === 'critical' ? 'critical' : 'warning',
       severityLevel: threePrimeSeverity.level,
-      message: threePrimeSeverity.message,
+      message: threePrimeSeverity.message || '',
       tooltip: threePrimeSeverity.tooltip,
       details: {
         structureInvolves3prime: threePrimeSeverity.level !== 'none',
@@ -2198,7 +2198,7 @@ function assignTiers(candidates: CandidatePair[], options: { minScoreForTier1?: 
     // Check composite score threshold - low score candidates should not be tier 1
     // compositeScore is 0-100 (higher = better), so we check >= threshold
     const hasCompositeScore = typeof c.compositeScore === 'number';
-    const scoreTooLow = hasCompositeScore && c.compositeScore < minScoreForTier1;
+    const scoreTooLow = hasCompositeScore && (c.compositeScore ?? 0) < minScoreForTier1;
 
     if (tmDiff <= 2 && worstDg > -3 && !scoreTooLow) {
       tiers.tier1.push(c);

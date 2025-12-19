@@ -14,10 +14,10 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* Linting - partially strict (full strict: 206 errors remaining in 2 large files) */
-    "strict": false,
-    "noImplicitAny": false,
-    "strictNullChecks": false,
+    /* Linting - strict mode enabled */
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,

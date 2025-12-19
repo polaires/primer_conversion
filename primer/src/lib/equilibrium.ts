@@ -366,7 +366,7 @@ function estimateHairpinDG(seq: string, temperature: number = 55): number {
             const prevBase5 = seq[loopStart - i];
             const prevBase3 = seq[loopStart + loopLen + i - 1];
             const pair = `${prevBase5}${base5}/${complement(prevBase3)}${complement(base3)}`;
-            const nn = DNA24_ENERGIES.NN[pair];
+            const nn = (DNA24_ENERGIES.NN as any)[pair];
             if (nn) {
               dH += nn[0];
               dS += nn[1];
@@ -446,7 +446,7 @@ export function calculateHomodimerDG(seq: string, temperature: number = 55): num
               // seqRev contains the actual bases on the bottom strand
               // Format: "XY/WZ" where XY is top strand, WZ is bottom strand 3'->5'
               const pair = `${seq[prevI]}${seq[i]}/${seqRev[prevJ]}${seqRev[j]}`;
-              const nn = DNA24_ENERGIES.NN[pair];
+              const nn = (DNA24_ENERGIES.NN as any)[pair];
               if (nn) {
                 dH += nn[0];
                 dS += nn[1];
@@ -536,7 +536,7 @@ export function calculateHeterodimerDG(seq1: string, seq2: string, temperature: 
               // seq2Rev contains the actual bases on the bottom strand
               // Format: "XY/WZ" where XY is top strand, WZ is bottom strand 3'->5'
               const pair = `${seq1[prevI]}${seq1[i]}/${seq2Rev[prevJ]}${seq2Rev[j]}`;
-              const nn = DNA24_ENERGIES.NN[pair];
+              const nn = (DNA24_ENERGIES.NN as any)[pair];
               if (nn) {
                 dH += nn[0];
                 dS += nn[1];
@@ -626,7 +626,7 @@ export function calculateDuplexDG(primer: string, target: string, temperature: n
   // NN pair format = "XY/WZ"
   for (let i = 0; i < primer.length - 1; i++) {
     const pair = `${primer[i]}${primer[i + 1]}/${targetRev[i]}${targetRev[i + 1]}`;
-    const nn = DNA24_ENERGIES.NN[pair];
+    const nn = (DNA24_ENERGIES.NN as any)[pair];
     if (nn) {
       dH += nn[0];
       dS += nn[1];
@@ -844,11 +844,11 @@ export function efficiencyToScore(efficiency: number, options: EfficiencyScoreOp
 // Helper functions
 
 function isComplement(base1: string, base2: string): boolean {
-  return DNA24_COMPLEMENT[base1] === base2;
+  return (DNA24_COMPLEMENT as any)[base1] === base2;
 }
 
 function complement(base: string): string {
-  return DNA24_COMPLEMENT[base] || base;
+  return (DNA24_COMPLEMENT as any)[base] || base;
 }
 
 // Re-export reverseComplement from sequenceUtils for backward compatibility

@@ -249,9 +249,9 @@ export function createAssemblies(fragments: Fragment[], target: string, config: 
 
         if (!result.created) continue;
 
-        if (result.circularized) {
+        if (result.circularized && result.assembly) {
           completedAssemblies.push(result.assembly);
-        } else {
+        } else if (result.assembly) {
           if (!nextFrag.assemblies) nextFrag.assemblies = [];
           nextFrag.assemblies.push(result.assembly);
         }

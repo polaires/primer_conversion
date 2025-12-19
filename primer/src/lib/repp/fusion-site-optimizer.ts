@@ -616,7 +616,8 @@ export function optimizeBranchBound(
     return optimizeGreedy(sequence, numFragments, enzyme, options);
   }
 
-  const result = best.junctions.map((c, i) => ({
+  const bestResult = best as { junctions: Junction[]; score: SetScore };
+  const result = bestResult.junctions.map((c: any, i: any) => ({
     ...c,
     targetIndex: i,
     idealPosition: targets[i].idealPosition,
@@ -625,9 +626,9 @@ export function optimizeBranchBound(
 
   return {
     algorithm: 'branchBound',
-    junctions: result.sort((a, b) => a.position - b.position),
-    overhangs: result.map(r => r.overhang),
-    score: best.score,
+    junctions: result.sort((a: any, b: any) => a.position - b.position),
+    overhangs: result.map((r: any) => r.overhang),
+    score: bestResult.score,
     numJunctions: result.length,
     numExpected: numJunctions,
     complete: result.length === numJunctions,

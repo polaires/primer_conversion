@@ -106,7 +106,7 @@ export function runCalibration(options: CalibrationOptions = {}): CalibrationRes
     console.log(`  Precision: ${(baselineCV.precision * 100).toFixed(1)}%`);
     console.log(`  Recall: ${(baselineCV.recall * 100).toFixed(1)}%`);
     console.log(`  F1 Score: ${(baselineCV.f1 * 100).toFixed(1)}%`);
-    console.log(`  AUC-ROC: ${baselineCV.auc.toFixed(3)}`);
+    console.log(`  AUC-ROC: ${(baselineCV.auc ?? 0).toFixed(3)}`);
     console.log('');
   }
 
@@ -206,7 +206,7 @@ export function runCalibration(options: CalibrationOptions = {}): CalibrationRes
     console.log(`  Precision:       ${(baselineCV.precision * 100).toFixed(1)}%        ${(bestMetrics.precision * 100).toFixed(1)}%        ${((bestMetrics.precision - baselineCV.precision) * 100).toFixed(1)}%`);
     console.log(`  Recall:          ${(baselineCV.recall * 100).toFixed(1)}%        ${(bestMetrics.recall * 100).toFixed(1)}%        ${((bestMetrics.recall - baselineCV.recall) * 100).toFixed(1)}%`);
     console.log(`  F1 Score:        ${(baselineCV.f1 * 100).toFixed(1)}%        ${(bestMetrics.f1 * 100).toFixed(1)}%        ${((bestMetrics.f1 - baselineCV.f1) * 100).toFixed(1)}%`);
-    console.log(`  AUC-ROC:         ${baselineCV.auc.toFixed(3)}        ${bestMetrics.auc.toFixed(3)}        ${(bestMetrics.auc - baselineCV.auc).toFixed(3)}`);
+    console.log(`  AUC-ROC:         ${(baselineCV.auc ?? 0).toFixed(3)}        ${(bestMetrics.auc ?? 0).toFixed(3)}        ${((bestMetrics.auc ?? 0) - (baselineCV.auc ?? 0)).toFixed(3)}`);
     console.log('');
   }
 
@@ -263,7 +263,7 @@ export function quickValidation(): QuickValidationResult {
     precision: metrics.mean.precision,
     recall: metrics.mean.recall,
     f1: metrics.mean.f1,
-    auc: metrics.mean.auc,
+    auc: metrics.mean.auc ?? 0,
   };
 }
 

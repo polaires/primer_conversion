@@ -305,17 +305,17 @@ export function designUnified(
 
   switch (operationType) {
     case 'amplify':
-      return designAmplification(seq, start, end, opts, isCircular);
+      return designAmplification(seq, start, end, opts as any, isCircular);
 
     case 'delete':
-      return designDeletion(seq, start, end, opts, isCircular);
+      return designDeletion(seq, start, end, opts as any, isCircular);
 
     case 'aa_mutation':
-      return designAAMutation(seq, start, aaHelper!, opts);
+      return designAAMutation(seq, start, aaHelper!, opts as any);
 
     case 'substitute':
     case 'insert':
-      return designSubstitution(seq, start, end, replacement!, opts, isCircular);
+      return designSubstitution(seq, start, end, replacement!, opts as any, isCircular);
 
     default:
       throw new Error(`Unknown operation type: ${operationType}`);
@@ -400,7 +400,7 @@ function designAmplification(
     exhaustiveSearch: options.exhaustiveSearch === true,
   });
 
-  const currentScore = fwd.scoring.compositeScore;
+  const currentScore = fwd.scoring.compositeScore ?? 0;
 
   // Use alternatives from primers() - same approach as MutagenesisDesigner
   // This is the unified approach matching how mutagenesis generates alternatives
@@ -579,8 +579,8 @@ function designAmplification(
              currentScore >= 70 ? 'good' : 'acceptable'),
     qualityTier: fwd.scoring?.qualityTier || (currentScore >= 80 ? 'excellent' :
              currentScore >= 70 ? 'good' : 'acceptable'),
-    compositeScore: currentScore,
-    effectiveScore: fwd.scoring?.effectiveScore ?? currentScore,
+    compositeScore: currentScore as number,
+    effectiveScore: fwd.scoring?.effectiveScore ?? currentScore as number,
     criticalWarnings: fwd.scoring?.criticalWarnings ?? 0,
     piecewiseScores: fwd.scoring?.piecewiseScores,
     forwardPiecewiseScores: fwd.scoring?.piecewiseScores,

@@ -901,12 +901,12 @@ function AlternativeTableRow({
         <span>{score}</span>
       </td>
       <td className="col-fwd-seq" title={alternative.forward?.sequence}>
-        <code>{formatSequence(alternative.forward?.sequence, 20)}</code>
+        <code>{formatSequence(alternative.forward?.sequence || '', 20)}</code>
       </td>
       <td className="col-fwd-tm">{alternative.forward?.tm?.toFixed(1)}°C</td>
       <td className="col-fwd-len">{alternative.forward?.length}bp</td>
       <td className="col-rev-seq" title={alternative.reverse?.sequence}>
-        <code>{formatSequence(alternative.reverse?.sequence, 20)}</code>
+        <code>{formatSequence(alternative.reverse?.sequence || '', 20)}</code>
       </td>
       <td className="col-rev-tm">{alternative.reverse?.tm?.toFixed(1)}°C</td>
       <td className="col-rev-len">{alternative.reverse?.length}bp</td>
@@ -1138,12 +1138,12 @@ export default function AlternativesPanel({
     const displayedScore = displayedDesign?.compositeScore || displayedDesign?.score || 0;
     const withTradeOffs = sorted.map(alt => ({
       ...alt,
-      tradeOffs: generateTradeOffs(alt, displayedDesign),
+      tradeOffs: generateTradeOffs(alt as any, displayedDesign),
       // Only mark as "better" if alternative score is strictly higher than displayed design
       isBetterThanCurrent: (alt.compositeScore || 0) > displayedScore,
     }));
 
-    return withTradeOffs;
+    return withTradeOffs as any;
   }, [alternatives, filterState, sortConfig, currentDesign, originalDesign, badges]);
 
   const displayedAlternatives = showAll
@@ -1190,10 +1190,10 @@ export default function AlternativesPanel({
 
   const handleExport = useCallback(() => {
     const toExport = compareSelection.size > 0
-      ? processedAlternatives.filter(alt => compareSelection.has(alt.originalIdx))
+      ? processedAlternatives.filter((alt: any) => compareSelection.has(alt.originalIdx))
       : processedAlternatives;
 
-    const csv = generateAlternativesCSV(toExport);
+    const csv = generateAlternativesCSV(toExport as any);
     downloadFile(csv, 'alternative_primers.csv', 'text/csv');
   }, [processedAlternatives, compareSelection]);
 
@@ -1256,7 +1256,7 @@ export default function AlternativesPanel({
         case 'enter': // Select focused alternative
           e.preventDefault();
           if (focusedIndex >= 0 && focusedIndex <= maxIndex) {
-            onSelectAlternative(displayedAlternatives[focusedIndex]);
+            onSelectAlternative(displayedAlternatives[focusedIndex] as any);
           }
           break;
         case 'c': // Copy focused alternative
@@ -1290,7 +1290,7 @@ export default function AlternativesPanel({
 
   // Get alternatives selected for comparison
   const comparisonAlternatives = useMemo(() => {
-    return processedAlternatives.filter(alt => compareSelection.has(alt.originalIdx));
+    return processedAlternatives.filter((alt: any) => compareSelection.has(alt.originalIdx));
   }, [processedAlternatives, compareSelection]);
 
   // Compute whether current design is the best overall
@@ -1314,7 +1314,7 @@ export default function AlternativesPanel({
       {/* Comparison Modal */}
       {showComparisonModal && (
         <ComparisonModal
-          alternatives={comparisonAlternatives}
+          alternatives={comparisonAlternatives as any}
           currentDesign={currentDesign}
           onClose={() => setShowComparisonModal(false)}
           onSelect={onSelectAlternative}
@@ -1584,11 +1584,11 @@ export default function AlternativesPanel({
                         <div className="cat-alt-sequences">
                           <div className="cat-seq-row">
                             <span className="cat-seq-label">F:</span>
-                            <code className="cat-seq-code">{formatSequence(alt.forward?.sequence, 18)}</code>
+                            <code className="cat-seq-code">{formatSequence(alt.forward?.sequence || '', 18)}</code>
                           </div>
                           <div className="cat-seq-row">
                             <span className="cat-seq-label">R:</span>
-                            <code className="cat-seq-code">{formatSequence(alt.reverse?.sequence, 18)}</code>
+                            <code className="cat-seq-code">{formatSequence(alt.reverse?.sequence || '', 18)}</code>
                           </div>
                         </div>
                       </div>
@@ -1618,17 +1618,17 @@ export default function AlternativesPanel({
           <div className="keyboard-hint">
             <span>Keyboard: J/K navigate, Enter select, C copy, X compare</span>
           </div>
-          {displayedAlternatives.map((alt, displayIdx) => (
+          {displayedAlternatives.map((alt: any, displayIdx: any) => (
             <AlternativeCard
               key={alt.originalIdx}
-              alternative={alt}
+              alternative={alt as any}
               displayIndex={displayIdx}
               isSelected={selectedIndex === alt.originalIdx && isAlternativeSelected}
               isRecommended={alt.isBetterThanCurrent || false}
               isExpanded={expandSequences && expandedSequences.has(alt.originalIdx)}
               isCompareSelected={compare && compareSelection.has(alt.originalIdx)}
               isFocused={focusedIndex === displayIdx}
-              onSelect={() => onSelectAlternative(alt)}
+              onSelect={() => onSelectAlternative(alt as any)}
               onToggleExpand={() => toggleExpand(alt.originalIdx)}
               onToggleCompare={() => toggleCompare(alt.originalIdx)}
               onCopy={handleCopy}
@@ -1723,14 +1723,14 @@ export default function AlternativesPanel({
               </tr>
             </thead>
             <tbody>
-              {displayedAlternatives.map((alt, displayIdx) => (
+              {displayedAlternatives.map((alt: any, displayIdx: any) => (
                 <AlternativeTableRow
                   key={alt.originalIdx}
-                  alternative={alt}
+                  alternative={alt as any}
                   displayIndex={displayIdx}
                   isSelected={selectedIndex === alt.originalIdx && isAlternativeSelected}
                   isCompareSelected={compare && compareSelection.has(alt.originalIdx)}
-                  onSelect={() => onSelectAlternative(alt)}
+                  onSelect={() => onSelectAlternative(alt as any)}
                   onToggleCompare={() => toggleCompare(alt.originalIdx)}
                   sortConfig={sortConfig}
                 />

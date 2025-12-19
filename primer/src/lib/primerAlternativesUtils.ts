@@ -588,7 +588,7 @@ export function prepareAlternativesForDisplay(
   // Add trade-offs and comparison info
   const withTradeOffs: AlternativeWithTradeOffs[] = sorted.map(alt => ({
     ...alt,
-    tradeOffs: generateTradeOffs(alt, currentDesign),
+    tradeOffs: generateTradeOffs(alt as any, currentDesign),
     isBetterThanCurrent: (alt.compositeScore || 0) > (currentDesign.compositeScore || currentDesign.score || 0),
   }));
 

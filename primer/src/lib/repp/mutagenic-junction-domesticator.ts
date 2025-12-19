@@ -821,7 +821,7 @@ export function selectDomesticationStrategy(
   const effectiveJunctions = userJunctionPositions.length > 0 ? userJunctionPositions : idealJunctions;
 
   // Analyze each site
-  const siteAnalyses = internalSites.sites.map(site => {
+  const siteAnalyses = internalSites.sites.map((site: any) => {
     // Check distance to nearest junction
     const nearestJunction = findNearestJunction(site.position, effectiveJunctions);
     const distanceToJunction = nearestJunction ? nearestJunction.distance : Infinity;
@@ -857,11 +857,11 @@ export function selectDomesticationStrategy(
   const alternativeEnzymes = checkAlternativeEnzymes(sequence, enzyme);
 
   // Overall recommendation
-  const directMutationCount = siteAnalyses.filter(a => a.strategies.directPrimerMutation.available).length;
-  const mutagenicJunctionCount = siteAnalyses.filter(a =>
+  const directMutationCount = siteAnalyses.filter((a: any) => a.strategies.directPrimerMutation.available).length;
+  const mutagenicJunctionCount = siteAnalyses.filter((a: any) =>
     !a.strategies.directPrimerMutation.available && a.strategies.mutagenicJunction.available
   ).length;
-  const failedCount = siteAnalyses.filter(a =>
+  const failedCount = siteAnalyses.filter((a: any) =>
     !a.strategies.directPrimerMutation.available && !a.strategies.mutagenicJunction.available
   ).length;
 

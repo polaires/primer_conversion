@@ -923,7 +923,7 @@ export default function UnifiedPrimerDesigner() {
       { id: 'Reverse_primer', description: '', sequence: results.reverse.sequence },
     ];
     if (results.mutatedSequence) {
-      sequences.push({ id: 'Mutated_sequence', description: results.description, sequence: results.mutatedSequence });
+      sequences.push({ id: 'Mutated_sequence', description: results.description || '', sequence: results.mutatedSequence });
     }
     const content = generateFasta(sequences);
     downloadFile(content, 'primers.fasta');
@@ -1924,7 +1924,7 @@ export default function UnifiedPrimerDesigner() {
                     {/* Score Breakdown Popup */}
                     {showScoreBreakdown && (
                       <ScoreBreakdownPopup
-                        compositeScore={results.effectiveScore ?? results.compositeScore}
+                        compositeScore={results.effectiveScore ?? results.compositeScore ?? 0}
                         rawScore={results.compositeScore}
                         criticalWarnings={results.criticalWarnings || 0}
                         quality={{ tier: results.quality || results.qualityTier, label: results.quality || results.qualityTier }}

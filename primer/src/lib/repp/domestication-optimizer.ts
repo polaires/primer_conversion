@@ -371,7 +371,7 @@ export function analyzeDomesticationOptions(
   }
 
   // Analyze each site individually
-  const siteAnalyses: SiteAnalysis[] = internalSites.sites.map(site => {
+  const siteAnalyses: SiteAnalysis[] = internalSites.sites.map((site: any) => {
     // For now, placeholder analysis
     const junctionOptions = findDomesticationJunctions(seq, site, enzyme);
 
