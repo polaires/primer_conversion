@@ -6,10 +6,76 @@
  * their primer designs.
  */
 
-import React, { useMemo } from 'react';
+import { useMemo, FC, ReactElement, MouseEvent } from 'react';
+
+// Type definitions
+interface Quality {
+  tier?: string;
+  label?: string;
+}
+
+interface PiecewiseScores {
+  terminal3DG?: number;
+  offTarget?: number;
+  gQuadruplex?: number;
+  hairpin?: number;
+  homodimer?: number;
+  heterodimer?: number;
+  tm?: number;
+  gc?: number;
+  gcClamp?: number;
+  homopolymer?: number;
+  length?: number;
+  tmDiff?: number;
+  threePrimeComp?: number;
+  [key: string]: number | undefined;
+}
+
+interface ScoreItem {
+  key: string;
+  value: number;
+  label: string;
+  weight: number;
+}
+
+interface FeatureInfoItem {
+  label: string;
+  shortLabel: string;
+  description: string;
+  suggestion?: string;
+  icon: ReactElement;
+}
+
+interface ScoreBarProps {
+  score: number;
+  color: string;
+}
+
+interface UncheckedScoreRowProps {
+  feature: string;
+  label?: string;
+  recommendation?: string;
+}
+
+interface ScoreRowProps {
+  feature: string;
+  score: number;
+  label?: string;
+}
+
+interface ScoreBreakdownPopupProps {
+  compositeScore: number;
+  rawScore?: number;
+  criticalWarnings?: number;
+  quality?: Quality | string;
+  forwardScores?: PiecewiseScores;
+  reverseScores?: PiecewiseScores;
+  hasTemplate?: boolean;
+  onClose: () => void;
+}
 
 // Quality tier colors (matching existing design system)
-const QUALITY_COLORS = {
+const QUALITY_COLORS: Record<string, string> = {
   excellent: '#22c55e',
   good: '#3b82f6',
   acceptable: '#eab308',
@@ -18,7 +84,7 @@ const QUALITY_COLORS = {
 };
 
 // Score thresholds for color coding
-const getScoreColor = (score) => {
+const getScoreColor = (score: number): string => {
   if (score >= 0.9) return '#22c55e'; // Excellent
   if (score >= 0.7) return '#3b82f6'; // Good
   if (score >= 0.5) return '#eab308'; // Acceptable
@@ -26,7 +92,7 @@ const getScoreColor = (score) => {
   return '#ef4444'; // Poor
 };
 
-const getScoreLabel = (score) => {
+const getScoreLabel = (score: number): string => {
   if (score >= 0.9) return 'Excellent';
   if (score >= 0.7) return 'Good';
   if (score >= 0.5) return 'Acceptable';
@@ -35,7 +101,7 @@ const getScoreLabel = (score) => {
 };
 
 // Professional SVG Icons
-const Icons = {
+const Icons: Record<string, ReactElement> = {
   thermometer: (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z" />
@@ -150,7 +216,7 @@ const Icons = {
 };
 
 // Feature metadata for display and suggestions
-const FEATURE_INFO = {
+const FEATURE_INFO: Record<string, FeatureInfoItem> = {
   tm: {
     label: 'Melting Temperature',
     shortLabel: 'Tm',
@@ -244,27 +310,19 @@ const FEATURE_INFO = {
   },
 };
 
-// Internal weights for sorting (not displayed to user)
-const FEATURE_WEIGHTS = {
-  offTarget: 0.25,
-  terminal3DG: 0.20,
-  gQuadruplex: 0.10,
-  heterodimer: 0.06,
-  tm: 0.05,
-  hairpin: 0.05,
-  homodimer: 0.04,
-  gc: 0.04,
-  gcClamp: 0.03,
-  tmDiff: 0.03,
-  homopolymer: 0.02,
-  length: 0.01,
-  threePrimeComp: 0.04,
+// Default feature info for unknown features
+const DEFAULT_FEATURE_INFO: FeatureInfoItem = {
+  label: 'Unknown',
+  shortLabel: 'Unknown',
+  description: '',
+  suggestion: '',
+  icon: Icons.clipboard,
 };
 
 /**
  * Score bar component with gradient fill
  */
-function ScoreBar({ score, color }) {
+const ScoreBar: FC<ScoreBarProps> = ({ score, color }) => {
   return (
     <div style={{
       width: '100%',
@@ -282,17 +340,16 @@ function ScoreBar({ score, color }) {
       }} />
     </div>
   );
-}
+};
 
 /**
  * Unchecked score row component - for features that weren't analyzed
  */
-function UncheckedScoreRow({ feature, label: customLabel, recommendation }) {
+const UncheckedScoreRow: FC<UncheckedScoreRowProps> = ({ feature, label: customLabel, recommendation }) => {
   const info = FEATURE_INFO[feature] || {
+    ...DEFAULT_FEATURE_INFO,
     label: feature,
     shortLabel: feature,
-    description: '',
-    icon: Icons.clipboard,
   };
 
   return (
@@ -373,18 +430,16 @@ function UncheckedScoreRow({ feature, label: customLabel, recommendation }) {
       )}
     </div>
   );
-}
+};
 
 /**
  * Individual score row component
  */
-function ScoreRow({ feature, score, label: customLabel }) {
+const ScoreRow: FC<ScoreRowProps> = ({ feature, score, label: customLabel }) => {
   const info = FEATURE_INFO[feature] || {
+    ...DEFAULT_FEATURE_INFO,
     label: feature,
     shortLabel: feature,
-    description: '',
-    suggestion: '',
-    icon: Icons.clipboard,
   };
 
   const color = getScoreColor(score);
@@ -440,7 +495,7 @@ function ScoreRow({ feature, score, label: customLabel }) {
           </div>
         </div>
         <div style={{
-          textAlign: 'right',
+          textAlign: 'right' as const,
           flexShrink: 0,
         }}>
           <div style={{
@@ -462,12 +517,12 @@ function ScoreRow({ feature, score, label: customLabel }) {
       <ScoreBar score={score} color={color} />
     </div>
   );
-}
+};
 
 /**
  * Main ScoreBreakdownPopup component
  */
-export default function ScoreBreakdownPopup({
+const ScoreBreakdownPopup: FC<ScoreBreakdownPopupProps> = ({
   compositeScore,
   rawScore,
   criticalWarnings = 0,
@@ -476,16 +531,17 @@ export default function ScoreBreakdownPopup({
   reverseScores = {},
   hasTemplate = false,
   onClose,
-}) {
+}) => {
   // Calculate if there's a penalty applied
   const hasPenalty = criticalWarnings > 0 && rawScore !== undefined && rawScore !== compositeScore;
+
   // Combine and organize scores for display
-  const organizedScores = useMemo(() => {
-    const scores = [];
+  const organizedScores = useMemo((): ScoreItem[] => {
+    const scores: ScoreItem[] = [];
 
     // Helper to add score if available
     // Skip offTarget scores if no template was provided (score would be meaningless default)
-    const addScore = (key, value, label, weight) => {
+    const addScore = (key: string, value: number | undefined, label: string, weight: number): void => {
       if (value !== undefined && value !== null && !isNaN(value)) {
         // Skip offTarget if no template - will show as "unchecked" separately
         if (key === 'offTarget' && !hasTemplate) {
@@ -532,22 +588,25 @@ export default function ScoreBreakdownPopup({
   }, [forwardScores, reverseScores, hasTemplate]);
 
   // Identify improvement opportunities (scores < 0.7)
-  const improvements = useMemo(() => {
+  const improvements = useMemo((): ScoreItem[] => {
     return organizedScores
       .filter(s => s.value < 0.7)
       .sort((a, b) => (b.weight * (1 - b.value)) - (a.weight * (1 - a.value)))
       .slice(0, 3);
   }, [organizedScores]);
 
-  const qualityTier = quality?.tier || quality || 'good';
+  const qualityTier = typeof quality === 'object' ? (quality?.tier || 'good') : (quality || 'good');
+  const qualityLabel = typeof quality === 'object' ? quality?.label : quality;
   const qualityColor = QUALITY_COLORS[qualityTier] || QUALITY_COLORS.good;
+
+  const handleOverlayClick = (e: MouseEvent<HTMLDivElement>): void => {
+    if (e.target === e.currentTarget) onClose();
+  };
 
   return (
     <div
       className="score-breakdown-overlay"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      onClick={handleOverlayClick}
       style={{
         position: 'fixed',
         top: 0,
@@ -647,7 +706,7 @@ export default function ScoreBreakdownPopup({
                 textTransform: 'capitalize',
                 marginTop: '2px',
               }}>
-                {quality?.label || qualityTier} Quality
+                {qualityLabel || qualityTier} Quality
               </div>
               {hasPenalty && (
                 <div style={{
@@ -677,8 +736,8 @@ export default function ScoreBreakdownPopup({
               color: '#64748b',
               transition: 'background-color 0.2s',
             }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e2e8f0'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#e2e8f0')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
           >
             ×
           </button>
@@ -713,7 +772,7 @@ export default function ScoreBreakdownPopup({
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {improvements.map((item, index) => {
-                  const info = FEATURE_INFO[item.key] || {};
+                  const info = FEATURE_INFO[item.key] || DEFAULT_FEATURE_INFO;
                   return (
                     <div key={index} style={{
                       padding: '10px 12px',
@@ -827,8 +886,8 @@ export default function ScoreBreakdownPopup({
               fontSize: '13px',
               transition: 'background-color 0.2s',
             }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2563eb')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#3b82f6')}
           >
             Close
           </button>
@@ -836,4 +895,6 @@ export default function ScoreBreakdownPopup({
       </div>
     </div>
   );
-}
+};
+
+export default ScoreBreakdownPopup;

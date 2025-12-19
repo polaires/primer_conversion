@@ -1,8 +1,126 @@
-import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import { useMemo, useState, useCallback, useRef, useEffect, FC } from 'react';
 import { SeqViz } from 'seqviz';
 
+// Type definitions
+interface CodonTable {
+  [key: string]: string;
+}
+
+interface ColorPalette {
+  [key: string]: string;
+}
+
+interface AAColor {
+  bg: string;
+  fg: string;
+  group: string;
+}
+
+interface AAColors {
+  [key: string]: AAColor;
+}
+
+interface AAThreeLetter {
+  [key: string]: string;
+}
+
+interface NucleotideColorScheme {
+  [key: string]: string;
+}
+
+interface NucleotideColors {
+  classic: NucleotideColorScheme;
+  muted: NucleotideColorScheme;
+  monochrome: null;
+  [key: string]: NucleotideColorScheme | null;
+}
+
+interface Annotation {
+  name: string;
+  start: number;
+  end: number;
+  direction?: number;
+  color?: string;
+  type?: string;
+  tm?: number;
+  gc?: string;
+}
+
+interface Primer {
+  seq: string;
+  tm?: number;
+}
+
+interface PrimerAnnotation {
+  name: string;
+  start: number;
+  end: number;
+  direction: number;
+  color: string;
+  tm: number;
+  gc: string;
+}
+
+interface Selection {
+  start: number;
+  end: number;
+}
+
+interface SearchResult {
+  start: number;
+  end: number;
+}
+
+interface SelectionStats {
+  length: number;
+  gc: string;
+  tm: string;
+  sequence: string;
+}
+
+interface ORF {
+  start: number;
+  end: number;
+  length: number;
+}
+
+interface Part {
+  id?: string;
+  seq?: string;
+  length?: number;
+  type?: string;
+}
+
+interface SequenceViewerProps {
+  sequence: string;
+  name?: string;
+  fwdPrimer?: Primer | null;
+  revPrimer?: Primer | null;
+  addFwd?: string;
+  addRev?: string;
+  viewer?: 'linear' | 'circular' | 'both';
+  height?: number;
+  annotations?: Annotation[];
+  showControls?: boolean;
+  showInfo?: boolean;
+  showLegend?: boolean;
+  compact?: boolean;
+  enzymes?: string[];
+  highlightRegions?: Annotation[];
+  circular?: boolean;
+  onSequenceChange?: (sequence: string) => void;
+  editable?: boolean;
+}
+
+interface AssemblyViewerProps {
+  parts?: Part[];
+  assembledSequence?: string;
+  circular?: boolean;
+  height?: number;
+}
+
 // Codon table for amino acid translation
-const CODON_TABLE = {
+const CODON_TABLE: CodonTable = {
   'TTT': 'F', 'TTC': 'F', 'TTA': 'L', 'TTG': 'L',
   'CTT': 'L', 'CTC': 'L', 'CTA': 'L', 'CTG': 'L',
   'ATT': 'I', 'ATC': 'I', 'ATA': 'I', 'ATG': 'M',
@@ -22,7 +140,7 @@ const CODON_TABLE = {
 };
 
 // Pastel color palette for annotations
-const PASTEL_COLORS = {
+const PASTEL_COLORS: ColorPalette = {
   promoter: '#fca5a5',
   rbs: '#fdba74',
   cds: '#86efac',
@@ -37,7 +155,7 @@ const PASTEL_COLORS = {
 };
 
 // Amino acid color scheme by biochemical properties
-const AA_COLORS = {
+const AA_COLORS: AAColors = {
   // Hydrophobic (warm earth tones)
   A: { bg: '#fef3c7', fg: '#92400e', group: 'hydrophobic' }, // Alanine
   V: { bg: '#fef3c7', fg: '#92400e', group: 'hydrophobic' }, // Valine
@@ -69,7 +187,7 @@ const AA_COLORS = {
 };
 
 // Amino acid 3-letter codes
-const AA_THREE_LETTER = {
+const AA_THREE_LETTER: AAThreeLetter = {
   A: 'Ala', V: 'Val', I: 'Ile', L: 'Leu', M: 'Met',
   F: 'Phe', W: 'Trp', Y: 'Tyr', S: 'Ser', T: 'Thr',
   N: 'Asn', Q: 'Gln', C: 'Cys', K: 'Lys', R: 'Arg',
@@ -78,7 +196,7 @@ const AA_THREE_LETTER = {
 };
 
 // Nucleotide color schemes for SeqViz bpColors prop
-const NUCLEOTIDE_COLORS = {
+const NUCLEOTIDE_COLORS: NucleotideColors = {
   classic: {
     A: '#22c55e', // Green - Adenine
     T: '#ef4444', // Red - Thymine
@@ -99,7 +217,7 @@ const NUCLEOTIDE_COLORS = {
 };
 
 // Calculate Tm using nearest-neighbor method (simplified)
-const calculateTm = (seq) => {
+const calculateTm = (seq: string): number => {
   if (!seq || seq.length < 10) return 0;
   const gc = (seq.match(/[GC]/gi) || []).length;
   const at = seq.length - gc;
@@ -110,21 +228,21 @@ const calculateTm = (seq) => {
 };
 
 // Calculate GC content
-const calculateGC = (seq) => {
-  if (!seq) return 0;
+const calculateGC = (seq: string): string => {
+  if (!seq) return '0';
   const gc = (seq.match(/[GC]/gi) || []).length;
   return ((gc / seq.length) * 100).toFixed(1);
 };
 
 // Reverse complement
-const reverseComplement = (seq) => {
-  const comp = { A: 'T', T: 'A', G: 'C', C: 'G' };
+const reverseComplement = (seq: string): string => {
+  const comp: Record<string, string> = { A: 'T', T: 'A', G: 'C', C: 'G' };
   return seq.split('').reverse().map(c => comp[c.toUpperCase()] || c).join('');
 };
 
 // Translate DNA to amino acids
-const translateDNA = (seq, frame = 0) => {
-  const result = [];
+const translateDNA = (seq: string, frame: number = 0): string => {
+  const result: string[] = [];
   const s = seq.toUpperCase().slice(frame);
   for (let i = 0; i < s.length - 2; i += 3) {
     const codon = s.slice(i, i + 3);
@@ -134,14 +252,14 @@ const translateDNA = (seq, frame = 0) => {
 };
 
 // Translate reverse complement strand
-const translateReverseStrand = (seq, frame = 0) => {
+const translateReverseStrand = (seq: string, frame: number = 0): string => {
   const rc = reverseComplement(seq);
   return translateDNA(rc, frame);
 };
 
 // Find ORFs (Open Reading Frames) in translation
-const findORFs = (aaSequence, minLength = 20) => {
-  const orfs = [];
+const findORFs = (aaSequence: string, minLength: number = 20): ORF[] => {
+  const orfs: ORF[] = [];
   let start = -1;
 
   for (let i = 0; i < aaSequence.length; i++) {
@@ -163,18 +281,18 @@ const findORFs = (aaSequence, minLength = 20) => {
 /**
  * Enhanced SequenceViewer with improved UX
  */
-export default function SequenceViewer({
+const SequenceViewer: FC<SequenceViewerProps> = ({
   sequence,
   name = 'Sequence',
   fwdPrimer,
   revPrimer,
-  addFwd = '',
-  addRev = '',
+  addFwd: _addFwd = '',
+  addRev: _addRev = '',
   viewer: initialViewer = 'linear',
   height = 700,
   annotations: externalAnnotations = [],
   showControls = true,
-  showInfo = true,
+  showInfo: _showInfo = true,
   showLegend = true,
   compact = false,
   enzymes = [],
@@ -182,29 +300,29 @@ export default function SequenceViewer({
   circular = false,
   onSequenceChange,
   editable = false,
-}) {
+}) => {
   // State
-  const [viewer, setViewer] = useState(initialViewer);
-  const [zoom, setZoom] = useState(50);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true); // Start collapsed for more viewer space
-  const [splitPosition, setSplitPosition] = useState(50);
-  const [isDraggingSplit, setIsDraggingSplit] = useState(false);
-  const [showSequenceModal, setShowSequenceModal] = useState(false);
-  const [showTranslation, setShowTranslation] = useState(false);
-  const [translationFrames, setTranslationFrames] = useState([0]); // 0, 1, 2 for forward; 3, 4, 5 for reverse
-  const [showThreeLetter, setShowThreeLetter] = useState(false);
-  const [showColoredAA, setShowColoredAA] = useState(true);
-  const [nucleotideColorScheme, setNucleotideColorScheme] = useState('classic'); // 'classic', 'muted', 'monochrome'
-  const [selection, setSelection] = useState(null);
-  const [hoveredAnnotation, setHoveredAnnotation] = useState(null);
-  const [viewportStart, setViewportStart] = useState(0);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
+  const [viewer, setViewer] = useState<'linear' | 'circular' | 'both'>(initialViewer);
+  const [zoom, setZoom] = useState<number>(50);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(true); // Start collapsed for more viewer space
+  const [splitPosition, setSplitPosition] = useState<number>(50);
+  const [isDraggingSplit, setIsDraggingSplit] = useState<boolean>(false);
+  const [showSequenceModal, setShowSequenceModal] = useState<boolean>(false);
+  const [showTranslation, setShowTranslation] = useState<boolean>(false);
+  const [translationFrames, setTranslationFrames] = useState<number[]>([0]); // 0, 1, 2 for forward; 3, 4, 5 for reverse
+  const [showThreeLetter, setShowThreeLetter] = useState<boolean>(false);
+  const [showColoredAA, setShowColoredAA] = useState<boolean>(true);
+  const [nucleotideColorScheme, setNucleotideColorScheme] = useState<string>('classic'); // 'classic', 'muted', 'monochrome'
+  const [selection, setSelection] = useState<Selection | null>(null);
+  const [hoveredAnnotation, setHoveredAnnotation] = useState<Annotation | null>(null);
+  const [viewportStart, setViewportStart] = useState<number>(0);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [currentSearchIndex, setCurrentSearchIndex] = useState<number>(0);
 
   // Refs
-  const containerRef = useRef(null);
-  const linearViewRef = useRef(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const linearViewRef = useRef<HTMLDivElement>(null);
 
   // Calculate GC content
   const gcContent = useMemo(() => calculateGC(sequence), [sequence]);
@@ -215,7 +333,7 @@ export default function SequenceViewer({
       setSearchResults([]);
       return;
     }
-    const results = [];
+    const results: SearchResult[] = [];
     const query = searchQuery.toUpperCase();
     const seq = sequence.toUpperCase();
     let idx = seq.indexOf(query);
@@ -228,7 +346,7 @@ export default function SequenceViewer({
   }, [searchQuery, sequence]);
 
   // Handle scroll-to-zoom
-  const handleWheel = useCallback((e) => {
+  const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       const delta = e.deltaY > 0 ? -5 : 5;
@@ -237,7 +355,7 @@ export default function SequenceViewer({
   }, []);
 
   // Handle split pane dragging
-  const handleSplitDrag = useCallback((e) => {
+  const handleSplitDrag = useCallback((e: MouseEvent) => {
     if (!isDraggingSplit || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     const newPos = ((e.clientY - rect.top) / rect.height) * 100;
@@ -266,9 +384,9 @@ export default function SequenceViewer({
     }
 
     const seqUpper = sequence.toUpperCase();
-    const annots = externalAnnotations.map(a => ({
+    const annots: Annotation[] = externalAnnotations.map(a => ({
       ...a,
-      color: a.color || PASTEL_COLORS[a.type] || PASTEL_COLORS.misc,
+      color: a.color || PASTEL_COLORS[a.type || ''] || PASTEL_COLORS.misc,
     }));
 
     // Add highlight regions
@@ -289,7 +407,7 @@ export default function SequenceViewer({
       });
     });
 
-    const primersList = [];
+    const primersList: PrimerAnnotation[] = [];
 
     // Find FWD primer binding site
     if (fwdPrimer) {
@@ -408,7 +526,7 @@ export default function SequenceViewer({
   }, [sequence, fwdPrimer, revPrimer, externalAnnotations, highlightRegions, searchResults, currentSearchIndex, selection]);
 
   // Selection stats
-  const selectionStats = useMemo(() => {
+  const selectionStats = useMemo((): SelectionStats | null => {
     if (!selection || !sequence) return null;
     const selectedSeq = sequence.slice(selection.start, selection.end);
     return {
@@ -420,7 +538,7 @@ export default function SequenceViewer({
   }, [selection, sequence]);
 
   // Minimap click handler
-  const handleMinimapClick = useCallback((e) => {
+  const handleMinimapClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!sequence) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const clickPos = (e.clientX - rect.left) / rect.width;
@@ -431,7 +549,7 @@ export default function SequenceViewer({
   }, [sequence]);
 
   // Navigate to annotation
-  const navigateToAnnotation = useCallback((annot) => {
+  const navigateToAnnotation = useCallback((annot: Annotation) => {
     // Clamp to valid bounds
     setViewportStart(Math.max(0, annot.start));
     setHoveredAnnotation(annot);
@@ -515,7 +633,7 @@ export default function SequenceViewer({
                 className="sv-search-input"
                 placeholder="Search sequence..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value.toUpperCase())}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value.toUpperCase())}
               />
               {searchResults.length > 0 && (
                 <span className="sv-search-count">
@@ -717,7 +835,7 @@ export default function SequenceViewer({
                     min="10"
                     max="100"
                     value={zoom}
-                    onChange={(e) => setZoom(parseInt(e.target.value))}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setZoom(parseInt(e.target.value))}
                     className="sv-zoom-slider"
                   />
                 </div>
@@ -743,16 +861,16 @@ export default function SequenceViewer({
                 <SeqViz
                   name={name}
                   seq={sequence.toUpperCase()}
-                  annotations={annotations}
-                  primers={primers}
+                  annotations={annotations as any}
+                  primers={primers as any}
                   enzymes={enzymes}
                   viewer="circular"
                   showComplement={false}
                   showIndex={true}
                   style={{ height: '100%', width: '100%' }}
                   rotateOnScroll={false}
-                  bpColors={NUCLEOTIDE_COLORS[nucleotideColorScheme]}
-                  onSelection={(sel) => sel && setSelection({ start: sel.start, end: sel.end })}
+                  bpColors={NUCLEOTIDE_COLORS[nucleotideColorScheme] as any}
+                  onSelection={(sel: any) => sel && setSelection({ start: sel.start, end: sel.end })}
                 />
               </div>
               <div
@@ -765,8 +883,8 @@ export default function SequenceViewer({
                 <SeqViz
                   name={name}
                   seq={sequence.toUpperCase()}
-                  annotations={annotations}
-                  primers={primers}
+                  annotations={annotations as any}
+                  primers={primers as any}
                   enzymes={enzymes}
                   viewer="linear"
                   showComplement={true}
@@ -774,8 +892,8 @@ export default function SequenceViewer({
                   style={{ height: '100%', width: '100%' }}
                   zoom={{ linear: zoom }}
                   rotateOnScroll={false}
-                  bpColors={NUCLEOTIDE_COLORS[nucleotideColorScheme]}
-                  onSelection={(sel) => sel && setSelection({ start: sel.start, end: sel.end })}
+                  bpColors={NUCLEOTIDE_COLORS[nucleotideColorScheme] as any}
+                  onSelection={(sel: any) => sel && setSelection({ start: sel.start, end: sel.end })}
                 />
               </div>
             </>
@@ -784,8 +902,8 @@ export default function SequenceViewer({
               <SeqViz
                 name={name}
                 seq={sequence.toUpperCase()}
-                annotations={annotations}
-                primers={primers}
+                annotations={annotations as any}
+                primers={primers as any}
                 enzymes={enzymes}
                 viewer={viewer}
                 showComplement={viewer === 'linear'}
@@ -793,8 +911,8 @@ export default function SequenceViewer({
                 style={{ height: `${viewerHeight}px`, width: '100%' }}
                 zoom={{ linear: zoom }}
                 rotateOnScroll={false}
-                bpColors={NUCLEOTIDE_COLORS[nucleotideColorScheme]}
-                onSelection={(sel) => sel && setSelection({ start: sel.start, end: sel.end })}
+                bpColors={NUCLEOTIDE_COLORS[nucleotideColorScheme] as any}
+                onSelection={(sel: any) => sel && setSelection({ start: sel.start, end: sel.end })}
               />
             </div>
           )}
@@ -1055,7 +1173,7 @@ export default function SequenceViewer({
               <textarea
                 className="sv-seq-textarea"
                 value={sequence}
-                onChange={(e) => onSequenceChange?.(e.target.value.toUpperCase().replace(/[^ATGCN]/g, ''))}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => onSequenceChange?.(e.target.value.toUpperCase().replace(/[^ATGCN]/g, ''))}
                 placeholder="Paste sequence here (FASTA or raw)..."
                 rows={12}
               />
@@ -1073,21 +1191,23 @@ export default function SequenceViewer({
       )}
     </div>
   );
-}
+};
+
+export default SequenceViewer;
 
 /**
  * Compact Assembly Viewer for Golden Gate results
  */
-export function AssemblyViewer({
+export const AssemblyViewer: FC<AssemblyViewerProps> = ({
   parts = [],
   assembledSequence = '',
   circular = true,
   height = 250,
-}) {
-  const [viewer, setViewer] = useState(circular ? 'circular' : 'linear');
+}) => {
+  const [viewer, setViewer] = useState<'linear' | 'circular'>(circular ? 'circular' : 'linear');
 
   const annotations = useMemo(() => {
-    const annots = [];
+    const annots: Annotation[] = [];
     let position = 0;
 
     parts.forEach((part, i) => {
@@ -1098,7 +1218,7 @@ export function AssemblyViewer({
           start: position,
           end: position + partLength,
           direction: 1,
-          color: PASTEL_COLORS[part.type] || PASTEL_COLORS.misc,
+          color: PASTEL_COLORS[part.type || ''] || PASTEL_COLORS.misc,
         });
 
         if (i < parts.length - 1) {
@@ -1144,7 +1264,7 @@ export function AssemblyViewer({
         <SeqViz
           name="Assembled Construct"
           seq={assembledSequence.toUpperCase()}
-          annotations={annotations}
+          annotations={annotations as any}
           viewer={viewer}
           showComplement={false}
           showIndex={true}
@@ -1157,11 +1277,11 @@ export function AssemblyViewer({
       <div className="av-legend">
         {parts.map((part, i) => (
           <span key={i} className="av-legend-item">
-            <span className="av-legend-dot" style={{ backgroundColor: PASTEL_COLORS[part.type] || PASTEL_COLORS.misc }}></span>
+            <span className="av-legend-dot" style={{ backgroundColor: PASTEL_COLORS[part.type || ''] || PASTEL_COLORS.misc }}></span>
             {part.id || `Part ${i + 1}`}
           </span>
         ))}
       </div>
     </div>
   );
-}
+};

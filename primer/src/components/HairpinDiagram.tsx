@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState, FC } from 'react';
 import { foldSequence } from '../lib/fold.js';
 import { classify3PrimeStructureSeverity } from '../lib/smartPrimers.js';
 
@@ -13,8 +13,101 @@ import { classify3PrimeStructureSeverity } from '../lib/smartPrimers.js';
  * much faster than just seeing "-5.4 kcal/mol".
  */
 
+// Type definitions
+type BasePair = [number, number];
+
+interface FoldResult {
+  e?: number;
+  ij?: BasePair[];
+  [key: string]: unknown;
+}
+
+interface StemPair {
+  i: number;
+  j: number;
+  bases: [string, string];
+}
+
+interface HairpinStructure {
+  stemPairs: StemPair[];
+  loopStart: number;
+  loopEnd: number;
+  loopSequence: string;
+  paired: Set<number>;
+  pairMap: Map<number, number>;
+  has3PrimeStructure: boolean;
+  has3PrimeInStem: boolean;
+  has3PrimeInLoop: boolean;
+  threePrimeRegion: number;
+}
+
+interface SeverityResult {
+  level: 'none' | 'info' | 'low' | 'moderate' | 'warning' | 'critical';
+  label: string;
+  shortLabel: string;
+  message?: string;
+  tooltip: string;
+  shouldWarn: boolean;
+}
+
+interface Theme {
+  bg: string;
+  bgSecondary: string;
+  bgTertiary: string;
+  border: string;
+  text: string;
+  textSecondary: string;
+  textMuted: string;
+  success: string;
+  successBg: string;
+  warning: string;
+  warningBg: string;
+  danger: string;
+  dangerBg: string;
+  prime5: string;
+  prime3: string;
+  nodeBg?: string;
+  node3PrimeBg?: string;
+  backbone?: string;
+  prime3Bg?: string;
+}
+
+interface StemLoopDiagramProps {
+  sequence: string;
+  structure: HairpinStructure;
+  energy: number;
+  width?: number;
+  height?: number;
+}
+
+interface FlatStructureDiagramProps {
+  sequence: string;
+  basePairs: BasePair[];
+  energy: number;
+  width?: number;
+  height?: number;
+}
+
+interface HairpinDiagramProps {
+  sequence: string;
+  foldResult?: FoldResult | null;
+  primerName?: string;
+  width?: number;
+  showDetails?: boolean;
+  temperature?: number;
+  mode?: 'auto' | 'stemloop' | 'flat';
+}
+
+interface HairpinBadgeProps {
+  sequence: string;
+  foldResult?: FoldResult | null;
+  lightTheme?: boolean;
+  showTooltip?: boolean;
+  temperature?: number;
+}
+
 // Color scale based on energy (more negative = worse for primers)
-function energyToColor(dG) {
+function energyToColor(dG: number): string {
   if (dG >= -1) return '#22c55e';      // Green - minimal
   if (dG >= -2) return '#84cc16';      // Light green
   if (dG >= -3) return '#eab308';      // Yellow - moderate
@@ -22,7 +115,7 @@ function energyToColor(dG) {
   return '#ef4444';                     // Red - severe
 }
 
-function energySeverity(dG) {
+function energySeverity(dG: number): { level: string; label: string } {
   if (dG >= -1) return { level: 'minimal', label: 'Minimal Structure' };
   if (dG >= -2) return { level: 'low', label: 'Low Stability' };
   if (dG >= -3) return { level: 'moderate', label: 'Moderate Structure' };
@@ -31,50 +124,9 @@ function energySeverity(dG) {
 }
 
 /**
- * Tooltip component for displaying 3' structure information
- */
-function StructureTooltip({ tooltip, isVisible, position = 'below' }) {
-  if (!isVisible || !tooltip) return null;
-
-  return (
-    <div style={{
-      position: 'absolute',
-      [position === 'below' ? 'top' : 'bottom']: '100%',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      marginTop: position === 'below' ? '8px' : 0,
-      marginBottom: position === 'above' ? '8px' : 0,
-      padding: '12px 16px',
-      background: '#1f2937',
-      color: '#f9fafb',
-      borderRadius: '8px',
-      fontSize: '12px',
-      lineHeight: '1.6',
-      whiteSpace: 'pre-wrap',
-      maxWidth: '350px',
-      minWidth: '280px',
-      boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
-      zIndex: 1000,
-      pointerEvents: 'none',
-    }}>
-      {tooltip}
-      <div style={{
-        position: 'absolute',
-        [position === 'below' ? 'top' : 'bottom']: '-6px',
-        left: '50%',
-        transform: 'translateX(-50%) rotate(45deg)',
-        width: '12px',
-        height: '12px',
-        background: '#1f2937',
-      }} />
-    </div>
-  );
-}
-
-/**
  * Parse fold results to identify hairpin structure elements
  */
-function parseHairpinStructure(sequence, basePairs) {
+function parseHairpinStructure(sequence: string, basePairs: BasePair[]): HairpinStructure | null {
   if (!basePairs || basePairs.length === 0) {
     return null;
   }
@@ -83,8 +135,8 @@ function parseHairpinStructure(sequence, basePairs) {
   const sortedPairs = [...basePairs].sort((a, b) => a[0] - b[0]);
 
   // Build structure info
-  const paired = new Set();
-  const pairMap = new Map();
+  const paired = new Set<number>();
+  const pairMap = new Map<number, number>();
 
   for (const [i, j] of sortedPairs) {
     paired.add(i);
@@ -94,7 +146,7 @@ function parseHairpinStructure(sequence, basePairs) {
   }
 
   // Find stem and loop regions
-  const stemPairs = [];
+  const stemPairs: StemPair[] = [];
   let loopStart = -1;
   let loopEnd = -1;
 
@@ -109,7 +161,8 @@ function parseHairpinStructure(sequence, basePairs) {
       // Check if there are unpaired bases between this pair
       let hasInnerPairs = false;
       for (let k = i + 1; k < j; k++) {
-        if (pairMap.has(k) && pairMap.get(k) > k && pairMap.get(k) < j) {
+        const partner = pairMap.get(k);
+        if (partner !== undefined && partner > k && partner < j) {
           hasInnerPairs = true;
           break;
         }
@@ -149,14 +202,14 @@ function parseHairpinStructure(sequence, basePairs) {
  * Draws the classic stem-loop diagram with the loop at the top
  * White theme version
  */
-function StemLoopDiagram({
+const StemLoopDiagram: FC<StemLoopDiagramProps> = ({
   sequence,
   structure,
   energy,
   width = 400,
   height = 300
-}) {
-  const { stemPairs, loopSequence, loopStart, loopEnd, has3PrimeStructure, threePrimeRegion } = structure;
+}) => {
+  const { stemPairs, loopSequence, threePrimeRegion, has3PrimeStructure } = structure;
 
   const stemLength = stemPairs.length;
   const loopLength = loopSequence.length;
@@ -334,14 +387,14 @@ function StemLoopDiagram({
           {loopSequence.split('').map((base, idx) => {
             const angle = Math.PI + (Math.PI * (idx + 0.5) / loopLength);
             const x = centerX + Math.cos(angle) * (loopRadius * 0.7);
-            const y = stemTopY - 10 - loopRadius * 0.5 + Math.sin(angle) * (loopRadius * 0.4);
+            const loopY = stemTopY - 10 - loopRadius * 0.5 + Math.sin(angle) * (loopRadius * 0.4);
 
             return (
               <g key={`loop-${idx}`}>
-                <circle cx={x} cy={y} r={6} fill={theme.nodeBg} stroke={color} strokeWidth="1" />
+                <circle cx={x} cy={loopY} r={6} fill={theme.nodeBg} stroke={color} strokeWidth="1" />
                 <text
                   x={x}
-                  y={y + 3}
+                  y={loopY + 3}
                   fill={color}
                   fontSize="10"
                   fontFamily="monospace"
@@ -394,20 +447,20 @@ function StemLoopDiagram({
       {/* 3' warning - severity based */}
       {has3PrimeStructure && (() => {
         // Calculate severity for this specific structure
-        const basePairs = stemPairs.map(p => [p.i, p.j]);
-        const severity = classify3PrimeStructureSeverity({
+        const basePairsArray: BasePair[] = stemPairs.map(p => [p.i, p.j]);
+        const severity = (classify3PrimeStructureSeverity as any)({
           energy,
-          basePairs,
+          basePairs: basePairsArray,
           seqLength: sequence.length,
           structure,
-        });
+        }) as SeverityResult;
 
         // Only show warning in SVG for critical/warning levels
         if (severity.level === 'none' || severity.level === 'info' || severity.level === 'low') {
           return null;
         }
 
-        const warningColors = {
+        const warningColors: Record<string, { bg: string; border: string; text: string }> = {
           critical: { bg: '#fee2e2', border: '#dc2626', text: '#dc2626' },
           warning: { bg: '#fef3c7', border: '#d97706', text: '#d97706' },
           moderate: { bg: '#fef9c3', border: '#ca8a04', text: '#ca8a04' },
@@ -448,13 +501,13 @@ function StemLoopDiagram({
       })()}
     </svg>
   );
-}
+};
 
 /**
  * Alternative flat view for complex/multi-loop structures
  * White theme version
  */
-function FlatStructureDiagram({ sequence, basePairs, energy, width = 600, height = 180 }) {
+const FlatStructureDiagram: FC<FlatStructureDiagramProps> = ({ sequence, basePairs, energy, width = 600, height = 180 }) => {
   const seqLength = sequence.length;
   const padding = 40;
   const baseWidth = Math.min(18, (width - 2 * padding) / seqLength);
@@ -496,7 +549,7 @@ function FlatStructureDiagram({ sequence, basePairs, energy, width = 600, height
       span,
       key: idx
     };
-  }).filter(Boolean);
+  }).filter((arc): arc is NonNullable<typeof arc> => arc !== null);
 
   return (
     <svg width={width} height={height} style={{ background: theme.bg, borderRadius: '6px' }}>
@@ -600,7 +653,7 @@ function FlatStructureDiagram({ sequence, basePairs, energy, width = 600, height
       </g>
     </svg>
   );
-}
+};
 
 /**
  * Main HairpinDiagram Component
@@ -609,7 +662,7 @@ function FlatStructureDiagram({ sequence, basePairs, energy, width = 600, height
  * - Simple hairpins: Stem-loop diagram
  * - Complex structures: Flat arc diagram
  */
-export default function HairpinDiagram({
+const HairpinDiagram: FC<HairpinDiagramProps> = ({
   sequence,
   foldResult = null,
   primerName = 'Primer',
@@ -617,16 +670,16 @@ export default function HairpinDiagram({
   showDetails = true,
   temperature = 55, // Use PCR annealing temp by default
   mode = 'auto'  // 'auto', 'stemloop', 'flat'
-}) {
-  const [viewMode, setViewMode] = useState(mode);
+}) => {
+  const [viewMode, setViewMode] = useState<'auto' | 'stemloop' | 'flat'>(mode);
 
   // Compute fold if not provided (use temperature for accurate PCR analysis)
-  const computedFold = useMemo(() => {
+  const computedFold = useMemo((): FoldResult | null => {
     if (foldResult) return foldResult;
     if (!sequence || sequence.length < 6) return null;
 
     try {
-      return foldSequence(sequence, temperature);
+      return foldSequence(sequence, temperature) as FoldResult;
     } catch (e) {
       console.error('Fold failed:', e);
       return null;
@@ -634,7 +687,7 @@ export default function HairpinDiagram({
   }, [sequence, foldResult, temperature]);
 
   // White theme colors
-  const theme = {
+  const theme: Theme = {
     bg: '#ffffff',
     bgSecondary: '#f8fafc',
     bgTertiary: '#f1f5f9',
@@ -661,7 +714,7 @@ export default function HairpinDiagram({
   }
 
   const energy = computedFold?.e ?? 0;
-  const basePairs = computedFold?.ij ?? [];
+  const basePairs: BasePair[] = (computedFold?.ij ?? []) as BasePair[];
 
   // No significant structure
   if (energy > -0.5 || basePairs.length === 0) {
@@ -816,18 +869,18 @@ export default function HairpinDiagram({
 
       {/* 3' Structure Warning - Severity-based */}
       {(() => {
-        const severity = classify3PrimeStructureSeverity({
+        const severityResult = (classify3PrimeStructureSeverity as any)({
           energy,
           basePairs,
           seqLength: sequence.length,
           structure,
-        });
+        }) as SeverityResult;
 
         // Only show warning for levels that warrant user attention
-        if (!severity.shouldWarn && severity.level === 'none') return null;
+        if (!severityResult.shouldWarn && severityResult.level === 'none') return null;
 
         // Color scheme based on severity
-        const severityColors = {
+        const severityColors: Record<string, { bg: string; border: string; text: string; icon: string }> = {
           critical: { bg: theme.dangerBg, border: theme.danger, text: theme.danger, icon: '🔴' },
           warning: { bg: '#fef3c7', border: '#f59e0b', text: '#d97706', icon: '🟠' },
           moderate: { bg: '#fef9c3', border: '#eab308', text: '#ca8a04', icon: '🟡' },
@@ -836,7 +889,7 @@ export default function HairpinDiagram({
           none: { bg: '#dcfce7', border: '#22c55e', text: '#16a34a', icon: '✓' },
         };
 
-        const colors = severityColors[severity.level] || severityColors.info;
+        const colors = severityColors[severityResult.level] || severityColors.info;
 
         return (
           <div style={{
@@ -860,7 +913,7 @@ export default function HairpinDiagram({
                   marginBottom: '4px'
                 }}>
                   <div style={{ color: colors.text, fontWeight: 'bold', fontSize: '13px' }}>
-                    {severity.label}
+                    {severityResult.label}
                   </div>
                   <span style={{
                     padding: '2px 6px',
@@ -871,18 +924,18 @@ export default function HairpinDiagram({
                     fontWeight: '600',
                     textTransform: 'uppercase',
                   }}>
-                    {severity.level}
+                    {severityResult.level}
                   </span>
                 </div>
 
-                {severity.message && (
+                {severityResult.message && (
                   <div style={{ color: theme.text, fontSize: '12px', lineHeight: '1.5', marginBottom: '8px' }}>
-                    {severity.message}
+                    {severityResult.message}
                   </div>
                 )}
 
                 {/* Detailed explanation for critical/warning levels */}
-                {severity.level === 'critical' && (
+                {severityResult.level === 'critical' && (
                   <>
                     <div style={{ color: theme.text, fontSize: '12px', lineHeight: '1.5', marginBottom: '4px' }}>
                       The 3' end is involved in a {structure?.has3PrimeInStem ? 'stem' : 'loop'} structure:
@@ -905,7 +958,7 @@ export default function HairpinDiagram({
                   </>
                 )}
 
-                {severity.level === 'warning' && (
+                {severityResult.level === 'warning' && (
                   <>
                     <ul style={{ color: theme.text, fontSize: '12px', margin: '4px 0 8px 0', paddingLeft: '20px', lineHeight: '1.6' }}>
                       <li>Structure may compete with template binding</li>
@@ -924,7 +977,7 @@ export default function HairpinDiagram({
                   </>
                 )}
 
-                {(severity.level === 'moderate' || severity.level === 'low' || severity.level === 'info') && (
+                {(severityResult.level === 'moderate' || severityResult.level === 'low' || severityResult.level === 'info') && (
                   <div style={{
                     padding: '6px 10px',
                     background: 'rgba(3, 105, 161, 0.08)',
@@ -933,7 +986,7 @@ export default function HairpinDiagram({
                     color: theme.textMuted,
                     lineHeight: '1.5'
                   }}>
-                    ΔG = {energy.toFixed(1)} kcal/mol • {severity.level === 'info' || severity.level === 'low'
+                    ΔG = {energy.toFixed(1)} kcal/mol • {severityResult.level === 'info' || severityResult.level === 'low'
                       ? 'Structure is weak and typically melts at annealing temperature'
                       : 'Monitor PCR efficiency; optimize if yields are low'}
                   </div>
@@ -979,14 +1032,14 @@ export default function HairpinDiagram({
           )}
 
           {(() => {
-            const severity = classify3PrimeStructureSeverity({
+            const severityResult = (classify3PrimeStructureSeverity as any)({
               energy,
               basePairs,
               seqLength: sequence.length,
               structure,
-            });
+            }) as SeverityResult;
 
-            const statusColors = {
+            const statusColors: Record<string, string> = {
               critical: theme.danger,
               warning: '#d97706',
               moderate: '#ca8a04',
@@ -1000,7 +1053,7 @@ export default function HairpinDiagram({
                 <div style={{ color: theme.textMuted, fontSize: '11px', marginBottom: '2px' }}>3' Status</div>
                 <div
                   style={{
-                    color: statusColors[severity.level] || theme.success,
+                    color: statusColors[severityResult.level] || theme.success,
                     fontSize: '14px',
                     fontWeight: 'bold',
                     cursor: 'help',
@@ -1008,14 +1061,14 @@ export default function HairpinDiagram({
                     alignItems: 'center',
                     gap: '4px',
                   }}
-                  title={severity.tooltip}
+                  title={severityResult.tooltip}
                 >
-                  {severity.shortLabel}
+                  {severityResult.shortLabel}
                   <span style={{
                     width: '14px',
                     height: '14px',
                     borderRadius: '50%',
-                    background: statusColors[severity.level] || theme.success,
+                    background: statusColors[severityResult.level] || theme.success,
                     color: '#fff',
                     fontSize: '9px',
                     display: 'inline-flex',
@@ -1064,41 +1117,44 @@ export default function HairpinDiagram({
       )}
     </div>
   );
-}
+};
+
+export default HairpinDiagram;
 
 /**
  * Compact badge version for table cells
  * Updated to use severity-based classification for better user guidance
  */
-export function HairpinBadge({ sequence, foldResult = null, lightTheme = false, showTooltip = true, temperature = 55 }) {
-  const [isHovered, setIsHovered] = useState(false);
+export const HairpinBadge: FC<HairpinBadgeProps> = ({ sequence, foldResult = null, lightTheme = false, showTooltip = true, temperature = 55 }) => {
+  const [_isHovered, setIsHovered] = useState<boolean>(false);
 
-  const computedFold = useMemo(() => {
+  const computedFold = useMemo((): FoldResult | null => {
     if (foldResult) return foldResult;
     if (!sequence || sequence.length < 6) return null;
 
     try {
-      return foldSequence(sequence, temperature);
+      return foldSequence(sequence, temperature) as FoldResult;
     } catch (e) {
       return null;
     }
   }, [sequence, foldResult, temperature]);
 
   const energy = computedFold?.e ?? 0;
-  const basePairs = computedFold?.ij ?? [];
+  const basePairs: BasePair[] = (computedFold?.ij ?? []) as BasePair[];
   const seqLength = sequence?.length ?? 0;
 
   // Use new severity classification
-  const severity = useMemo(() => {
-    return classify3PrimeStructureSeverity({
+  const severity = useMemo((): SeverityResult => {
+    return (classify3PrimeStructureSeverity as any)({
       energy,
       basePairs,
       seqLength,
-    });
+      structure: null,
+    }) as SeverityResult;
   }, [energy, basePairs, seqLength]);
 
   // Color schemes based on severity and theme
-  const colorSchemes = {
+  const colorSchemes: Record<string, Record<string, { bg: string; text: string; border: string }>> = {
     light: {
       none: { bg: '#dcfce7', text: '#16a34a', border: '#bbf7d0' },
       info: { bg: '#f0f9ff', text: '#0369a1', border: '#e0f2fe' },
@@ -1117,8 +1173,8 @@ export function HairpinBadge({ sequence, foldResult = null, lightTheme = false, 
     },
   };
 
-  const theme = lightTheme ? 'light' : 'dark';
-  const colors = colorSchemes[theme][severity.level] || colorSchemes[theme].none;
+  const themeKey = lightTheme ? 'light' : 'dark';
+  const colors = colorSchemes[themeKey][severity.level] || colorSchemes[themeKey].none;
 
   // No structure case
   if (energy > -1 && severity.level === 'none') {
@@ -1142,7 +1198,7 @@ export function HairpinBadge({ sequence, foldResult = null, lightTheme = false, 
   }
 
   // Severity-based badge icons and labels
-  const badgeConfig = {
+  const badgeConfig: Record<string, { icon: string; label: string }> = {
     critical: { icon: '🔴', label: "3' blocked" },
     warning: { icon: '⚠', label: "3' risk" },
     moderate: { icon: '△', label: "3' struct" },
@@ -1183,4 +1239,4 @@ export function HairpinBadge({ sequence, foldResult = null, lightTheme = false, 
       </span>
     </span>
   );
-}
+};

@@ -1,38 +1,110 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, FC, ChangeEvent } from 'react';
 import {
   planAssembly,
   parseFasta,
   digest,
-  getEnzymeNames,
   DEFAULT_CONFIG,
-  FragType,
   PART_SOURCES,
   getAvailablePartSources,
   fetchPartDatabase,
-  generatePartUrl,
-  searchParts,
   loadCachedDatabase,
   saveCachedDatabase,
   mergeDatabases,
 } from '../lib/repp/index.js';
 
-const COMMON_ENZYMES = ['EcoRI', 'BamHI', 'HindIII', 'XhoI', 'XbaI', 'SpeI', 'PstI', 'SalI', 'NotI', 'NcoI', 'NdeI', 'BglII', 'KpnI', 'SacI', 'BsaI', 'BsmBI'];
+// Type definitions
+interface Primer {
+  seq: string;
+  tm?: number;
+  gc?: number;
+}
+
+interface Fragment {
+  id: string;
+  seq: string;
+  pcrSeq?: string;
+  type: string;
+  cost?: number;
+  url?: string;
+  source?: string;
+  primers?: Primer[];
+  start?: number;
+  end?: number;
+}
+
+interface PartSource {
+  id: string;
+  name: string;
+  color: string;
+  icon: string;
+  cost: number;
+}
+
+interface Solution {
+  count: number;
+  cost: number;
+  fragments: Fragment[];
+}
+
+interface AssemblyResult {
+  target: string;
+  seq: string;
+  solutions: Solution[];
+}
+
+interface Config {
+  fragmentsMaxCount: number;
+  fragmentsMinHomology: number;
+  fragmentsMaxHomology: number;
+  pcrMinLength: number;
+  pcrBpCost: number;
+  pcrRxnCost: number;
+  gibsonAssemblyCost: number;
+  [key: string]: number;
+}
+
+interface FragmentDetailProps {
+  frag: Fragment;
+  index: number;
+  onCopy?: (message: string) => void;
+}
+
+interface AssemblyVisualizationProps {
+  fragments: Fragment[];
+  targetLength: number;
+}
+
+interface CostBreakdownProps {
+  solution: Solution;
+  config: Config;
+}
+
+interface PartSourceSelectorProps {
+  sources: PartSource[];
+  enabledSources: string[];
+  onToggle: (sourceId: string) => void;
+  loadingStates: Record<string, boolean>;
+  loadedCounts: Record<string, number>;
+  onLoad: (sourceId: string) => void;
+}
+
+const COMMON_ENZYMES: string[] = ['EcoRI', 'BamHI', 'HindIII', 'XhoI', 'XbaI', 'SpeI', 'PstI', 'SalI', 'NotI', 'NcoI', 'NdeI', 'BglII', 'KpnI', 'SacI', 'BsaI', 'BsmBI'];
 
 // Fragment detail component with expandable sequence view
-function FragmentDetail({ frag, index, onCopy }) {
-  const [expanded, setExpanded] = useState(false);
-  const [seqView, setSeqView] = useState('full'); // 'full', 'start', 'end'
+const FragmentDetail: FC<FragmentDetailProps> = ({ frag, index, onCopy }) => {
+  const [expanded, setExpanded] = useState<boolean>(false);
+  const [seqView, setSeqView] = useState<'full' | 'start' | 'end'>('full');
 
-  const formatSequence = (seq, chunkSize = 60) => {
-    if (!seq) return '';
-    const chunks = [];
+  const formatSequence = (seq: string, chunkSize: number = 60): string[] => {
+    if (!seq) return [];
+    const chunks: string[] = [];
     for (let i = 0; i < seq.length; i += chunkSize) {
       chunks.push(seq.slice(i, i + chunkSize));
     }
     return chunks;
   };
 
-  const getDisplaySeq = () => {
+  const getDisplaySeq = (): string => {
     const seq = frag.pcrSeq || frag.seq;
     if (!seq) return '';
     if (seqView === 'start') return seq.slice(0, 120);
@@ -40,11 +112,14 @@ function FragmentDetail({ frag, index, onCopy }) {
     return seq;
   };
 
-  const copyToClipboard = (text, label) => {
+  const copyToClipboard = (text: string, label: string): void => {
     navigator.clipboard.writeText(text).then(() => {
       onCopy && onCopy(`Copied ${label}`);
     });
   };
+
+  const fullSeq = frag.pcrSeq || frag.seq;
+  const partSourceInfo = frag.source ? (PART_SOURCES as Record<string, PartSource>)[frag.source] : undefined;
 
   return (
     <div className={`fragment-detail ${expanded ? 'expanded' : ''}`}>
@@ -65,18 +140,18 @@ function FragmentDetail({ frag, index, onCopy }) {
             ) : frag.id}
           </span>
           <span className={`type-badge ${frag.type}`}>{frag.type}</span>
-          {frag.source && PART_SOURCES[frag.source] && (
+          {partSourceInfo && (
             <span
               className="source-badge"
-              style={{ backgroundColor: PART_SOURCES[frag.source].color }}
-              title={PART_SOURCES[frag.source].name}
+              style={{ backgroundColor: partSourceInfo.color }}
+              title={partSourceInfo.name}
             >
-              {PART_SOURCES[frag.source].icon}
+              {partSourceInfo.icon}
             </span>
           )}
         </div>
         <div className="fragment-meta">
-          <span className="fragment-length">{(frag.pcrSeq || frag.seq).length} bp</span>
+          <span className="fragment-length">{fullSeq.length} bp</span>
           <span className="fragment-cost">${(frag.cost || 0).toFixed(2)}</span>
           <span className="expand-icon">{expanded ? '▼' : '▶'}</span>
         </div>
@@ -109,7 +184,7 @@ function FragmentDetail({ frag, index, onCopy }) {
                 </button>
                 <button
                   className="copy-btn"
-                  onClick={() => copyToClipboard(frag.pcrSeq || frag.seq, 'sequence')}
+                  onClick={() => copyToClipboard(fullSeq, 'sequence')}
                 >
                   Copy
                 </button>
@@ -118,12 +193,12 @@ function FragmentDetail({ frag, index, onCopy }) {
             <div className="sequence-display">
               {formatSequence(getDisplaySeq()).map((chunk, i) => (
                 <div key={i} className="seq-line">
-                  <span className="seq-pos">{(seqView === 'end' ? (frag.pcrSeq || frag.seq).length - 120 : 0) + i * 60 + 1}</span>
+                  <span className="seq-pos">{(seqView === 'end' ? fullSeq.length - 120 : 0) + i * 60 + 1}</span>
                   <span className="seq-text">{chunk}</span>
                 </div>
               ))}
-              {seqView !== 'full' && (frag.pcrSeq || frag.seq).length > 120 && (
-                <div className="seq-truncated">... {(frag.pcrSeq || frag.seq).length - 120} bp not shown</div>
+              {seqView !== 'full' && fullSeq.length > 120 && (
+                <div className="seq-truncated">... {fullSeq.length - 120} bp not shown</div>
               )}
             </div>
           </div>
@@ -145,7 +220,7 @@ function FragmentDetail({ frag, index, onCopy }) {
                   </div>
                   <button
                     className="copy-btn"
-                    onClick={() => copyToClipboard(frag.primers[0].seq, 'FWD primer')}
+                    onClick={() => copyToClipboard(frag.primers![0].seq, 'FWD primer')}
                   >
                     Copy
                   </button>
@@ -162,7 +237,7 @@ function FragmentDetail({ frag, index, onCopy }) {
                   </div>
                   <button
                     className="copy-btn"
-                    onClick={() => copyToClipboard(frag.primers[1].seq, 'REV primer')}
+                    onClick={() => copyToClipboard(frag.primers![1].seq, 'REV primer')}
                   >
                     Copy
                   </button>
@@ -181,12 +256,10 @@ function FragmentDetail({ frag, index, onCopy }) {
       )}
     </div>
   );
-}
+};
 
 // Assembly visualization component
-function AssemblyVisualization({ fragments, targetLength }) {
-  const scale = 100 / targetLength;
-
+const AssemblyVisualization: FC<AssemblyVisualizationProps> = ({ fragments, targetLength }) => {
   return (
     <div className="assembly-viz">
       <div className="viz-track target-track">
@@ -220,10 +293,10 @@ function AssemblyVisualization({ fragments, targetLength }) {
       </div>
     </div>
   );
-}
+};
 
 // Cost breakdown component
-function CostBreakdown({ solution, config }) {
+const CostBreakdown: FC<CostBreakdownProps> = ({ solution, config }) => {
   const pcrFragments = solution.fragments.filter(f => f.type === 'pcr');
   const synthFragments = solution.fragments.filter(f => f.type === 'synthetic');
 
@@ -271,10 +344,10 @@ function CostBreakdown({ solution, config }) {
       </div>
     </div>
   );
-}
+};
 
 // Part Source Selector Component
-function PartSourceSelector({ sources, enabledSources, onToggle, loadingStates, loadedCounts, onLoad }) {
+const PartSourceSelector: FC<PartSourceSelectorProps> = ({ sources, enabledSources, onToggle, loadingStates, loadedCounts, onLoad }) => {
   return (
     <div className="part-sources">
       {sources.map(source => (
@@ -320,39 +393,39 @@ function PartSourceSelector({ sources, enabledSources, onToggle, loadingStates, 
       </p>
     </div>
   );
-}
+};
 
-export default function AssemblyDesigner() {
+const AssemblyDesigner: FC = () => {
   // Input state
-  const [targetSeq, setTargetSeq] = useState('');
-  const [targetName, setTargetName] = useState('');
-  const [database, setDatabase] = useState([]);
-  const [userDatabase, setUserDatabase] = useState([]); // User-uploaded fragments
-  const [backboneName, setBackboneName] = useState('');
-  const [selectedEnzymes, setSelectedEnzymes] = useState([]);
+  const [targetSeq, setTargetSeq] = useState<string>('');
+  const [targetName, setTargetName] = useState<string>('');
+  const [database, setDatabase] = useState<Fragment[]>([]);
+  const [userDatabase, setUserDatabase] = useState<Fragment[]>([]); // User-uploaded fragments
+  const [backboneName, setBackboneName] = useState<string>('');
+  const [selectedEnzymes, setSelectedEnzymes] = useState<string[]>([]);
 
   // Part sources state
-  const [enabledSources, setEnabledSources] = useState([]);
-  const [partDatabases, setPartDatabases] = useState({}); // { addgene: [...], igem: [...] }
-  const [sourceLoadingStates, setSourceLoadingStates] = useState({});
-  const [sourceErrors, setSourceErrors] = useState({});
+  const [enabledSources, setEnabledSources] = useState<string[]>([]);
+  const [partDatabases, setPartDatabases] = useState<Record<string, Fragment[]>>({}); // { addgene: [...], igem: [...] }
+  const [sourceLoadingStates, setSourceLoadingStates] = useState<Record<string, boolean>>({});
+  const [sourceErrors, setSourceErrors] = useState<Record<string, string | null>>({});
 
   // Config state
-  const [showConfig, setShowConfig] = useState(false);
-  const [config, setConfig] = useState({ ...DEFAULT_CONFIG });
+  const [showConfig, setShowConfig] = useState<boolean>(false);
+  const [config, setConfig] = useState<Config>({ ...DEFAULT_CONFIG } as Config);
 
   // Results state
-  const [results, setResults] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [copyMessage, setCopyMessage] = useState('');
+  const [results, setResults] = useState<AssemblyResult | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [copyMessage, setCopyMessage] = useState<string>('');
 
   // Available part sources
-  const availableSources = getAvailablePartSources();
+  const availableSources = getAvailablePartSources() as PartSource[];
 
   // Merge user database with enabled part sources
   useEffect(() => {
-    const enabledDatabases = {};
+    const enabledDatabases: Record<string, Fragment[]> = {};
     enabledSources.forEach(sourceId => {
       if (partDatabases[sourceId]) {
         enabledDatabases[sourceId] = partDatabases[sourceId];
@@ -360,15 +433,15 @@ export default function AssemblyDesigner() {
     });
 
     // Merge all enabled sources with user database
-    const merged = [
+    const merged: Fragment[] = [
       ...userDatabase,
-      ...mergeDatabases(enabledDatabases),
+      ...(mergeDatabases(enabledDatabases) as Fragment[]),
     ];
     setDatabase(merged);
   }, [userDatabase, enabledSources, partDatabases]);
 
   // Toggle part source
-  const togglePartSource = useCallback((sourceId) => {
+  const togglePartSource = useCallback((sourceId: string): void => {
     setEnabledSources(prev =>
       prev.includes(sourceId)
         ? prev.filter(s => s !== sourceId)
@@ -377,9 +450,9 @@ export default function AssemblyDesigner() {
   }, []);
 
   // Load part database from source
-  const loadPartDatabase = useCallback(async (sourceId) => {
+  const loadPartDatabase = useCallback(async (sourceId: string): Promise<void> => {
     // Check local cache first
-    const cached = loadCachedDatabase(sourceId);
+    const cached = loadCachedDatabase(sourceId) as Fragment[] | null;
     if (cached && cached.length > 0) {
       setPartDatabases(prev => ({ ...prev, [sourceId]: cached }));
       return;
@@ -389,11 +462,12 @@ export default function AssemblyDesigner() {
     setSourceErrors(prev => ({ ...prev, [sourceId]: null }));
 
     try {
-      const fragments = await fetchPartDatabase(sourceId);
+      const fragments = await fetchPartDatabase(sourceId) as Fragment[];
       setPartDatabases(prev => ({ ...prev, [sourceId]: fragments }));
       saveCachedDatabase(sourceId, fragments);
     } catch (err) {
-      setSourceErrors(prev => ({ ...prev, [sourceId]: err.message }));
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setSourceErrors(prev => ({ ...prev, [sourceId]: errorMessage }));
       console.error(`Failed to load ${sourceId} database:`, err);
     } finally {
       setSourceLoadingStates(prev => ({ ...prev, [sourceId]: false }));
@@ -411,43 +485,44 @@ export default function AssemblyDesigner() {
   }, [enabledSources, partDatabases, sourceLoadingStates, loadPartDatabase]);
 
   // Get loaded counts for each source
-  const loadedCounts = Object.fromEntries(
+  const loadedCounts: Record<string, number> = Object.fromEntries(
     Object.entries(partDatabases).map(([id, frags]) => [id, frags?.length || 0])
   );
 
   // Handle target file upload
-  const handleTargetUpload = useCallback((e) => {
-    const file = e.target.files[0];
+  const handleTargetUpload = useCallback((e: ChangeEvent<HTMLInputElement>): void => {
+    const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
-        const content = event.target.result;
-        const frags = parseFasta(content);
+        const content = event.target?.result as string;
+        const frags = parseFasta(content) as Fragment[];
         if (frags.length > 0) {
           setTargetSeq(frags[0].seq);
           setTargetName(frags[0].id);
           setError(null);
         }
       } catch (err) {
-        setError('Failed to parse target file: ' + err.message);
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        setError('Failed to parse target file: ' + errorMessage);
       }
     };
     reader.readAsText(file);
   }, []);
 
   // Handle database file upload (user's own fragments)
-  const handleDatabaseUpload = useCallback((e) => {
-    const file = e.target.files[0];
+  const handleDatabaseUpload = useCallback((e: ChangeEvent<HTMLInputElement>): void => {
+    const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
-        const content = event.target.result;
-        const frags = parseFasta(content);
-        const dbFrags = frags.map((f) => ({
+        const content = event.target?.result as string;
+        const frags = parseFasta(content) as Fragment[];
+        const dbFrags: Fragment[] = frags.map((f) => ({
           ...f,
           cost: 65,
           url: '',
@@ -456,14 +531,15 @@ export default function AssemblyDesigner() {
         setUserDatabase(dbFrags);
         setError(null);
       } catch (err) {
-        setError('Failed to parse database file: ' + err.message);
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        setError('Failed to parse database file: ' + errorMessage);
       }
     };
     reader.readAsText(file);
   }, []);
 
   // Handle enzyme selection
-  const toggleEnzyme = useCallback((enzyme) => {
+  const toggleEnzyme = useCallback((enzyme: string): void => {
     setSelectedEnzymes(prev =>
       prev.includes(enzyme)
         ? prev.filter(e => e !== enzyme)
@@ -472,7 +548,7 @@ export default function AssemblyDesigner() {
   }, []);
 
   // Run assembly planning
-  const runAssembly = useCallback(() => {
+  const runAssembly = useCallback((): void => {
     if (!targetSeq) {
       setError('Please provide a target sequence');
       return;
@@ -489,7 +565,7 @@ export default function AssemblyDesigner() {
         if (backboneName && selectedEnzymes.length > 0) {
           const backbone = database.find(f => f.id === backboneName);
           if (backbone) {
-            const digested = digest(backbone.seq, selectedEnzymes);
+            const digested = digest(backbone.seq, selectedEnzymes) as { linearized: string } | null;
             if (digested) {
               finalTarget = targetSeq + digested.linearized;
             } else {
@@ -501,11 +577,12 @@ export default function AssemblyDesigner() {
         const result = planAssembly(finalTarget, database, {
           targetName: targetName || 'target',
           config,
-        });
+        }) as AssemblyResult;
 
         setResults(result);
       } catch (err) {
-        setError('Assembly planning failed: ' + err.message);
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        setError('Assembly planning failed: ' + errorMessage);
       } finally {
         setLoading(false);
       }
@@ -513,23 +590,24 @@ export default function AssemblyDesigner() {
   }, [targetSeq, targetName, database, backboneName, selectedEnzymes, config]);
 
   // Update config
-  const updateConfig = useCallback((key, value) => {
+  const updateConfig = useCallback((key: string, value: string): void => {
+    const numValue = parseFloat(value);
     setConfig(prev => ({
       ...prev,
-      [key]: typeof value === 'string' ? parseFloat(value) || value : value,
+      [key]: isNaN(numValue) ? 0 : numValue,
     }));
   }, []);
 
   // Handle copy feedback
-  const handleCopy = useCallback((message) => {
+  const handleCopy = useCallback((message: string): void => {
     setCopyMessage(message);
     setTimeout(() => setCopyMessage(''), 2000);
   }, []);
 
   // Export all primers
-  const exportAllPrimers = useCallback((solution) => {
-    const lines = [];
-    solution.fragments.forEach((frag, i) => {
+  const exportAllPrimers = useCallback((solution: Solution): void => {
+    const lines: string[] = [];
+    solution.fragments.forEach((frag) => {
       if (frag.primers) {
         lines.push(`>${frag.id}_FWD`);
         lines.push(frag.primers[0].seq);
@@ -580,7 +658,7 @@ export default function AssemblyDesigner() {
             {Object.entries(sourceErrors).map(([sourceId, err]) =>
               err ? (
                 <div key={sourceId} className="source-error">
-                  {PART_SOURCES[sourceId]?.name || sourceId}: {err}
+                  {(PART_SOURCES as Record<string, PartSource>)[sourceId]?.name || sourceId}: {err}
                 </div>
               ) : null
             )}
@@ -808,4 +886,6 @@ export default function AssemblyDesigner() {
       </div>
     </div>
   );
-}
+};
+
+export default AssemblyDesigner;

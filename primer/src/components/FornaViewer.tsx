@@ -1,8 +1,26 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState, FC } from 'react';
 import { dg } from '../lib/fold.js';
 
+// Theme interface
+interface Theme {
+  bg: string;
+  bgSecondary: string;
+  bgTertiary: string;
+  border: string;
+  text: string;
+  textSecondary: string;
+  textMuted: string;
+  success: string;
+  successBg: string;
+  warning: string;
+  warningBg: string;
+  danger: string;
+  dangerBg: string;
+  prime3: string;
+}
+
 // Light theme colors
-const theme = {
+const theme: Theme = {
   bg: '#ffffff',
   bgSecondary: '#f8fafc',
   bgTertiary: '#f1f5f9',
@@ -19,6 +37,25 @@ const theme = {
   prime3: '#2563eb',
 };
 
+// Type definitions
+interface Node {
+  id: number;
+  base: string;
+  x: number;
+  y: number;
+}
+
+type BasePair = [number, number];
+
+interface FornaViewerProps {
+  sequence: string;
+  basePairs?: BasePair[];
+  width?: number;
+  height?: number;
+  label?: string;
+  onShift?: ((direction: number) => void) | null;
+}
+
 /**
  * Row-based hairpin layout - proper stem-loop structure with dynamic spacing
  *
@@ -27,9 +64,14 @@ const theme = {
  * 2. Both bases in a pair get EXACTLY the same Y coordinate
  * 3. Bulge bases are distributed evenly in the stretched gap
  */
-function calculateClassicHairpinLayout(sequence, basePairs, width, height) {
+function calculateClassicHairpinLayout(
+  sequence: string,
+  basePairs: BasePair[],
+  width: number,
+  height: number
+): Node[] {
   const n = sequence.length;
-  const nodes = new Array(n);
+  const nodes: Node[] = new Array(n);
   const centerX = width / 2;
 
   console.log('[FornaViewer] === Layout Debug ===');
@@ -57,7 +99,7 @@ function calculateClassicHairpinLayout(sequence, basePairs, width, height) {
   }
 
   // Build pair map (index -> partner index)
-  const pairMap = new Map();
+  const pairMap = new Map<number, number>();
   basePairs.forEach(([i, j]) => {
     pairMap.set(i, j);
     pairMap.set(j, i);
@@ -81,9 +123,8 @@ function calculateClassicHairpinLayout(sequence, basePairs, width, height) {
   const loopEnd = innerPair[1] - 1;
   const loopLen = Math.max(1, loopEnd - loopStart + 1);
 
-  // Tail lengths
+  // Tail length (5' end)
   const tail5Len = firstPairedIdx;
-  const tail3Len = n - 1 - lastPairedIdx;
 
   // X positions
   const leftX = centerX - stemWidth / 2;
@@ -94,7 +135,7 @@ function calculateClassicHairpinLayout(sequence, basePairs, width, height) {
 
   // segmentHeights[i] = vertical units between pair i and pair i+1
   // (pair 0 is outermost/bottom, pair numPairs-1 is innermost/top)
-  const segmentHeights = [];
+  const segmentHeights: number[] = [];
 
   for (let p = 0; p < numPairs - 1; p++) {
     const [leftA, rightA] = sortedPairs[p];      // Lower pair (bigger indices spread)
@@ -122,7 +163,7 @@ function calculateClassicHairpinLayout(sequence, basePairs, width, height) {
   const stemTopY = loopTopY + 60; // Innermost pair Y position
 
   // Build Y positions from top (innermost) to bottom (outermost)
-  const pairYPositions = new Array(numPairs);
+  const pairYPositions: number[] = new Array(numPairs);
   pairYPositions[numPairs - 1] = stemTopY; // Innermost pair at top
 
   for (let p = numPairs - 2; p >= 0; p--) {
@@ -133,8 +174,8 @@ function calculateClassicHairpinLayout(sequence, basePairs, width, height) {
   const stemBottomY = pairYPositions[0]; // Outermost pair Y
 
   // === STEP 3: Create Y map for paired bases ===
-  const pairYMap = new Map();
-  const pairRankMap = new Map(); // Maps base index to its pair rank
+  const pairYMap = new Map<number, number>();
+  const pairRankMap = new Map<number, number>(); // Maps base index to its pair rank
 
   console.log('[FornaViewer] sortedPairs:', JSON.stringify(sortedPairs));
   console.log('[FornaViewer] segmentHeights:', JSON.stringify(segmentHeights));
@@ -154,7 +195,7 @@ function calculateClassicHairpinLayout(sequence, basePairs, width, height) {
   const loopRadius = Math.max(50, loopLen * 18);
 
   for (let i = 0; i < n; i++) {
-    let x, y;
+    let x: number, y: number;
     const partner = pairMap.get(i);
     const isPaired = partner !== undefined;
 
@@ -183,8 +224,8 @@ function calculateClassicHairpinLayout(sequence, basePairs, width, height) {
     } else if (isPaired) {
       // === STEM (paired base) ===
       // Use pre-calculated Y - never interpolate paired bases!
-      const isLeftStem = i < partner;
-      y = pairYMap.get(i);
+      const isLeftStem = i < partner!;
+      y = pairYMap.get(i)!;
       x = isLeftStem ? leftX : rightX;
 
     } else {
@@ -238,7 +279,7 @@ function calculateClassicHairpinLayout(sequence, basePairs, width, height) {
       const upperY = pairYPositions[upperPairRank];
 
       // Count total unpaired bases in this segment on this side
-      const bulgeIndices = [];
+      const bulgeIndices: number[] = [];
       const rangeStart = isLeftSide ? lowerIdx + 1 : upperIdx + 1;
       const rangeEnd = isLeftSide ? upperIdx : lowerIdx;
 
@@ -252,7 +293,7 @@ function calculateClassicHairpinLayout(sequence, basePairs, width, height) {
 
       // Distribute evenly between the two pairs
       if (totalBulges > 0 && bulgePosition >= 0) {
-        let t;
+        let t: number;
         if (isLeftSide) {
           // Left side: indices increase going UP (toward loop)
           // Position 0 (smallest index) is closest to lowerY (bottom)
@@ -287,7 +328,7 @@ function calculateClassicHairpinLayout(sequence, basePairs, width, height) {
 /**
  * Generate simple polyline path - straight lines with rounded corners
  */
-function generateSimplePath(nodes) {
+function generateSimplePath(nodes: Node[]): string {
   if (nodes.length < 2) return '';
 
   // Just connect nodes with straight lines - CSS will round the corners
@@ -301,18 +342,18 @@ function generateSimplePath(nodes) {
 /**
  * FornaViewer - Improved hairpin structure visualization
  */
-export default function FornaViewer({
+const FornaViewer: FC<FornaViewerProps> = ({
   sequence,
   basePairs = [],
   width = 420,  // Larger default
   height = 380, // Larger default
   label = 'Primer',
   onShift = null,
-}) {
-  const [hoveredNode, setHoveredNode] = useState(null);
+}) => {
+  const [hoveredNode, setHoveredNode] = useState<number | null>(null);
 
   // Calculate node positions
-  const nodes = useMemo(() => {
+  const nodes = useMemo((): Node[] => {
     if (!sequence) return [];
     return calculateClassicHairpinLayout(sequence, basePairs, width, height);
   }, [sequence, basePairs, width, height]);
@@ -321,13 +362,13 @@ export default function FornaViewer({
   const backbonePath = useMemo(() => generateSimplePath(nodes), [nodes]);
 
   // Calculate energy
-  const energy = useMemo(() => {
+  const energy = useMemo((): number => {
     if (!sequence || sequence.length < 6) return 0;
-    return dg(sequence, 37);
+    return dg(sequence, 37) as number;
   }, [sequence]);
 
   // Calculate viewBox to fit content
-  const viewBox = useMemo(() => {
+  const viewBox = useMemo((): string => {
     if (nodes.length === 0) return `0 0 ${width} ${height}`;
 
     const padding = 55; // Extra padding for 5'/3' labels
@@ -343,7 +384,7 @@ export default function FornaViewer({
 
   const energyColor = energy >= -1 ? theme.success : energy >= -3 ? theme.warning : theme.danger;
 
-  const getNodeColor = (base, index) => {
+  const getNodeColor = (base: string, index: number): string => {
     const is3Prime = index >= sequence.length - 5;
     const isGC = base === 'G' || base === 'C';
     if (is3Prime) return isGC ? theme.success : theme.prime3;
@@ -646,6 +687,7 @@ export default function FornaViewer({
       </div>
     </div>
   );
-}
+};
 
+export default FornaViewer;
 export { FornaViewer };
