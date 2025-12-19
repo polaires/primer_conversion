@@ -282,17 +282,17 @@ describe('identifyStrengths', () => {
 describe('generateLabel', () => {
   it('generates icon label for bestOverall', () => {
     const label = generateLabel(['bestOverall'], 'excellent');
-    expect(label).toBe('⭐ Best');
+    expect(label).toEqual({ key: 'bestOverall', text: 'Best', svgPath: expect.any(String) });
   });
 
   it('generates icon label for bestTmMatch', () => {
     const label = generateLabel(['bestTmMatch'], 'good');
-    expect(label).toBe('🎯 Tm');
+    expect(label).toEqual({ key: 'bestTmMatch', text: 'Tm', svgPath: expect.any(String) });
   });
 
   it('generates icon label for safestDimer', () => {
     const label = generateLabel(['safestDimer']);
-    expect(label).toBe('🔗 Safe');
+    expect(label).toEqual({ key: 'safestDimer', text: 'Safe', svgPath: expect.any(String) });
   });
 
   it('returns null with no strengths', () => {
@@ -302,7 +302,7 @@ describe('generateLabel', () => {
 
   it('prioritizes bestOverall over other strengths', () => {
     const label = generateLabel(['bestOverall', 'bestTmMatch', 'safestDimer']);
-    expect(label).toBe('⭐ Best');
+    expect(label).toEqual({ key: 'bestOverall', text: 'Best', svgPath: expect.any(String) });
   });
 });
 

@@ -99,8 +99,8 @@ describe('calculateEntryScores', () => {
     expect(scores).toHaveProperty('hairpinRev');
     expect(scores).toHaveProperty('selfDimerFwd');
     expect(scores).toHaveProperty('selfDimerRev');
-    expect(scores).toHaveProperty('terminal3DGFwd');
-    expect(scores).toHaveProperty('terminal3DGRev');
+    // terminal3DG is combined minimum of Fwd and Rev scores
+    expect(scores).toHaveProperty('terminal3DG');
     expect(scores).toHaveProperty('tmDiff');
     expect(scores).toHaveProperty('heterodimer');
     expect(scores).toHaveProperty('offTarget');

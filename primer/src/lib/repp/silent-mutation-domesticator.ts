@@ -363,6 +363,11 @@ export function domesticateWithSilentMutations(
     checkAllEnzymes = false,      // Check for sites of all GG enzymes
   } = options;
 
+  // Validate enzyme exists
+  if (!GOLDEN_GATE_ENZYMES[enzyme]) {
+    throw new Error(`Unknown enzyme: ${enzyme}`);
+  }
+
   const seq = sequence.toUpperCase();
   const internalSites = findInternalSites(seq, enzyme);
 
