@@ -14,13 +14,15 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* Linting - relaxed during migration */
+    /* Linting - partially strict (full strict: 206 errors remaining in 2 large files) */
     "strict": false,
     "noImplicitAny": false,
     "strictNullChecks": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
 
     /* Path aliases */
     "baseUrl": ".",

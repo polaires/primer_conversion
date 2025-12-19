@@ -32,6 +32,24 @@
   code, pre, .font-mono {
     font-family: 'JetBrains Mono', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', monospace;
   }
+
+  /* Focus indicators for accessibility */
+  :focus-visible {
+    @apply outline-none ring-2 ring-blue-500 ring-offset-2;
+  }
+
+  /* Remove default focus ring but keep focus-visible */
+  :focus:not(:focus-visible) {
+    @apply outline-none;
+  }
+
+  /* Skip to main content link for keyboard users */
+  .skip-link {
+    @apply sr-only focus:not-sr-only;
+    @apply focus:absolute focus:top-4 focus:left-4 focus:z-50;
+    @apply focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white;
+    @apply focus:rounded-md focus:shadow-lg;
+  }
 }
 
 /* ============================================================================
