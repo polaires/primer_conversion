@@ -104,16 +104,14 @@ export {
 export { getPreset } from "./presets.js";
 
 // Site-directed mutagenesis (base changer)
-// Note: Many functions are not yet implemented in mutagenesis.ts
-// Commenting out missing exports to fix TypeScript errors
 export {
   // designSubstitutionPrimers,
-  // designCodonChangePrimers,
-  // designInsertionPrimers,
-  // designDeletionPrimers,
-  // designRegionSubstitutionPrimers,
+  designCodonChangePrimers,
+  designInsertionPrimers,
+  designDeletionPrimers,
+  designRegionSubstitutionPrimers,
   // designPrimersFromNotation,
-  // parseMutationNotation,
+  parseMutationNotation,
   MUTATION_TYPES,
   MUTAGENESIS_DEFAULTS,
   // CODON_TABLE,

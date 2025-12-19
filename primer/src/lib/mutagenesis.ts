@@ -2282,4 +2282,302 @@ function checkSequenceContext(seq: string, pos: number): { hasProblems: boolean;
   };
 }
 
+// =============================================================================
+// Public API Functions for Mutagenesis Primer Design
+// =============================================================================
+
+/**
+ * Parse mutation notation (e.g., "A123G", "K45R", "del100-110")
+ */
+export function parseMutationNotation(notation: string): any {
+  const upper = notation.trim().toUpperCase();
+
+  // Point mutation: A123G (nucleotide) or K45R (amino acid)
+  const pointMatch = upper.match(/^([A-Z])(\d+)([A-Z])$/);
+  if (pointMatch) {
+    const [, original, posStr, replacement] = pointMatch;
+    const position = parseInt(posStr, 10);
+    const isAA = 'ACDEFGHIKLMNPQRSTVWY'.includes(original);
+    return {
+      type: isAA ? 'substitution' : 'point',
+      position: position - 1,  // Convert to 0-indexed
+      original,
+      replacement,
+      notation: upper
+    };
+  }
+
+  // Deletion: del100-110 or Δ100-110
+  const delMatch = upper.match(/^(?:DEL|Δ)(\d+)(?:-(\d+))?$/);
+  if (delMatch) {
+    const start = parseInt(delMatch[1], 10) - 1;
+    const end = delMatch[2] ? parseInt(delMatch[2], 10) - 1 : start;
+    return {
+      type: 'deletion',
+      position: start,
+      length: end - start + 1,
+      notation: upper
+    };
+  }
+
+  // Insertion: ins100_ACGT
+  const insMatch = upper.match(/^INS(\d+)_([ACGT]+)$/);
+  if (insMatch) {
+    return {
+      type: 'insertion',
+      position: parseInt(insMatch[1], 10) - 1,
+      insertion: insMatch[2],
+      notation: upper
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Design primers for deleting a region from template
+ * @param template - Template sequence
+ * @param start - Start position of deletion (0-indexed)
+ * @param length - Number of bases to delete
+ * @param options - Design options
+ */
+export function designDeletionPrimers(
+  template: string,
+  start: number,
+  length: number,
+  options: Partial<MutagenesisDefaults> = {}
+): any {
+  const seq = template.toUpperCase();
+  const opts = { ...MUTAGENESIS_DEFAULTS, ...options };
+
+  // Create mutated sequence by removing the deletion region
+  const mutatedSeq = seq.slice(0, start) + seq.slice(start + length);
+
+  // Design primers using back-to-back approach
+  const result = designBackToBackPrimers(seq, start, mutatedSeq, 0, opts, length);
+
+  const best = selectBestByTier(result.candidates);
+
+  if (!best) {
+    return {
+      forward: { sequence: '', tm: 0, gc: 0 },
+      reverse: { sequence: '', tm: 0, gc: 0 },
+      error: 'No suitable primers found for deletion'
+    };
+  }
+
+  return {
+    forward: best.forward,
+    reverse: best.reverse,
+    mutatedSequence: mutatedSeq,
+    quality: best.tierQuality || 'unknown'
+  };
+}
+
+/**
+ * Design primers for inserting a sequence into template
+ * @param template - Template sequence
+ * @param position - Position to insert at (0-indexed)
+ * @param insertion - Sequence to insert
+ * @param options - Design options
+ */
+export function designInsertionPrimers(
+  template: string,
+  position: number,
+  insertion: string,
+  options: Partial<MutagenesisDefaults> = {}
+): any {
+  const seq = template.toUpperCase();
+  const insertSeq = insertion.toUpperCase();
+  const opts = { ...MUTAGENESIS_DEFAULTS, ...options };
+
+  // Create mutated sequence by inserting the new sequence
+  const mutatedSeq = seq.slice(0, position) + insertSeq + seq.slice(position);
+
+  // Design primers
+  const result = designBackToBackPrimers(seq, position, mutatedSeq, insertSeq.length, opts, 0);
+
+  const best = selectBestByTier(result.candidates);
+
+  if (!best) {
+    return {
+      forward: { sequence: '', tm: 0, gc: 0 },
+      reverse: { sequence: '', tm: 0, gc: 0 },
+      protocol: { name: 'Insertion', steps: [], notes: [] },
+      error: 'No suitable primers found for insertion'
+    };
+  }
+
+  return {
+    forward: best.forward,
+    reverse: best.reverse,
+    protocol: generateProtocol('insertion', best, opts),
+    mutatedSequence: mutatedSeq,
+    quality: best.tierQuality || 'unknown'
+  };
+}
+
+/**
+ * Design primers for substituting a region in template
+ * @param template - Template sequence
+ * @param start - Start position of substitution (0-indexed)
+ * @param length - Length of region to replace
+ * @param replacement - Replacement sequence
+ * @param options - Design options
+ */
+export function designRegionSubstitutionPrimers(
+  template: string,
+  start: number,
+  length: number,
+  replacement: string,
+  options: Partial<MutagenesisDefaults> = {}
+): any {
+  const seq = template.toUpperCase();
+  const replaceSeq = replacement.toUpperCase();
+  const opts = { ...MUTAGENESIS_DEFAULTS, ...options };
+
+  // Create mutated sequence
+  const mutatedSeq = seq.slice(0, start) + replaceSeq + seq.slice(start + length);
+
+  // Determine if this is more like a deletion or insertion
+  const netChange = replaceSeq.length - length;
+
+  const result = designBackToBackPrimers(
+    seq,
+    start,
+    mutatedSeq,
+    replaceSeq.length,
+    opts,
+    length
+  );
+
+  const best = selectBestByTier(result.candidates);
+
+  if (!best) {
+    return {
+      forward: { sequence: '', tm: 0, gc: 0 },
+      reverse: { sequence: '', tm: 0, gc: 0 },
+      protocol: { name: 'Substitution', steps: [], notes: [] },
+      error: 'No suitable primers found for substitution'
+    };
+  }
+
+  return {
+    forward: best.forward,
+    reverse: best.reverse,
+    protocol: generateProtocol('substitution', best, opts),
+    mutatedSequence: mutatedSeq,
+    quality: best.tierQuality || 'unknown'
+  };
+}
+
+/**
+ * Design primers for changing a codon to encode a different amino acid
+ * @param template - Template sequence
+ * @param codonPosition - Position of the first base of the codon (0-indexed)
+ * @param targetAA - Target amino acid (single letter code)
+ * @param options - Design options
+ */
+export function designCodonChangePrimers(
+  template: string,
+  codonPosition: number,
+  targetAA: string,
+  options: Partial<MutagenesisDefaults> = {}
+): any {
+  const seq = template.toUpperCase();
+  const opts = { ...MUTAGENESIS_DEFAULTS, ...options };
+
+  // Get original codon
+  const originalCodon = seq.slice(codonPosition, codonPosition + 3);
+
+  // Select optimal codon for target amino acid
+  const codonSelection = selectOptimalCodon(originalCodon, targetAA.toUpperCase(), opts);
+
+  if (!codonSelection.selectedCodon) {
+    return {
+      forward: { sequence: '', tm: 0, gc: 0 },
+      reverse: { sequence: '', tm: 0, gc: 0 },
+      protocol: { name: 'Codon Change', steps: [], notes: [] },
+      error: `No valid codon found for amino acid ${targetAA}`
+    };
+  }
+
+  // Create mutated sequence with new codon
+  const mutatedSeq = seq.slice(0, codonPosition) + codonSelection.selectedCodon + seq.slice(codonPosition + 3);
+
+  // Design primers
+  const result = designBackToBackPrimers(seq, codonPosition, mutatedSeq, 3, opts, 3);
+
+  const best = selectBestByTier(result.candidates);
+
+  if (!best) {
+    return {
+      forward: { sequence: '', tm: 0, gc: 0 },
+      reverse: { sequence: '', tm: 0, gc: 0 },
+      protocol: { name: 'Codon Change', steps: [], notes: [] },
+      error: 'No suitable primers found for codon change'
+    };
+  }
+
+  return {
+    forward: best.forward,
+    reverse: best.reverse,
+    protocol: generateProtocol('codon_change', best, opts),
+    mutatedSequence: mutatedSeq,
+    codonChange: {
+      original: originalCodon,
+      new: codonSelection.selectedCodon,
+      targetAA,
+      changes: codonSelection.changedPositions
+    },
+    quality: best.tierQuality || 'unknown'
+  };
+}
+
+/**
+ * Generate protocol steps for mutagenesis
+ */
+function generateProtocol(
+  mutationType: string,
+  candidate: CandidatePair,
+  _options: MutagenesisDefaults
+): any {
+  const steps = [
+    {
+      name: 'Prepare PCR master mix',
+      temp: 'RT',
+      time: '10 min'
+    },
+    {
+      name: 'Set up PCR reaction',
+      temp: 'RT',
+      time: '5 min'
+    },
+    {
+      name: 'Run PCR cycling',
+      temp: `${Math.min(candidate.forward.tm, candidate.reverse.tm).toFixed(1)}°C annealing`,
+      time: '2-3 hours'
+    },
+    {
+      name: 'DpnI digest template',
+      temp: '37°C',
+      time: '1 hour'
+    },
+    {
+      name: 'Transform competent cells',
+      temp: '37°C',
+      time: 'overnight'
+    }
+  ];
+
+  const notes = [
+    `Mutation type: ${mutationType}`,
+    `Tm difference: ${Math.abs(candidate.forward.tm - candidate.reverse.tm).toFixed(1)}°C`,
+    `Forward primer: ${candidate.forward.sequence}`,
+    `Reverse primer: ${candidate.reverse.sequence}`
+  ];
+
+  return { name: `${mutationType} Mutagenesis Protocol`, steps, notes };
+}
+
 // [Continue with the remaining functions - I'll split this into multiple messages due to length constraints]

@@ -17,11 +17,8 @@
  * without explicit user confirmation.
  */
 
-import { GOLDEN_GATE_ENZYMES, calculateExperimentalFidelity } from './goldengate.js';
+import { GOLDEN_GATE_ENZYMES, calculateExperimentalFidelity, findInternalSites } from './goldengate.js';
 import { reverseComplement } from './enzymes.js';
-
-// Stubs for missing exports
-const findInternalSites = (seq: string, enzyme: string) => [] as any;
 type InternalSitesResult = any;
 type EnzymeInfo = any;
 

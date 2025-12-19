@@ -22,10 +22,8 @@ import {
   GOLDEN_GATE_ENZYMES,
   calculateExperimentalFidelity,
   getEnzymeLigationData,
+  findInternalSites,
 } from './goldengate.js';
-
-// Stub for missing export
-const findInternalSites = (seq: string, enzyme: string) => [] as any;
 
 import {
   OPTIMAL_FLANKING_SEQUENCES,

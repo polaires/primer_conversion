@@ -18,18 +18,11 @@
 
 import {
   GOLDEN_GATE_ENZYMES,
-  // findInternalSites,  // COMMENTED: Not exported from goldengate.js
+  findInternalSites,
   calculateExperimentalFidelity,
   getEnzymeLigationData,
   getOverhangFidelityExperimental,
 } from './goldengate.js';
-
-// Stub for missing export
-const findInternalSites = (seq: string, enzyme: string): any => ({
-  hasSites: false,
-  count: 0,
-  sites: []
-});
 import { reverseComplement } from './enzymes.js';
 import {
   CODON_TO_AA,

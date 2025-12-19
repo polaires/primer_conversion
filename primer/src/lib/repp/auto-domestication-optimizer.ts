@@ -10,11 +10,8 @@
  * with primers designed to create overhangs that don't recreate the site.
  */
 
-import { GOLDEN_GATE_ENZYMES, calculateExperimentalFidelity, getEnzymeLigationData } from './goldengate.js';
+import { GOLDEN_GATE_ENZYMES, calculateExperimentalFidelity, getEnzymeLigationData, findInternalSites } from './goldengate.js';
 import { reverseComplement } from './enzymes.js';
-
-// Stub for missing export - to be implemented
-const findInternalSites = (seq: string, enzyme: string) => [] as any;
 
 /**
  * Configuration for auto-domestication

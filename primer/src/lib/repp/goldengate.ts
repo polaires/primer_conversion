@@ -1217,4 +1217,88 @@ export function findProblematicPairs(overhangs: string[], enzyme: string = 'BsaI
 // export * from './goldengate-primer-design.js';
 // export * from './goldengate-domestication.js';
 // export * from './goldengate-assembly.js';
+
+/**
+ * Internal site found in sequence
+ */
+export interface InternalSite {
+  position: number;
+  sequence: string;
+  orientation: 'forward' | 'reverse';
+  enzyme?: string;
+  index?: number;
+}
+
+/**
+ * Result of findInternalSites
+ */
+export interface InternalSitesResult {
+  hasSites: boolean;
+  sites: InternalSite[];
+  count: number;
+  enzyme: string;
+}
+
+/**
+ * Find internal restriction enzyme sites in a sequence
+ * @param sequence - DNA sequence to search
+ * @param enzymeName - Name of the enzyme (e.g., 'BsaI', 'BsmBI')
+ * @returns Object with found sites
+ */
+export function findInternalSites(sequence: string, enzymeName: string): InternalSitesResult {
+  const seq = sequence.toUpperCase();
+  const enzyme = GOLDEN_GATE_ENZYMES[enzymeName];
+
+  if (!enzyme) {
+    return {
+      hasSites: false,
+      sites: [],
+      count: 0,
+      enzyme: enzymeName
+    };
+  }
+
+  const sites: InternalSite[] = [];
+  const recognition = enzyme.recognition;
+  const rcRecognition = reverseComplement(recognition);
+
+  // Search forward strand
+  let pos = seq.indexOf(recognition);
+  let idx = 0;
+  while (pos !== -1) {
+    sites.push({
+      position: pos,
+      sequence: recognition,
+      orientation: 'forward',
+      enzyme: enzymeName,
+      index: idx++
+    });
+    pos = seq.indexOf(recognition, pos + 1);
+  }
+
+  // Search reverse strand (if recognition is not palindromic)
+  if (recognition !== rcRecognition) {
+    pos = seq.indexOf(rcRecognition);
+    while (pos !== -1) {
+      sites.push({
+        position: pos,
+        sequence: rcRecognition,
+        orientation: 'reverse',
+        enzyme: enzymeName,
+        index: idx++
+      });
+      pos = seq.indexOf(rcRecognition, pos + 1);
+    }
+  }
+
+  // Sort by position
+  sites.sort((a, b) => a.position - b.position);
+
+  return {
+    hasSites: sites.length > 0,
+    sites,
+    count: sites.length,
+    enzyme: enzymeName
+  };
+}
 // export * from './goldengate-legacy.js';

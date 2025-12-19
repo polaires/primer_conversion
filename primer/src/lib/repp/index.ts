@@ -62,7 +62,7 @@ export {
   // generateCrossLigationHeatmap,  // COMMENTED: Not exported from goldengate.js
   // generateOverhangQualityReport,  // COMMENTED: Not exported from goldengate.js
   // Internal site detection and domestication
-  // findInternalSites,  // COMMENTED: Not exported from goldengate.js
+  findInternalSites,
   // suggestDomestication,  // COMMENTED: Not exported from goldengate.js
   // checkGoldenGateCompatibility,  // COMMENTED: Not exported from goldengate.js
   // findAlternativeEnzymes,  // COMMENTED: Not exported from goldengate.js

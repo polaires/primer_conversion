@@ -21,30 +21,22 @@
 
 import { primers, generateAlternatives } from './primers.js';
 import {
-  // designSubstitutionPrimers,  // COMMENTED: Not exported from mutagenesis.js
-  // designCodonChangePrimers,  // COMMENTED: Not exported from mutagenesis.js
-  // designInsertionPrimers,  // COMMENTED: Not exported from mutagenesis.js
-  // designDeletionPrimers,  // COMMENTED: Not exported from mutagenesis.js
-  // designRegionSubstitutionPrimers,  // COMMENTED: Not exported from mutagenesis.js
+  // designSubstitutionPrimers,  // Not implemented yet
+  designCodonChangePrimers,
+  designInsertionPrimers,
+  designDeletionPrimers,
+  designRegionSubstitutionPrimers,
   selectOptimalCodon,
-  // CODON_TABLE,  // COMMENTED: Not exported from mutagenesis.js
-  // CODON_TO_AA,  // COMMENTED: Not exported from mutagenesis.js
-  // AA_NAMES,  // COMMENTED: Not exported from mutagenesis.js
   MUTAGENESIS_DEFAULTS,
   MUTATION_TYPES,
-  // analyzePrimerPair,  // COMMENTED: Not exported from mutagenesis.js
 } from './mutagenesis.js';
 
-// Stub implementations for missing functions
-const designSubstitutionPrimers = (seq: string, start: number, end: number, replacement: string, options: any) => ({} as any);
-const designCodonChangePrimers = (seq: string, pos: number, aa: string, options: any) => ({} as any);
-const designInsertionPrimers = (seq: string, pos: number, insertion: string, options: any) => ({} as any);
-const designDeletionPrimers = (seq: string, start: number, length: number, options: any) => ({} as any);
-const designRegionSubstitutionPrimers = (seq: string, start: number, length: number, replacement: string, options: any) => ({} as any);
+// Stub implementations for functions not yet fully implemented
+const designSubstitutionPrimers = (_seq: string, _start: number, _end: number, _replacement: string, _options: any) => ({} as any);
 const CODON_TABLE: any = {};
 const CODON_TO_AA: any = {};
 const AA_NAMES: any = {};
-const analyzePrimerPair = (fwd: any, rev: any, options?: any) => ({} as any);
+const analyzePrimerPair = (_fwd: any, _rev: any, _options?: any) => ({} as any);
 import { reverseComplement, expandAmbiguousBases, hasAmbiguousBases, countCombinations } from './sequenceUtils.js';
 import { calculateTmQ5, calculateGC } from './tmQ5.js';
 import { calculateEquilibriumEfficiency } from './equilibrium.js';
@@ -639,7 +631,7 @@ function designDeletion(
     );
 
     // Design primers on the doubled sequence
-    result = designDeletionPrimers(workingSeq, workingStart, deleteLength, options);
+    result = designDeletionPrimers(workingSeq, workingStart, deleteLength, options as any);
 
     // Adjust coordinates back to circular range
     if (result.forward) {
@@ -652,7 +644,7 @@ function designDeletion(
     result.circularWrapped = true;
   } else {
     // Standard linear deletion
-    result = designDeletionPrimers(template, start, deleteLength, options);
+    result = designDeletionPrimers(template, start, deleteLength, options as any);
   }
 
   return {
@@ -693,7 +685,7 @@ function designSubstitution(
 
   if (isInsertion) {
     // Insertion at a point (no wrap-around needed for insertions)
-    result = designInsertionPrimers(template, start, cleanReplacement, options);
+    result = designInsertionPrimers(template, start, cleanReplacement, options as any);
     result.operation = 'insert';
   } else if (isWrapped) {
     // Substitution with wrap-around: use doubled sequence approach
@@ -703,7 +695,7 @@ function designSubstitution(
     );
 
     // Design primers on the doubled sequence
-    result = designRegionSubstitutionPrimers(workingSeq, workingStart, deleteLength, cleanReplacement, options);
+    result = designRegionSubstitutionPrimers(workingSeq, workingStart, deleteLength, cleanReplacement, options as any);
     result.operation = 'substitute';
 
     // Adjust coordinates back to circular range
@@ -718,7 +710,7 @@ function designSubstitution(
   } else {
     // Standard linear substitution
     const deleteLength = end - start;
-    result = designRegionSubstitutionPrimers(template, start, deleteLength, cleanReplacement, options);
+    result = designRegionSubstitutionPrimers(template, start, deleteLength, cleanReplacement, options as any);
     result.operation = 'substitute';
   }
 
@@ -767,7 +759,7 @@ function designAAMutation(
     ...options,
     organism,
     orfStart,
-  });
+  } as any);
 
   return {
     ...result,
