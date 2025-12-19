@@ -361,7 +361,8 @@ describe('analyzeSinglePrimer with GG detection', () => {
 
     const ggWarning = result.warnings.find(w => w.type === 'goldenGateDetected');
     expect(ggWarning).toBeDefined();
-    expect(ggWarning.severity).toBe('info');
+    // In amplification mode (not goldengate mode), GG site detection is a warning
+    expect(ggWarning.severity).toBe('warning');
     expect(ggWarning.enzyme).toBe('BsaI');
   });
 
