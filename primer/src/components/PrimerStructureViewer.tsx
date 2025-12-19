@@ -1302,8 +1302,8 @@ export default function PrimerStructureViewer({
     return { width, height };
   };
 
-  const fwdDims = calcDimensions(forwardSeq, fwdFold.ij);
-  const revDims = calcDimensions(reverseSeq, revFold.ij);
+  const fwdDims = calcDimensions(forwardSeq, fwdFold.ij as any);
+  const revDims = calcDimensions(reverseSeq, revFold.ij as any);
 
   // Choose which structure viewer to use
   const StructureViewer = useFornaViewer ? FornaViewer : ForceDirectedStructure;
@@ -1316,7 +1316,7 @@ export default function PrimerStructureViewer({
           <div className="overflow-auto" style={{ maxHeight: '550px' }}>
             <StructureViewer
               sequence={forwardSeq}
-              basePairs={fwdFold.ij}
+              basePairs={fwdFold.ij as any}
               width={fwdDims.width}
               height={fwdDims.height}
               label={forwardName}
@@ -1328,7 +1328,7 @@ export default function PrimerStructureViewer({
           <div className="overflow-auto" style={{ maxHeight: '550px' }}>
             <StructureViewer
               sequence={reverseSeq}
-              basePairs={revFold.ij}
+              basePairs={revFold.ij as any}
               width={revDims.width}
               height={revDims.height}
               label={reverseName}

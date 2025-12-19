@@ -679,7 +679,7 @@ const HairpinDiagram: FC<HairpinDiagramProps> = ({
     if (!sequence || sequence.length < 6) return null;
 
     try {
-      return foldSequence(sequence, temperature) as FoldResult;
+      return foldSequence(sequence, temperature) as any;
     } catch (e) {
       console.error('Fold failed:', e);
       return null;
@@ -1040,7 +1040,7 @@ export const HairpinBadge: FC<HairpinBadgeProps> = ({ sequence, foldResult = nul
     if (!sequence || sequence.length < 6) return null;
 
     try {
-      return foldSequence(sequence, temperature) as FoldResult;
+      return foldSequence(sequence, temperature) as any;
     } catch (e) {
       return null;
     }

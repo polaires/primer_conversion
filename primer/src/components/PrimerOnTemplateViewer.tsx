@@ -1075,7 +1075,7 @@ export default function PrimerOnTemplateViewer({
       energy: fwdFold.e ?? 0,
       basePairs: fwdFold.ij ?? [],
       seqLength: forward.sequence.length,
-    } as any);
+    } as any) as any;
   }, [fwdFold, forward?.sequence]);
 
   const revSeverity = useMemo((): SeverityResult => {
@@ -1084,7 +1084,7 @@ export default function PrimerOnTemplateViewer({
       energy: revFold.e ?? 0,
       basePairs: revFold.ij ?? [],
       seqLength: reverse.sequence.length,
-    } as any);
+    } as any) as any;
   }, [revFold, reverse?.sequence]);
 
   // Get the worst severity between the two primers

@@ -1581,7 +1581,7 @@ export default function IsothermalAssemblyPanel({
     if (!fragments || fragments.length < 2) return null;
 
     try {
-      return designAssembly(fragments, assemblyConfig) as AssemblyResult;
+      return designAssembly(fragments as any, assemblyConfig) as any;
     } catch (error) {
       console.error('Assembly design error:', error);
       return { error: (error as Error).message };

@@ -874,7 +874,7 @@ export default function UnifiedPrimerDesigner() {
     setTimeout(() => {
       try {
         const results = designBatch(templateSeq, batchItems, designOptions);
-        setBatchResults(results);
+        setBatchResults(results as any);
       } catch (err) {
         setError((err as Error).message);
       } finally {
@@ -929,7 +929,7 @@ export default function UnifiedPrimerDesigner() {
 
   const handleDownloadSingleCSV = useCallback(() => {
     if (!results?.forward) return;
-    const content = generateCSVSummary([results]);
+    const content = generateCSVSummary([results as any]);
     downloadFile(content, 'primers.csv', 'text/csv');
   }, [results]);
 
@@ -1157,7 +1157,7 @@ export default function UnifiedPrimerDesigner() {
       if (nucPos >= 0 && nucPos + 3 <= templateSeq.length) {
         const codon = templateSeq.slice(nucPos, nucPos + 3);
         const aa = Object.entries(CODON_TABLE).find(([key, codons]) =>
-          codons.includes(codon)
+          (codons as any).includes(codon)
         )?.[0] || '?';
         setAaOldAA(aa);
         setSelectionStart(String(nucPos));

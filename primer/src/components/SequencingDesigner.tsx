@@ -1000,7 +1000,7 @@ export default function SequencingDesigner() {
       setTimeout(() => {
         try {
           const result = designSequencingPrimers(seq, options as any);
-          setResults(result);
+          setResults(result as any);
         } catch (err) {
           setError((err as Error).message);
         } finally {
@@ -1021,7 +1021,7 @@ export default function SequencingDesigner() {
 
     try {
       const primer = designPrimerAtPosition(seq, pos, customDirection, options);
-      setCustomPrimer(primer);
+      setCustomPrimer(primer as any);
       setError(null);
     } catch (err) {
       setError((err as Error).message);

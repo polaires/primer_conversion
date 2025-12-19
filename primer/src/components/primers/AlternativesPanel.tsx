@@ -1116,13 +1116,13 @@ export default function AlternativesPanel({
   // Normalize and process alternatives
   const processedAlternatives = useMemo(() => {
     const normalized = alternatives.map((alt, idx) => {
-      const norm = normalizeAlternative(alt, idx);
+      const norm = normalizeAlternative(alt as any, idx);
       // Add badges and labels if enabled
       if (badges) {
         const strengths = identifyStrengths(norm, alternatives, idx);
-        norm.label = norm.label || generateLabel(strengths);
-        norm.explanation = norm.explanation || generateExplanation(norm, strengths);
-        norm.badges = identifyBadges(norm);
+        (norm as any).label = (norm as any).label || generateLabel(strengths);
+        (norm as any).explanation = (norm as any).explanation || generateExplanation(norm, strengths);
+        (norm as any).badges = identifyBadges(norm);
       }
       return norm;
     });
@@ -1131,7 +1131,7 @@ export default function AlternativesPanel({
     const filtered = filterAlternatives(normalized, filterState);
 
     // Apply sorting
-    const sorted = sortAlternatives(filtered, sortConfig);
+    const sorted = sortAlternatives(filtered, sortConfig as any);
 
     // Add trade-offs - compare against the displayed design (originalDesign || currentDesign)
     const displayedDesign = originalDesign || currentDesign;
