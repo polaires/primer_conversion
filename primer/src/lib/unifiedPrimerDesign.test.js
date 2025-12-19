@@ -28,6 +28,7 @@ import {
   designDeletionPrimers,
   designRegionSubstitutionPrimers,
 } from './mutagenesis';
+import { hasAmbiguousBases, countCombinations } from './sequenceUtils';
 
 // =============================================================================
 // Test Data
@@ -214,8 +215,7 @@ describe('Unified Primer Design API', () => {
 
       expect(result.operation).toBe('insert');
 
-      // Test the library detection separately
-      const { hasAmbiguousBases, countCombinations } = require('./sequenceUtils');
+      // Test the library detection separately (functions imported at top)
       expect(hasAmbiguousBases('NNK')).toBe(true);
       expect(countCombinations('NNK')).toBe(32); // 4*4*2 = 32
     });
@@ -261,7 +261,8 @@ describe('Unified Primer Design API', () => {
 
       // Implementation uses 'operation' instead of 'type'
       expect(result.operation).toBe('aa_mutation');
-      expect(result.newAA).toBe('W');
+      // Implementation returns codonChange.targetAA instead of newAA
+      expect(result.codonChange.targetAA).toBe('W');
     });
 
     it('should optimize codon for organism', () => {
@@ -616,7 +617,8 @@ describe('Integration Tests', () => {
     expect(result.operation).toBe('aa_mutation');
     expect(result.forward.sequence).toBeTruthy();
     expect(result.reverse.sequence).toBeTruthy();
-    expect(result.newAA).toBe('W');
+    // Implementation returns codonChange.targetAA instead of newAA
+    expect(result.codonChange.targetAA).toBe('W');
   });
 
   it('should handle batch workflow with text input', () => {
@@ -631,8 +633,9 @@ describe('Integration Tests', () => {
 
     expect(results.length).toBe(2);
     expect(results.every(r => r.success)).toBe(true);
-    expect(results[0].type).toBe('codon_change');
-    expect(results[1].type).toBe('deletion');
+    // Implementation uses 'operation' property with values: aa_mutation, delete, insert, substitute
+    expect(results[0].operation).toBe('aa_mutation');
+    expect(results[1].operation).toBe('delete');
   });
 });
 
