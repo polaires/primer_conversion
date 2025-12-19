@@ -1,0 +1,288 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================================
+   CSS Variables (kept for compatibility during migration)
+   ============================================================================ */
+:root {
+  --primary-color: #2563eb;
+  --primary-dark: #1d4ed8;
+  --secondary-color: #10b981;
+  --error-color: #ef4444;
+  --text-color: #1f2937;
+  --text-light: #6b7280;
+  --bg-color: #f9fafb;
+  --card-bg: #ffffff;
+  --border-color: #e5e7eb;
+  --fwd-color: #3b82f6;
+  --rev-color: #8b5cf6;
+}
+
+/* ============================================================================
+   Base Layer - Global Resets and Defaults
+   ============================================================================ */
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-800;
+    @apply font-sans leading-relaxed;
+  }
+
+  /* Ensure monospace fonts for sequence displays */
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', monospace;
+  }
+}
+
+/* ============================================================================
+   Component Layer - Reusable Component Classes
+   ============================================================================ */
+@layer components {
+  /* Card Components */
+  .card {
+    @apply bg-white rounded-xl shadow-sm;
+    @apply p-6;
+    @apply dark:bg-slate-800;
+  }
+
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-sm rounded-xl;
+    @apply shadow-lg border border-white/20;
+    @apply p-6;
+    @apply dark:bg-slate-800/80 dark:border-slate-700/50;
+  }
+
+  /* Button Components */
+  .btn-primary {
+    @apply px-4 py-2 rounded-lg font-semibold;
+    @apply bg-primary-600 text-white;
+    @apply hover:bg-primary-700;
+    @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+    @apply transition-colors duration-200;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 rounded-lg font-medium;
+    @apply bg-slate-100 text-slate-700;
+    @apply border border-slate-300;
+    @apply hover:bg-slate-200;
+    @apply focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2;
+    @apply transition-colors duration-200;
+    @apply dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600;
+    @apply dark:hover:bg-slate-600;
+  }
+
+  .btn-icon {
+    @apply p-2 rounded-lg;
+    @apply text-slate-500 hover:text-slate-700;
+    @apply hover:bg-slate-100;
+    @apply focus:outline-none focus:ring-2 focus:ring-slate-400;
+    @apply transition-colors duration-200;
+    @apply dark:text-slate-400 dark:hover:text-slate-200;
+    @apply dark:hover:bg-slate-700;
+  }
+
+  /* Form Components */
+  .input-field {
+    @apply w-full px-3 py-2 rounded-lg;
+    @apply border-2 border-slate-200;
+    @apply bg-white text-slate-900;
+    @apply focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500;
+    @apply transition-colors duration-200;
+    @apply dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100;
+    @apply dark:focus:border-primary-400;
+  }
+
+  .input-label {
+    @apply block text-sm font-medium text-slate-700 mb-1;
+    @apply dark:text-slate-300;
+  }
+
+  .select-field {
+    @apply w-full px-3 py-2 rounded-lg;
+    @apply border-2 border-slate-200;
+    @apply bg-white text-slate-900;
+    @apply focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500;
+    @apply transition-colors duration-200;
+    @apply dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100;
+  }
+
+  /* Tab Components */
+  .calc-mode-tab {
+    @apply flex-1 px-4 py-3 rounded-lg font-medium;
+    @apply border-2 border-slate-200 bg-white text-slate-700;
+    @apply hover:border-primary-300 hover:text-primary-600;
+    @apply focus:outline-none focus:ring-2 focus:ring-primary-500;
+    @apply transition-all duration-200;
+    @apply dark:bg-slate-800 dark:border-slate-600 dark:text-slate-300;
+    @apply dark:hover:border-primary-400 dark:hover:text-primary-400;
+  }
+
+  .calc-mode-tab.active {
+    @apply bg-primary-600 border-primary-600 text-white;
+    @apply dark:bg-primary-500 dark:border-primary-500;
+  }
+
+  /* Section Headers */
+  .section-title {
+    @apply text-lg font-semibold text-slate-800 mb-4;
+    @apply dark:text-slate-200;
+  }
+
+  /* Loading Spinner */
+  .spinner {
+    @apply w-8 h-8 border-3 border-slate-200 border-t-primary-600;
+    @apply rounded-full animate-spin;
+    @apply dark:border-slate-700 dark:border-t-primary-400;
+  }
+
+  /* Result Display */
+  .result-display {
+    @apply font-mono text-lg font-semibold;
+    @apply bg-slate-100 px-3 py-1.5 rounded-lg;
+    @apply dark:bg-slate-700;
+  }
+
+  /* Primer-specific Components */
+  .sequence-display {
+    @apply font-mono text-sm tracking-wide;
+    @apply bg-slate-50 p-3 rounded-lg;
+    @apply overflow-x-auto;
+    @apply dark:bg-slate-900;
+  }
+
+  .primer-fwd-bg {
+    @apply bg-blue-50 border-l-4 border-blue-500;
+    @apply dark:bg-blue-900/20;
+  }
+
+  .primer-rev-bg {
+    @apply bg-violet-50 border-l-4 border-violet-500;
+    @apply dark:bg-violet-900/20;
+  }
+
+  /* Quality Score Indicators */
+  .score-excellent {
+    @apply text-green-600 dark:text-green-400;
+  }
+
+  .score-good {
+    @apply text-blue-600 dark:text-blue-400;
+  }
+
+  .score-acceptable {
+    @apply text-amber-600 dark:text-amber-400;
+  }
+
+  .score-poor {
+    @apply text-red-600 dark:text-red-400;
+  }
+
+  /* Tm Value Display */
+  .tm-value {
+    @apply font-mono font-semibold text-lg;
+  }
+
+  /* Tool Navigation */
+  .tool-nav-section {
+    @apply flex items-center gap-2;
+  }
+
+  .tool-nav-label {
+    @apply text-xs font-medium uppercase tracking-wider;
+    @apply text-slate-500 dark:text-slate-400;
+  }
+
+  /* App Navigation (matching original styles) */
+  .app-nav {
+    @apply bg-white border-b border-slate-200 px-4 py-3;
+    @apply flex flex-wrap gap-6 justify-center;
+    @apply dark:bg-slate-800 dark:border-slate-700;
+  }
+
+  .nav-section {
+    @apply flex items-center gap-2;
+  }
+
+  .nav-label {
+    @apply text-xs font-medium uppercase tracking-wider text-slate-500;
+    @apply dark:text-slate-400;
+  }
+
+  .nav-buttons {
+    @apply flex gap-1;
+  }
+
+  .nav-buttons button {
+    @apply px-3 py-1.5 rounded-md text-sm font-medium;
+    @apply text-slate-600 hover:text-primary-600 hover:bg-slate-100;
+    @apply transition-colors duration-200;
+    @apply dark:text-slate-300 dark:hover:text-primary-400 dark:hover:bg-slate-700;
+  }
+
+  .nav-buttons button.active {
+    @apply bg-primary-100 text-primary-700;
+    @apply dark:bg-primary-900/30 dark:text-primary-400;
+  }
+
+  /* App Header (matching original gradient) */
+  .app-header {
+    @apply bg-gradient-to-br from-primary-600 to-primary-700;
+    @apply text-white p-8 text-center;
+  }
+
+  /* App Footer */
+  .app-footer {
+    @apply bg-slate-100 text-slate-600 text-center p-4 text-sm;
+    @apply dark:bg-slate-800 dark:text-slate-400;
+  }
+
+  .app-footer a {
+    @apply text-primary-600 hover:underline;
+    @apply dark:text-primary-400;
+  }
+}
+
+/* ============================================================================
+   Utility Layer - Custom Utilities
+   ============================================================================ */
+@layer utilities {
+  /* Border width for spinner */
+  .border-3 {
+    border-width: 3px;
+  }
+
+  /* Text selection colors for sequences */
+  .select-fwd::selection {
+    @apply bg-blue-200;
+  }
+
+  .select-rev::selection {
+    @apply bg-violet-200;
+  }
+
+  /* Scrollbar styling */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-slate-100 rounded;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 rounded hover:bg-slate-400;
+  }
+}
+
+/* ============================================================================
+   SeqViz Library Styles (keep separate, don't convert)
+   This section preserves SeqViz's own CSS classes
+   ============================================================================ */
+/* SeqViz classes will be imported from App.css during migration */

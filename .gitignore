@@ -1,1 +1,10 @@
-primer/
+# Node
+node_modules/
+primer/node_modules/
+
+# Build output
+primer/dist/
+
+# Logs
+*.log
+npm-debug.log*
