@@ -590,13 +590,13 @@ function DomesticationStatusBanner({ summary, onToggleDetails, showDetails }: Do
         marginBottom: '16px',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-        <span style={{ fontSize: '24px', lineHeight: 1 }}>{summary.icon}</span>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 600, color: '#1f2937', marginBottom: '4px' }}>
+      <div className="flex items-start gap-3">
+        <span className="text-2xl leading-none">{summary.icon}</span>
+        <div className="flex-1">
+          <div className="font-semibold text-gray-900 mb-1">
             {summary.title}
           </div>
-          <div style={{ fontSize: '13px', color: '#4b5563' }}>
+          <div className="text-sm text-gray-700">
             {summary.description}
           </div>
 
@@ -621,20 +621,15 @@ function DomesticationStatusBanner({ summary, onToggleDetails, showDetails }: Do
           )}
 
           {showDetails && summary.sites && summary.sites.length > 0 && (
-            <div style={{ marginTop: '12px' }}>
+            <div className="mt-3">
               {summary.sites.map((site, i) => (
                 <div
                   key={i}
-                  style={{
-                    background: 'rgba(255,255,255,0.7)',
-                    borderRadius: '6px',
-                    padding: '10px 12px',
-                    marginBottom: '8px',
-                    fontSize: '13px',
-                  }}
+                  className="rounded-md p-3 mb-2 text-sm"
+                  style={{ background: 'rgba(255,255,255,0.7)' }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: 500 }}>Site {i + 1}</span>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="font-medium">Site {i + 1}</span>
                     <code style={{
                       background: '#fef3c7',
                       padding: '2px 6px',
@@ -644,7 +639,7 @@ function DomesticationStatusBanner({ summary, onToggleDetails, showDetails }: Do
                     }}>
                       {site.sequence}
                     </code>
-                    <span style={{ color: '#6b7280', fontSize: '12px' }}>
+                    <span className="text-gray-600 text-xs">
                       pos {site.position} ({site.orientation})
                     </span>
                     {site.recommendedJunction && (
@@ -665,14 +660,7 @@ function DomesticationStatusBanner({ summary, onToggleDetails, showDetails }: Do
               ))}
 
               {summary.additionalFragments && summary.additionalFragments > 0 && (
-                <div style={{
-                  marginTop: '12px',
-                  padding: '8px 12px',
-                  background: 'rgba(245, 158, 11, 0.1)',
-                  borderRadius: '6px',
-                  fontSize: '12px',
-                  color: '#92400e',
-                }}>
+                <div className="mt-3 p-2 rounded-md text-xs text-yellow-900" style={{ background: 'rgba(245, 158, 11, 0.1)' }}>
                   <strong>Auto-Domestication:</strong> Each internal site will become an additional
                   fragment boundary. Your {summary.additionalFragments === 1 ? 'assembly' : 'assemblies'} will
                   have <strong>+{summary.additionalFragments}</strong> extra fragment{summary.additionalFragments > 1 ? 's' : ''}.
@@ -892,7 +880,7 @@ export default function FusionSiteOptimizerPanel({
             {effectiveFragments !== numFragments ? (
               <span title={`${numFragments} requested + ${effectiveFragments - numFragments} for domestication`}>
                 {effectiveFragments} fragments
-                <span style={{ fontSize: '10px', color: '#f59e0b', marginLeft: '4px' }}>
+                <span className="text-[10px] text-amber-500 ml-1">
                   (+{effectiveFragments - numFragments})
                 </span>
               </span>
@@ -905,28 +893,22 @@ export default function FusionSiteOptimizerPanel({
 
       {/* Auto-Domestication Status Banner */}
       {domesticationSummary && (
-        <div style={{ padding: '0 16px' }}>
+        <div className="px-4">
           <DomesticationStatusBanner
             summary={domesticationSummary}
             showDetails={showDomesticationDetails}
             onToggleDetails={() => setShowDomesticationDetails(!showDomesticationDetails)}
           />
           {domesticationSummary.status !== 'compatible' && (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              marginBottom: '12px',
-              fontSize: '13px',
-            }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+            <div className="flex items-center gap-2 mb-3 text-sm">
+              <label className="flex items-center gap-1.5 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={autoDomesticationEnabled}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAutoDomesticationEnabled(e.target.checked)}
                   style={{ accentColor: '#f59e0b' }}
                 />
-                <span style={{ color: '#4b5563' }}>
+                <span className="text-gray-700">
                   Enable auto-domestication (add junctions to break internal sites)
                 </span>
               </label>

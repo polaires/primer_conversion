@@ -510,7 +510,7 @@ function ExportPanel({ fragments, junctions, variant, onExport }: ExportPanelPro
               <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
             </svg>
             Download
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" style={{ marginLeft: 4 }}>
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" className="ml-1">
               <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
             </svg>
           </button>
@@ -698,7 +698,8 @@ function ConstructVisualization({ fragments, junctions, variant, totalLength }: 
                     stroke={color}
                     strokeWidth={isHovered ? 28 : 24}
                     strokeLinecap="round"
-                    style={{ cursor: 'pointer', transition: 'stroke-width 0.2s' }}
+                    className="cursor-pointer"
+                    style={{ transition: 'stroke-width 0.2s' }}
                     onMouseEnter={() => setHoveredFragment(i)}
                     onMouseLeave={() => setHoveredFragment(null)}
                   />
@@ -721,7 +722,7 @@ function ConstructVisualization({ fragments, junctions, variant, totalLength }: 
                   key={`j-${i}`}
                   onMouseEnter={() => setHoveredJunction(i)}
                   onMouseLeave={() => setHoveredJunction(null)}
-                  style={{ cursor: 'pointer' }}
+                  className="cursor-pointer"
                 >
                   <circle
                     cx={jx}
@@ -970,17 +971,17 @@ function JunctionCompatibilityMatrix({ junctions }: JunctionCompatibilityMatrixP
       </div>
       <div className="iso-matrix-legend">
         <span className="iso-legend-item">
-          <span className="iso-legend-box" style={{ backgroundColor: '#dcfce7' }} />
+          <span className="iso-legend-box bg-green-100" />
           <span>ΔTm &gt;5°C</span>
           <span className="iso-legend-status good">Good</span>
         </span>
         <span className="iso-legend-item">
-          <span className="iso-legend-box" style={{ backgroundColor: '#dbeafe' }} />
+          <span className="iso-legend-box bg-blue-100" />
           <span>ΔTm 2-5°C</span>
           <span className="iso-legend-status ok">OK</span>
         </span>
         <span className="iso-legend-item">
-          <span className="iso-legend-box" style={{ backgroundColor: '#fef3c7' }} />
+          <span className="iso-legend-box bg-yellow-100" />
           <span>ΔTm &lt;2°C</span>
           <span className="iso-legend-status caution">Caution</span>
         </span>
@@ -1105,9 +1106,9 @@ function EnhancedPrimerCard({ primer, direction, fragmentId, onCopy }: EnhancedP
               const gcCount = (last2.match(/[GC]/g) || []).length;
               // 1 G/C in last 2 = ideal, 2 = good, 0 = weak
               if (gcCount >= 1) {
-                return <span style={{ color: '#22c55e' }}>{last2}</span>;
+                return <span className="text-green-500">{last2}</span>;
               }
-              return <span style={{ color: '#f59e0b' }}>{last2}</span>;
+              return <span className="text-amber-500">{last2}</span>;
             })() : '—'}
           </span>
         </div>

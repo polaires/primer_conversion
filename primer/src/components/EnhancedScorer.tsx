@@ -382,7 +382,7 @@ const EnhancedScorer: FC = () => {
               onChange={(e) => setFwdPrimer(e.target.value.toUpperCase().replace(/[^ATGC]/gi, ''))}
               placeholder="Enter forward primer sequence (5' to 3')..."
               required
-              style={{ fontFamily: 'monospace' }}
+              className="font-mono"
             />
             {fwdPrimer && (
               <small className="char-count">{cleanSequence(fwdPrimer).length} bp</small>
@@ -397,7 +397,7 @@ const EnhancedScorer: FC = () => {
               value={revPrimer}
               onChange={(e) => setRevPrimer(e.target.value.toUpperCase().replace(/[^ATGC]/gi, ''))}
               placeholder="Enter reverse primer sequence (5' to 3')..."
-              style={{ fontFamily: 'monospace' }}
+              className="font-mono"
             />
             {revPrimer && (
               <small className="char-count">{cleanSequence(revPrimer).length} bp</small>
@@ -412,7 +412,7 @@ const EnhancedScorer: FC = () => {
               onChange={(e) => setTemplate(e.target.value.toUpperCase().replace(/[^ATGC]/gi, ''))}
               placeholder="Enter template sequence for off-target checking and visualization..."
               rows={3}
-              style={{ fontFamily: 'monospace' }}
+              className="font-mono"
             />
             {template && (
               <small className="char-count">{cleanSequence(template).length} bp</small>
@@ -447,7 +447,7 @@ const EnhancedScorer: FC = () => {
                 <small>
                   Different modes use different optimal ranges and thresholds.
                   {mode === 'goldengate' || mode === 'assembly' ? (
-                    <span style={{ color: '#0369a1', display: 'block', marginTop: '4px' }}>
+                    <span className="text-sky-700 block mt-1">
                       Assembly modes score the annealing region (3' template-binding portion) separately from the full primer.
                     </span>
                   ) : null}
@@ -464,32 +464,16 @@ const EnhancedScorer: FC = () => {
 
       {/* Error Display */}
       {error && (
-        <div className="error-message" style={{
-          padding: '12px',
-          backgroundColor: '#fee2e2',
-          color: '#dc2626',
-          borderRadius: '6px',
-          marginTop: '16px'
-        }}>
+        <div className="error-message p-3 bg-red-100 text-red-600 rounded-md mt-4">
           {error}
         </div>
       )}
 
       {/* Loading State */}
       {loading && (
-        <div className="loading-state" style={{
-          textAlign: 'center',
-          padding: '40px',
-          color: '#64748b'
-        }}>
-          <div className="spinner" style={{
-            width: '40px',
-            height: '40px',
-            border: '3px solid #e2e8f0',
-            borderTopColor: '#3b82f6',
-            borderRadius: '50%',
+        <div className="loading-state text-center py-10 text-slate-500">
+          <div className="spinner w-10 h-10 border-4 border-slate-200 border-t-blue-500 rounded-full mx-auto mb-4" style={{
             animation: 'spin 1s linear infinite',
-            margin: '0 auto 16px',
           }} />
           <p>Analyzing primers...</p>
         </div>
@@ -497,23 +481,16 @@ const EnhancedScorer: FC = () => {
 
       {/* Results */}
       {results && !loading && (
-        <div className="scorer-results" style={{ marginTop: '24px' }}>
+        <div className="scorer-results mt-6">
           {/* Quality Badge - Clickable for score breakdown */}
-          <div className="quality-header" style={{ marginBottom: '20px' }}>
+          <div className="quality-header mb-5">
             <button
               type="button"
-              className="quality-badge"
+              className="quality-badge inline-flex items-center gap-3 px-5 py-3 rounded-lg cursor-pointer transition-all duration-200"
               onClick={() => setShowScoreBreakdown(true)}
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '12px 20px',
                 backgroundColor: QUALITY_COLORS[getQualityTier()] + '15',
                 border: `2px solid ${QUALITY_COLORS[getQualityTier()]}`,
-                borderRadius: '8px',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.transform = 'scale(1.02)';
@@ -526,9 +503,8 @@ const EnhancedScorer: FC = () => {
               title="Click to see score breakdown"
             >
               <span
+                className="text-3xl font-bold"
                 style={{
-                  fontSize: '28px',
-                  fontWeight: 'bold',
                   color: QUALITY_COLORS[getQualityTier()],
                 }}
               >
@@ -536,23 +512,21 @@ const EnhancedScorer: FC = () => {
               </span>
               <div>
                 <div
+                  className="text-base font-semibold capitalize"
                   style={{
-                    fontSize: '16px',
-                    fontWeight: '600',
                     color: QUALITY_COLORS[getQualityTier()],
-                    textTransform: 'capitalize',
                   }}
                 >
                   {getQualityLabel()}
                 </div>
-                <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <div className="text-xs text-slate-500 flex items-center gap-1">
                   <span>Composite Score</span>
                   {(results.criticalWarnings ?? 0) > 0 && (
-                    <span style={{ fontSize: '10px', color: '#ef4444' }}>
+                    <span className="text-[10px] text-red-500">
                       ({results.criticalWarnings} critical)
                     </span>
                   )}
-                  <span style={{ fontSize: '10px', opacity: 0.7 }}>• Click for details</span>
+                  <span className="text-[10px] opacity-70">• Click for details</span>
                 </div>
               </div>
             </button>
@@ -575,51 +549,33 @@ const EnhancedScorer: FC = () => {
           {/* Golden Gate Detection Warning - Mode Mismatch */}
           {(results.forward.goldenGateDetection || results.reverse?.goldenGateDetection) &&
            results.mode !== 'goldengate' && (
-            <div style={{
-              marginBottom: '16px',
-              padding: '12px 16px',
-              backgroundColor: '#fef2f2',
-              border: '2px solid #f87171',
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '12px',
-            }}>
-              <span style={{ fontSize: '20px' }}>&#9888;</span>
+            <div className="mb-4 p-3 px-4 bg-red-50 border-2 border-red-400 rounded-lg flex items-start gap-3">
+              <span className="text-xl">&#9888;</span>
               <div>
-                <strong style={{ color: '#b91c1c', fontSize: '14px' }}>
+                <strong className="text-red-700 text-sm">
                   Golden Gate Primer Detected - Wrong Analysis Mode!
                 </strong>
-                <p style={{ margin: '6px 0 0', fontSize: '13px', color: '#991b1b' }}>
+                <p className="mt-1.5 text-[13px] text-red-800">
                   <strong>{results.forward.goldenGateDetection?.primaryEnzyme || results.reverse?.goldenGateDetection?.primaryEnzyme}</strong> recognition site detected in your primer.
                   You are currently using <strong>{results.mode}</strong> mode, which scores the full primer sequence.
                 </p>
-                <p style={{ margin: '8px 0 0', fontSize: '13px', color: '#991b1b' }}>
+                <p className="mt-2 text-[13px] text-red-800">
                   <strong>This will give inaccurate results!</strong> The Tm shown ({results.forward.tm}°C) is for the full primer,
                   not the annealing region that actually binds to your template during PCR.
                 </p>
-                <div style={{ marginTop: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <div className="mt-2.5 flex gap-2 flex-wrap">
                   <button
                     type="button"
                     onClick={() => {
                       setMode('goldengate');
                       setShowAdvanced(true);
                     }}
-                    style={{
-                      padding: '6px 12px',
-                      backgroundColor: '#dc2626',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                    }}
+                    className="px-3 py-1.5 bg-red-600 text-white border-none rounded cursor-pointer text-xs font-semibold"
                   >
                     Switch to Golden Gate Mode
                   </button>
                   {!results.template && (
-                    <span style={{ fontSize: '12px', color: '#7f1d1d', alignSelf: 'center' }}>
+                    <span className="text-xs text-red-900 self-center">
                       + Add template sequence for annealing region analysis
                     </span>
                   )}
@@ -631,22 +587,13 @@ const EnhancedScorer: FC = () => {
           {/* Golden Gate Detection Reminder - In correct mode but no template */}
           {(results.forward.goldenGateDetection || results.reverse?.goldenGateDetection) &&
            results.mode === 'goldengate' && !results.template && (
-            <div style={{
-              marginBottom: '16px',
-              padding: '12px 16px',
-              backgroundColor: '#fef3c7',
-              border: '1px solid #fcd34d',
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '12px',
-            }}>
-              <span style={{ fontSize: '18px' }}>&#128161;</span>
+            <div className="mb-4 p-3 px-4 bg-amber-100 border border-amber-300 rounded-lg flex items-start gap-3">
+              <span className="text-lg">&#128161;</span>
               <div>
-                <strong style={{ color: '#92400e', fontSize: '14px' }}>
+                <strong className="text-amber-900 text-sm">
                   Add Template for Better Analysis
                 </strong>
-                <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#78350f' }}>
+                <p className="mt-1 text-[13px] text-amber-950">
                   {results.forward.goldenGateDetection?.primaryEnzyme || results.reverse?.goldenGateDetection?.primaryEnzyme} site detected.
                   Add a template sequence to analyze only the annealing region (the 3' portion that binds to your template).
                   Without template, the full primer Tm ({results.forward.tm}°C) is shown, which is higher than your actual annealing Tm.
@@ -656,28 +603,17 @@ const EnhancedScorer: FC = () => {
           )}
 
           {/* Summary Status Panel */}
-          <div id="section-summary" className="collapsible-section" style={{ marginBottom: '20px' }}>
+          <div id="section-summary" className="collapsible-section mb-5">
             <button
               type="button"
-              className="section-header collapsible"
+              className="section-header collapsible flex justify-between items-center w-full p-3 px-4 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer"
               onClick={() => toggleSection('summary')}
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                width: '100%',
-                padding: '12px 16px',
-                backgroundColor: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                cursor: 'pointer',
-              }}
             >
-              <h3 style={{ margin: 0, fontSize: '16px' }}>Quick Status</h3>
+              <h3 className="m-0 text-base">Quick Status</h3>
               <span>{collapsedSections.summary ? '▶' : '▼'}</span>
             </button>
             {!collapsedSections.summary && (
-              <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderTop: 'none', borderRadius: '0 0 8px 8px' }}>
+              <div className="p-4 border border-slate-200 border-t-0 rounded-b-lg">
                 <SummaryStatusPanel
                   forward={results.forward}
                   reverse={results.reverse}
@@ -690,42 +626,24 @@ const EnhancedScorer: FC = () => {
           </div>
 
           {/* Primer Details */}
-          <div id="section-primers" className="collapsible-section" style={{ marginBottom: '20px' }}>
+          <div id="section-primers" className="collapsible-section mb-5">
             <button
               type="button"
-              className="section-header collapsible"
+              className="section-header collapsible flex justify-between items-center w-full p-3 px-4 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer"
               onClick={() => toggleSection('primers')}
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                width: '100%',
-                padding: '12px 16px',
-                backgroundColor: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                cursor: 'pointer',
-              }}
             >
-              <h3 style={{ margin: 0, fontSize: '16px' }}>Primer Details</h3>
+              <h3 className="m-0 text-base">Primer Details</h3>
               <span>{collapsedSections.primers ? '▶' : '▼'}</span>
             </button>
             {!collapsedSections.primers && (
-              <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderTop: 'none', borderRadius: '0 0 8px 8px' }}>
+              <div className="p-4 border border-slate-200 border-t-0 rounded-b-lg">
                 {/* Assembly Mode Info Banner */}
                 {(results.mode === 'assembly' || results.mode === 'goldengate') && results.template && (
-                  <div style={{
-                    marginBottom: '16px',
-                    padding: '12px',
-                    backgroundColor: '#f0fdf4',
-                    border: '1px solid #bbf7d0',
-                    borderRadius: '6px',
-                    fontSize: '13px',
-                  }}>
-                    <strong style={{ color: '#16a34a' }}>
+                  <div className="mb-4 p-3 bg-green-50 border border-green-300 rounded-md text-[13px]">
+                    <strong className="text-green-600">
                       {results.mode === 'goldengate' ? 'Golden Gate' : 'Assembly'} Mode Active
                     </strong>
-                    <p style={{ margin: '6px 0 0', color: '#15803d' }}>
+                    <p className="mt-1.5 mb-0 text-green-800">
                       <strong>Annealing Tm</strong> shown below is for the template-binding region only (what matters for PCR).
                       The full primer Tm is higher but not relevant for annealing temperature selection.
                       Secondary structure is checked on the full primer sequence.
@@ -735,16 +653,9 @@ const EnhancedScorer: FC = () => {
 
                 {/* Warning: Assembly mode without template */}
                 {(results.mode === 'assembly' || results.mode === 'goldengate') && !results.template && (
-                  <div style={{
-                    marginBottom: '16px',
-                    padding: '12px',
-                    backgroundColor: '#fffbeb',
-                    border: '1px solid #fcd34d',
-                    borderRadius: '6px',
-                    fontSize: '13px',
-                  }}>
-                    <strong style={{ color: '#b45309' }}>No Template Provided</strong>
-                    <p style={{ margin: '6px 0 0', color: '#92400e' }}>
+                  <div className="mb-4 p-3 bg-amber-50 border border-amber-300 rounded-md text-[13px]">
+                    <strong className="text-amber-700">No Template Provided</strong>
+                    <p className="mt-1.5 mb-0 text-amber-900">
                       Without a template, the <strong>full primer Tm</strong> is shown ({results.forward.tm}°C).
                       This is <strong>higher than your actual annealing Tm</strong>!
                       Add a template sequence to see the correct annealing region Tm.
@@ -755,19 +666,12 @@ const EnhancedScorer: FC = () => {
                 {/* Warning: Template provided but annealing region not found */}
                 {(results.mode === 'assembly' || results.mode === 'goldengate') && results.template &&
                  !results.forward.isAssemblyPrimer && (
-                  <div style={{
-                    marginBottom: '16px',
-                    padding: '12px',
-                    backgroundColor: '#fef2f2',
-                    border: '2px solid #f87171',
-                    borderRadius: '6px',
-                    fontSize: '13px',
-                  }}>
-                    <strong style={{ color: '#b91c1c' }}>Template Mismatch - Annealing Region Not Found!</strong>
-                    <p style={{ margin: '6px 0 0', color: '#991b1b' }}>
+                  <div className="mb-4 p-3 bg-red-50 border-2 border-red-400 rounded-md text-[13px]">
+                    <strong className="text-red-700">Template Mismatch - Annealing Region Not Found!</strong>
+                    <p className="mt-1.5 mb-0 text-red-800">
                       The primer's 3' end does not match the template sequence. This means:
                     </p>
-                    <ul style={{ margin: '8px 0 0', paddingLeft: '20px', color: '#991b1b' }}>
+                    <ul className="mt-2 mb-0 pl-5 text-red-800">
                       <li><strong>Tm shown ({results.forward.tm}°C)</strong> is for the full primer, NOT the annealing region</li>
                       <li>The actual annealing Tm would be significantly lower</li>
                       <li>Check that you provided the correct template sequence</li>
@@ -776,13 +680,13 @@ const EnhancedScorer: FC = () => {
                   </div>
                 )}
 
-                <table className="primer-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <table className="primer-table w-full border-collapse">
                   <thead>
-                    <tr style={{ backgroundColor: '#f8fafc' }}>
-                      <th style={{ padding: '10px', textAlign: 'left', borderBottom: '2px solid #e2e8f0' }}>Direction</th>
-                      <th style={{ padding: '10px', textAlign: 'left', borderBottom: '2px solid #e2e8f0' }}>Sequence (5' → 3')</th>
-                      <th style={{ padding: '10px', textAlign: 'center', borderBottom: '2px solid #e2e8f0' }}>Length</th>
-                      <th style={{ padding: '10px', textAlign: 'center', borderBottom: '2px solid #e2e8f0' }}>
+                    <tr className="bg-slate-50">
+                      <th className="p-2.5 text-left border-b-2 border-slate-200">Direction</th>
+                      <th className="p-2.5 text-left border-b-2 border-slate-200">Sequence (5' → 3')</th>
+                      <th className="p-2.5 text-center border-b-2 border-slate-200">Length</th>
+                      <th className="p-2.5 text-center border-b-2 border-slate-200">
                         {results.forward.isAssemblyPrimer && results.forward.annealingRegion ? (
                           <span title="Annealing region Tm - the temperature at which the primer-binding portion anneals to template">
                             Annealing Tm (°C)
@@ -793,19 +697,19 @@ const EnhancedScorer: FC = () => {
                           </span>
                         )}
                       </th>
-                      <th style={{ padding: '10px', textAlign: 'center', borderBottom: '2px solid #e2e8f0' }}>GC%</th>
+                      <th className="p-2.5 text-center border-b-2 border-slate-200">GC%</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td style={{ padding: '10px', fontWeight: '600', color: '#2563eb' }}>Forward</td>
-                      <td style={{ padding: '10px', fontFamily: 'monospace', fontSize: '13px', wordBreak: 'break-all' }}>
+                      <td className="p-2.5 font-semibold text-blue-600">Forward</td>
+                      <td className="p-2.5 font-mono text-[13px] break-all">
                         {results.forward.isAssemblyPrimer && results.forward.annealingRegion ? (
                           <span>
-                            <span style={{ color: '#9ca3af' }}>
+                            <span className="text-slate-400">
                               {results.forward.sequence.slice(0, results.forward.sequence.length - results.forward.annealingRegion.length)}
                             </span>
-                            <span style={{ color: '#2563eb', fontWeight: '600' }}>
+                            <span className="text-blue-600 font-semibold">
                               {results.forward.annealingRegion.sequence}
                             </span>
                           </span>
@@ -813,12 +717,12 @@ const EnhancedScorer: FC = () => {
                           results.forward.sequence
                         )}
                       </td>
-                      <td style={{ padding: '10px', textAlign: 'center' }}>{results.forward.length} bp</td>
-                      <td style={{ padding: '10px', textAlign: 'center', fontWeight: '600' }}>
+                      <td className="p-2.5 text-center">{results.forward.length} bp</td>
+                      <td className="p-2.5 text-center font-semibold">
                         {results.forward.isAssemblyPrimer && results.forward.annealingRegion ? (
                           <span title={`Full primer Tm: ${results.forward.fullPrimerTm}°C`}>
                             {results.forward.tm}
-                            <span style={{ fontSize: '10px', color: '#6b7280', display: 'block' }}>
+                            <span className="text-[10px] text-slate-500 block">
                               (annealing)
                             </span>
                           </span>
@@ -826,18 +730,18 @@ const EnhancedScorer: FC = () => {
                           results.forward.tm
                         )}
                       </td>
-                      <td style={{ padding: '10px', textAlign: 'center' }}>{results.forward.gc}%</td>
+                      <td className="p-2.5 text-center">{results.forward.gc}%</td>
                     </tr>
                     {results.reverse && (
                       <tr>
-                        <td style={{ padding: '10px', fontWeight: '600', color: '#dc2626' }}>Reverse</td>
-                        <td style={{ padding: '10px', fontFamily: 'monospace', fontSize: '13px', wordBreak: 'break-all' }}>
+                        <td className="p-2.5 font-semibold text-red-600">Reverse</td>
+                        <td className="p-2.5 font-mono text-[13px] break-all">
                           {results.reverse.isAssemblyPrimer && results.reverse.annealingRegion ? (
                             <span>
-                              <span style={{ color: '#9ca3af' }}>
+                              <span className="text-slate-400">
                                 {results.reverse.sequence.slice(0, results.reverse.sequence.length - results.reverse.annealingRegion.length)}
                               </span>
-                              <span style={{ color: '#dc2626', fontWeight: '600' }}>
+                              <span className="text-red-600 font-semibold">
                                 {results.reverse.annealingRegion.sequence}
                               </span>
                             </span>
@@ -845,12 +749,12 @@ const EnhancedScorer: FC = () => {
                             results.reverse.sequence
                           )}
                         </td>
-                        <td style={{ padding: '10px', textAlign: 'center' }}>{results.reverse.length} bp</td>
-                        <td style={{ padding: '10px', textAlign: 'center', fontWeight: '600' }}>
+                        <td className="p-2.5 text-center">{results.reverse.length} bp</td>
+                        <td className="p-2.5 text-center font-semibold">
                           {results.reverse.isAssemblyPrimer && results.reverse.annealingRegion ? (
                             <span title={`Full primer Tm: ${results.reverse.fullPrimerTm}°C`}>
                               {results.reverse.tm}
-                              <span style={{ fontSize: '10px', color: '#6b7280', display: 'block' }}>
+                              <span className="text-[10px] text-slate-500 block">
                                 (annealing)
                               </span>
                             </span>
@@ -858,7 +762,7 @@ const EnhancedScorer: FC = () => {
                             results.reverse.tm
                           )}
                         </td>
-                        <td style={{ padding: '10px', textAlign: 'center' }}>{results.reverse.gc}%</td>
+                        <td className="p-2.5 text-center">{results.reverse.gc}%</td>
                       </tr>
                     )}
                   </tbody>
@@ -866,42 +770,36 @@ const EnhancedScorer: FC = () => {
 
                 {/* Assembly Primer Annealing Details */}
                 {results.forward.isAssemblyPrimer && results.forward.annealingRegion && (
-                  <div style={{
-                    marginTop: '16px',
-                    padding: '12px',
-                    backgroundColor: '#eff6ff',
-                    borderRadius: '6px',
-                    border: '1px solid #bfdbfe',
-                  }}>
-                    <h4 style={{ margin: '0 0 10px', fontSize: '14px', color: '#1e40af' }}>
+                  <div className="mt-4 p-3 bg-blue-50 rounded-md border border-blue-200">
+                    <h4 className="m-0 mb-2.5 text-sm text-blue-800">
                       Forward Primer - Annealing Region Analysis
                     </h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
+                    <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-2.5">
                       <div>
-                        <span style={{ fontSize: '11px', color: '#6b7280' }}>Annealing Sequence</span>
-                        <div style={{ fontFamily: 'monospace', fontSize: '12px', color: '#1e40af', fontWeight: '600' }}>
+                        <span className="text-[11px] text-slate-500">Annealing Sequence</span>
+                        <div className="font-mono text-xs text-blue-800 font-semibold">
                           {results.forward.annealingRegion.sequence}
                         </div>
                       </div>
                       <div>
-                        <span style={{ fontSize: '11px', color: '#6b7280' }}>Annealing Length</span>
-                        <div style={{ fontWeight: '600' }}>{results.forward.annealingRegion.length} bp</div>
+                        <span className="text-[11px] text-slate-500">Annealing Length</span>
+                        <div className="font-semibold">{results.forward.annealingRegion.length} bp</div>
                       </div>
                       <div>
-                        <span style={{ fontSize: '11px', color: '#6b7280' }}>Annealing Tm</span>
-                        <div style={{ fontWeight: '600' }}>{results.forward.annealingRegion.tm}°C</div>
+                        <span className="text-[11px] text-slate-500">Annealing Tm</span>
+                        <div className="font-semibold">{results.forward.annealingRegion.tm}°C</div>
                       </div>
                       <div>
-                        <span style={{ fontSize: '11px', color: '#6b7280' }}>Annealing GC</span>
-                        <div style={{ fontWeight: '600' }}>{results.forward.annealingRegion.gcPercent}</div>
+                        <span className="text-[11px] text-slate-500">Annealing GC</span>
+                        <div className="font-semibold">{results.forward.annealingRegion.gcPercent}</div>
                       </div>
                       <div>
-                        <span style={{ fontSize: '11px', color: '#6b7280' }}>Full Primer Tm</span>
-                        <div style={{ fontWeight: '600', color: '#6b7280' }}>{results.forward.fullPrimerTm}°C</div>
+                        <span className="text-[11px] text-slate-500">Full Primer Tm</span>
+                        <div className="font-semibold text-slate-500">{results.forward.fullPrimerTm}°C</div>
                       </div>
                       <div>
-                        <span style={{ fontSize: '11px', color: '#6b7280' }}>Tail Length</span>
-                        <div style={{ fontWeight: '600', color: '#6b7280' }}>
+                        <span className="text-[11px] text-slate-500">Tail Length</span>
+                        <div className="font-semibold text-slate-500">
                           {results.forward.sequence.length - results.forward.annealingRegion.length} bp
                         </div>
                       </div>
@@ -910,42 +808,36 @@ const EnhancedScorer: FC = () => {
                 )}
 
                 {results.reverse?.isAssemblyPrimer && results.reverse?.annealingRegion && (
-                  <div style={{
-                    marginTop: '12px',
-                    padding: '12px',
-                    backgroundColor: '#fef2f2',
-                    borderRadius: '6px',
-                    border: '1px solid #fecaca',
-                  }}>
-                    <h4 style={{ margin: '0 0 10px', fontSize: '14px', color: '#991b1b' }}>
+                  <div className="mt-3 p-3 bg-red-50 rounded-md border border-red-200">
+                    <h4 className="m-0 mb-2.5 text-sm text-red-800">
                       Reverse Primer - Annealing Region Analysis
                     </h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
+                    <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-2.5">
                       <div>
-                        <span style={{ fontSize: '11px', color: '#6b7280' }}>Annealing Sequence</span>
-                        <div style={{ fontFamily: 'monospace', fontSize: '12px', color: '#991b1b', fontWeight: '600' }}>
+                        <span className="text-[11px] text-slate-500">Annealing Sequence</span>
+                        <div className="font-mono text-xs text-red-800 font-semibold">
                           {results.reverse.annealingRegion.sequence}
                         </div>
                       </div>
                       <div>
-                        <span style={{ fontSize: '11px', color: '#6b7280' }}>Annealing Length</span>
-                        <div style={{ fontWeight: '600' }}>{results.reverse.annealingRegion.length} bp</div>
+                        <span className="text-[11px] text-slate-500">Annealing Length</span>
+                        <div className="font-semibold">{results.reverse.annealingRegion.length} bp</div>
                       </div>
                       <div>
-                        <span style={{ fontSize: '11px', color: '#6b7280' }}>Annealing Tm</span>
-                        <div style={{ fontWeight: '600' }}>{results.reverse.annealingRegion.tm}°C</div>
+                        <span className="text-[11px] text-slate-500">Annealing Tm</span>
+                        <div className="font-semibold">{results.reverse.annealingRegion.tm}°C</div>
                       </div>
                       <div>
-                        <span style={{ fontSize: '11px', color: '#6b7280' }}>Annealing GC</span>
-                        <div style={{ fontWeight: '600' }}>{results.reverse.annealingRegion.gcPercent}</div>
+                        <span className="text-[11px] text-slate-500">Annealing GC</span>
+                        <div className="font-semibold">{results.reverse.annealingRegion.gcPercent}</div>
                       </div>
                       <div>
-                        <span style={{ fontSize: '11px', color: '#6b7280' }}>Full Primer Tm</span>
-                        <div style={{ fontWeight: '600', color: '#6b7280' }}>{results.reverse.fullPrimerTm}°C</div>
+                        <span className="text-[11px] text-slate-500">Full Primer Tm</span>
+                        <div className="font-semibold text-slate-500">{results.reverse.fullPrimerTm}°C</div>
                       </div>
                       <div>
-                        <span style={{ fontSize: '11px', color: '#6b7280' }}>Tail Length</span>
-                        <div style={{ fontWeight: '600', color: '#6b7280' }}>
+                        <span className="text-[11px] text-slate-500">Tail Length</span>
+                        <div className="font-semibold text-slate-500">
                           {results.reverse.sequence.length - results.reverse.annealingRegion.length} bp
                         </div>
                       </div>
@@ -954,12 +846,11 @@ const EnhancedScorer: FC = () => {
                 )}
 
                 {results.reverse && (
-                  <div style={{ marginTop: '12px', padding: '10px', backgroundColor: '#f8fafc', borderRadius: '6px' }}>
+                  <div className="mt-3 p-2.5 bg-slate-50 rounded-md">
                     <strong>Tm Difference:</strong>{' '}
-                    <span style={{
+                    <span className="font-semibold" style={{
                       color: Math.abs(results.forward.tm - results.reverse.tm) <= 2 ? '#22c55e' :
-                             Math.abs(results.forward.tm - results.reverse.tm) <= 5 ? '#eab308' : '#ef4444',
-                      fontWeight: '600'
+                             Math.abs(results.forward.tm - results.reverse.tm) <= 5 ? '#eab308' : '#ef4444'
                     }}>
                       {Math.abs(results.forward.tm - results.reverse.tm).toFixed(1)}°C
                     </span>
@@ -967,7 +858,7 @@ const EnhancedScorer: FC = () => {
                     {Math.abs(results.forward.tm - results.reverse.tm) > 2 && Math.abs(results.forward.tm - results.reverse.tm) <= 5 && ' (acceptable)'}
                     {Math.abs(results.forward.tm - results.reverse.tm) > 5 && ' (may cause issues)'}
                     {results.forward.isAssemblyPrimer && (
-                      <span style={{ fontSize: '11px', color: '#6b7280', marginLeft: '8px' }}>
+                      <span className="text-[11px] text-slate-500 ml-2">
                         (annealing region Tm comparison)
                       </span>
                     )}
@@ -978,7 +869,7 @@ const EnhancedScorer: FC = () => {
           </div>
 
           {/* Enhanced Analysis Section */}
-          <div style={{ marginBottom: '20px' }}>
+          <div className="mb-5">
             <EnhancedAnalysisSection
               analysis={results.analysis as any}
               collapsible={true}
@@ -987,35 +878,18 @@ const EnhancedScorer: FC = () => {
           </div>
 
           {/* Hairpin Visualization */}
-          <div id="section-hairpins" className="collapsible-section" style={{ marginBottom: '20px' }}>
+          <div id="section-hairpins" className="collapsible-section mb-5">
             <button
               type="button"
-              className="section-header collapsible"
+              className="section-header collapsible flex justify-between items-center w-full p-3 px-4 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer"
               onClick={() => toggleSection('hairpins')}
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                width: '100%',
-                padding: '12px 16px',
-                backgroundColor: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                cursor: 'pointer',
-              }}
             >
-              <h3 style={{ margin: 0, fontSize: '16px' }}>Secondary Structure Visualization</h3>
+              <h3 className="m-0 text-base">Secondary Structure Visualization</h3>
               <span>{collapsedSections.hairpins ? '▶' : '▼'}</span>
             </button>
             {!collapsedSections.hairpins && (
-              <div style={{
-                padding: '16px',
-                border: '1px solid #e2e8f0',
-                borderTop: 'none',
-                borderRadius: '0 0 8px 8px',
-                display: 'grid',
-                gridTemplateColumns: results.reverse ? '1fr 1fr' : '1fr',
-                gap: '16px'
+              <div className="p-4 border border-slate-200 border-t-0 rounded-b-lg grid gap-4" style={{
+                gridTemplateColumns: results.reverse ? '1fr 1fr' : '1fr'
               }}>
                 <HairpinDiagram
                   sequence={results.forward.sequence}
@@ -1037,28 +911,17 @@ const EnhancedScorer: FC = () => {
 
           {/* Template Visualization */}
           {results.template && (
-            <div id="section-visualization" className="collapsible-section" style={{ marginBottom: '20px' }}>
+            <div id="section-visualization" className="collapsible-section mb-5">
               <button
                 type="button"
-                className="section-header collapsible"
+                className="section-header collapsible flex justify-between items-center w-full p-3 px-4 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer"
                 onClick={() => toggleSection('visualization')}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  width: '100%',
-                  padding: '12px 16px',
-                  backgroundColor: '#f8fafc',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                }}
               >
-                <h3 style={{ margin: 0, fontSize: '16px' }}>Template Binding Visualization</h3>
+                <h3 className="m-0 text-base">Template Binding Visualization</h3>
                 <span>{collapsedSections.visualization ? '▶' : '▼'}</span>
               </button>
               {!collapsedSections.visualization && (
-                <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderTop: 'none', borderRadius: '0 0 8px 8px' }}>
+                <div className="p-4 border border-slate-200 border-t-0 rounded-b-lg">
                   <PrimerOnTemplateViewer
                     template={results.template}
                     forward={{
@@ -1085,27 +948,11 @@ const EnhancedScorer: FC = () => {
           )}
 
           {/* Copy Buttons */}
-          <div className="copy-section" style={{
-            marginTop: '20px',
-            padding: '16px',
-            backgroundColor: '#f8fafc',
-            borderRadius: '8px',
-            display: 'flex',
-            gap: '12px',
-            flexWrap: 'wrap'
-          }}>
+          <div className="copy-section mt-5 p-4 bg-slate-50 rounded-lg flex gap-3 flex-wrap">
             <button
               type="button"
               onClick={() => navigator.clipboard.writeText(results.forward.sequence)}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: '#2563eb',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '13px',
-              }}
+              className="px-4 py-2 bg-blue-600 text-white border-none rounded-md cursor-pointer text-[13px]"
             >
               Copy Forward
             </button>
@@ -1113,15 +960,7 @@ const EnhancedScorer: FC = () => {
               <button
                 type="button"
                 onClick={() => navigator.clipboard.writeText(results.reverse!.sequence)}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: '#dc2626',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                }}
+                className="px-4 py-2 bg-red-600 text-white border-none rounded-md cursor-pointer text-[13px]"
               >
                 Copy Reverse
               </button>
@@ -1132,15 +971,7 @@ const EnhancedScorer: FC = () => {
                 onClick={() => navigator.clipboard.writeText(
                   `Forward: ${results.forward.sequence}\nReverse: ${results.reverse!.sequence}`
                 )}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: '#6b7280',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                }}
+                className="px-4 py-2 bg-slate-500 text-white border-none rounded-md cursor-pointer text-[13px]"
               >
                 Copy Both
               </button>

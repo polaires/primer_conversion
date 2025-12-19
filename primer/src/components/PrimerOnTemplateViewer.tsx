@@ -541,12 +541,9 @@ function TemplateVisualization({
 
   if (!template) {
     return (
-      <div style={{
-        padding: '40px',
-        textAlign: 'center',
+      <div className="p-10 text-center rounded-xl" style={{
         color: theme.textMuted,
-        background: theme.bgSecondary,
-        borderRadius: '12px'
+        background: theme.bgSecondary
       }}>
         No template sequence provided
       </div>
@@ -554,26 +551,20 @@ function TemplateVisualization({
   }
 
   return (
-    <div style={{
+    <div className="rounded-xl overflow-hidden border" style={{
       background: theme.bg,
-      borderRadius: '12px',
-      border: `1px solid ${theme.border}`,
-      overflow: 'hidden'
+      borderColor: theme.border
     }}>
       {/* Header */}
-      <div style={{
-        padding: '12px 16px',
-        borderBottom: `1px solid ${theme.border}`,
-        background: theme.bgSecondary,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
+      <div className="px-4 py-3 flex justify-between items-center border-b" style={{
+        borderColor: theme.border,
+        background: theme.bgSecondary
       }}>
-        <span style={{ fontWeight: '600', color: theme.text, fontSize: '13px' }}>
+        <span className="font-semibold text-sm" style={{ color: theme.text }}>
           Template ({template.length.toLocaleString()} bp)
         </span>
         {primerInfo && (
-          <span style={{ color: theme.amplicon, fontSize: '12px', fontWeight: '500' }}>
+          <span className="text-xs font-medium" style={{ color: theme.amplicon }}>
             {primerInfo.size.toLocaleString()} bp {isMutagenesis ? 'region' : 'amplicon'}
           </span>
         )}
@@ -596,30 +587,20 @@ function TemplateVisualization({
 
       {/* Primer Info Legend */}
       {primerInfo && (
-        <div style={{
-          padding: '10px 16px',
-          borderTop: `1px solid ${theme.border}`,
-          background: theme.bgSecondary,
-          display: 'flex',
-          gap: '20px',
-          fontSize: '11px'
+        <div className="px-4 py-2.5 flex gap-5 text-xs border-t" style={{
+          borderColor: theme.border,
+          background: theme.bgSecondary
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{
-              width: '12px',
-              height: '12px',
-              borderRadius: '3px',
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded" style={{
               background: theme.forward
             }}></span>
             <span style={{ color: theme.textSecondary }}>
               Forward: {primerInfo.fwd.start + 1}–{primerInfo.fwd.end}
             </span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{
-              width: '12px',
-              height: '12px',
-              borderRadius: '3px',
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded" style={{
               background: theme.reverse
             }}></span>
             <span style={{ color: theme.textSecondary }}>
@@ -627,11 +608,8 @@ function TemplateVisualization({
             </span>
           </div>
           {mutationPosition !== null && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{
-                width: '12px',
-                height: '12px',
-                borderRadius: '3px',
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded" style={{
                 background: theme.mutation
               }}></span>
               <span style={{ color: theme.textSecondary }}>
@@ -724,27 +702,15 @@ function SequenceDetailView({
 
   // Shared styles for sequence display container
   const gridContainerStyle: React.CSSProperties = {
-    fontFamily: 'monospace',
-    fontSize: '12px',
-    lineHeight: '1.6',
-    overflowX: 'auto',
-    background: theme.bgTertiary,
-    padding: '12px',
-    borderRadius: '8px',
-    boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)'
+    background: theme.bgTertiary
   };
 
   const labelStyle: React.CSSProperties = {
-    color: theme.textMuted,
-    paddingRight: '8px',
-    whiteSpace: 'nowrap',
-    fontWeight: '500'
+    color: theme.textMuted
   };
 
   const directionLabelStyle: React.CSSProperties = {
-    color: theme.textMuted,
-    paddingRight: '4px',
-    whiteSpace: 'nowrap'
+    color: theme.textMuted
   };
 
   // Template strand color - distinct from primer colors
@@ -768,24 +734,22 @@ function SequenceDetailView({
     };
 
     const cellStyle: React.CSSProperties = {
-      textAlign: 'center',
       height: '18px',
       lineHeight: '18px'
     };
 
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+      <div className="flex flex-col gap-0.5">
         {/* Template strand (3'→5') - what the forward primer binds to */}
         <div style={rowStyle}>
           {templateStrand.split('').map((base, i) => {
             const inPrimer = i >= region.primerStart && i < region.primerEnd;
             return (
-              <div key={`t-${i}`} style={{
+              <div key={`t-${i}`} className="text-center rounded-sm" style={{
                 ...cellStyle,
                 color: inPrimer ? templateColor : theme.textMuted,
                 fontWeight: inPrimer ? '600' : 'normal',
-                background: inPrimer ? `${templateColor}15` : 'transparent',
-                borderRadius: '2px'
+                background: inPrimer ? `${templateColor}15` : 'transparent'
               }}>
                 {base}
               </div>
@@ -798,13 +762,8 @@ function SequenceDetailView({
           {Array(totalLength).fill(null).map((_, i) => {
             const inPrimerRange = i >= region.primerStart && i < region.primerEnd;
             return (
-              <div key={`bp-${i}`} style={{
-                ...cellStyle,
-                color: inPrimerRange ? theme.textMuted : 'transparent',
-                fontSize: '10px',
-                height: '14px',
-                lineHeight: '14px',
-                opacity: 0.6
+              <div key={`bp-${i}`} className="text-center text-[10px] h-3.5 leading-[14px] opacity-60" style={{
+                color: inPrimerRange ? theme.textMuted : 'transparent'
               }}>
                 {inPrimerRange ? '│' : ''}
               </div>
@@ -818,12 +777,10 @@ function SequenceDetailView({
             const primerIndex = i - region.primerStart;
             const inPrimerRange = primerIndex >= 0 && primerIndex < primerSeq.length;
             return (
-              <div key={`p-${i}`} style={{
+              <div key={`p-${i}`} className="text-center font-semibold rounded-sm" style={{
                 ...cellStyle,
                 color: primerColor,
-                fontWeight: '600',
-                background: inPrimerRange ? `${primerColor}15` : 'transparent',
-                borderRadius: '2px'
+                background: inPrimerRange ? `${primerColor}15` : 'transparent'
               }}>
                 {inPrimerRange ? primerSeq[primerIndex] : ''}
               </div>
@@ -837,13 +794,8 @@ function SequenceDetailView({
             const primerIndex = i - region.primerStart;
             const inPrimerRange = primerIndex >= 0 && primerIndex < primerSeq.length;
             return (
-              <div key={`a-${i}`} style={{
-                ...cellStyle,
-                color: primerColor,
-                fontSize: '9px',
-                height: '14px',
-                lineHeight: '14px',
-                opacity: 0.7
+              <div key={`a-${i}`} className="text-center text-[9px] h-3.5 leading-[14px] opacity-70" style={{
+                color: primerColor
               }}>
                 {inPrimerRange ? '▸' : ''}
               </div>
@@ -871,24 +823,22 @@ function SequenceDetailView({
     };
 
     const cellStyle: React.CSSProperties = {
-      textAlign: 'center',
       height: '18px',
       lineHeight: '18px'
     };
 
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+      <div className="flex flex-col gap-0.5">
         {/* Template strand (5'→3') - what the reverse primer binds to */}
         <div style={rowStyle}>
           {templateStrand.split('').map((base, i) => {
             const inPrimer = i >= region.primerStart && i < region.primerEnd;
             return (
-              <div key={`t-${i}`} style={{
+              <div key={`t-${i}`} className="text-center rounded-sm" style={{
                 ...cellStyle,
                 color: inPrimer ? templateColor : theme.textMuted,
                 fontWeight: inPrimer ? '600' : 'normal',
-                background: inPrimer ? `${templateColor}15` : 'transparent',
-                borderRadius: '2px'
+                background: inPrimer ? `${templateColor}15` : 'transparent'
               }}>
                 {base}
               </div>
@@ -901,13 +851,8 @@ function SequenceDetailView({
           {Array(totalLength).fill(null).map((_, i) => {
             const inPrimerRange = i >= region.primerStart && i < region.primerEnd;
             return (
-              <div key={`bp-${i}`} style={{
-                ...cellStyle,
-                color: inPrimerRange ? theme.textMuted : 'transparent',
-                fontSize: '10px',
-                height: '14px',
-                lineHeight: '14px',
-                opacity: 0.6
+              <div key={`bp-${i}`} className="text-center text-[10px] h-3.5 leading-[14px] opacity-60" style={{
+                color: inPrimerRange ? theme.textMuted : 'transparent'
               }}>
                 {inPrimerRange ? '│' : ''}
               </div>
@@ -924,12 +869,10 @@ function SequenceDetailView({
             // Reverse the primer display so 5' end is on the right (antiparallel)
             const displayIndex = inPrimerRange ? (primerSeq.length - 1 - primerIndex) : -1;
             return (
-              <div key={`p-${i}`} style={{
+              <div key={`p-${i}`} className="text-center font-semibold rounded-sm" style={{
                 ...cellStyle,
                 color: primerColor,
-                fontWeight: '600',
-                background: inPrimerRange ? `${primerColor}15` : 'transparent',
-                borderRadius: '2px'
+                background: inPrimerRange ? `${primerColor}15` : 'transparent'
               }}>
                 {inPrimerRange ? primerSeq[displayIndex] : ''}
               </div>
@@ -943,13 +886,8 @@ function SequenceDetailView({
             const primerIndex = i - region.primerStart;
             const inPrimerRange = primerIndex >= 0 && primerIndex < primerSeq.length;
             return (
-              <div key={`a-${i}`} style={{
-                ...cellStyle,
-                color: primerColor,
-                fontSize: '9px',
-                height: '14px',
-                lineHeight: '14px',
-                opacity: 0.7
+              <div key={`a-${i}`} className="text-center text-[9px] h-3.5 leading-[14px] opacity-70" style={{
+                color: primerColor
               }}>
                 {inPrimerRange ? '◂' : ''}
               </div>
@@ -961,82 +899,63 @@ function SequenceDetailView({
   };
 
   return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))',
-      gap: '16px',
-      marginTop: '16px'
+    <div className="grid gap-4 mt-4" style={{
+      gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))'
     }}>
       {/* Forward Primer Detail */}
       {fwdRegion && forward && (
-        <div style={{
+        <div className="rounded-lg p-4 border shadow-sm" style={{
           background: theme.bg,
-          borderRadius: '10px',
-          padding: '16px',
-          border: `1px solid ${theme.border}`,
-          boxShadow: '0 2px 4px rgba(0,0,0,0.04)'
+          borderColor: theme.border
         }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '14px'
-          }}>
-            <span style={{ color: theme.forward, fontWeight: '600', fontSize: '13px' }}>
+          <div className="flex justify-between items-center mb-3.5">
+            <span className="font-semibold text-sm" style={{ color: theme.forward }}>
               Forward Primer Binding
             </span>
-            <span style={{
+            <span className="text-xs font-mono px-2 py-0.5 rounded" style={{
               color: theme.textMuted,
-              fontSize: '11px',
-              fontFamily: 'monospace',
-              background: theme.bgTertiary,
-              padding: '2px 8px',
-              borderRadius: '4px'
+              background: theme.bgTertiary
             }}>
               pos {fwdBinding!.start + 1}-{fwdBinding!.end}
             </span>
           </div>
 
-          <div style={gridContainerStyle}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '85px' }}>
-                <span style={{ ...labelStyle, height: '18px', lineHeight: '18px' }}>Template:</span>
-                <span style={{ height: '14px' }}></span>
-                <span style={{ ...labelStyle, height: '18px', lineHeight: '18px' }}>Primer:</span>
-                <span style={{ height: '14px' }}></span>
+          <div className="font-mono text-xs leading-relaxed overflow-x-auto p-3 rounded-lg shadow-inner" style={gridContainerStyle}>
+            <div className="flex items-start gap-2">
+              <div className="flex flex-col gap-0.5 min-w-[85px]">
+                <span className="pr-2 whitespace-nowrap font-medium h-[18px] leading-[18px]" style={labelStyle}>Template:</span>
+                <span className="h-3.5"></span>
+                <span className="pr-2 whitespace-nowrap font-medium h-[18px] leading-[18px]" style={labelStyle}>Primer:</span>
+                <span className="h-3.5"></span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <span style={{ ...directionLabelStyle, height: '18px', lineHeight: '18px' }}>3'-</span>
-                <span style={{ height: '14px' }}></span>
-                <span style={{ ...directionLabelStyle, height: '18px', lineHeight: '18px' }}>5'-</span>
-                <span style={{ height: '14px' }}></span>
+              <div className="flex flex-col gap-0.5">
+                <span className="pr-1 whitespace-nowrap h-[18px] leading-[18px]" style={directionLabelStyle}>3'-</span>
+                <span className="h-3.5"></span>
+                <span className="pr-1 whitespace-nowrap h-[18px] leading-[18px]" style={directionLabelStyle}>5'-</span>
+                <span className="h-3.5"></span>
               </div>
-              <div style={{ flex: 1 }}>
+              <div className="flex-1">
                 {renderForwardAlignment(fwdRegion, forward.sequence, theme.forward)}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <span style={{ ...directionLabelStyle, height: '18px', lineHeight: '18px', paddingLeft: '4px' }}>-5'</span>
-                <span style={{ height: '14px' }}></span>
-                <span style={{ ...directionLabelStyle, height: '18px', lineHeight: '18px', paddingLeft: '4px' }}>-3'</span>
-                <span style={{ height: '14px' }}></span>
+              <div className="flex flex-col gap-0.5">
+                <span className="pl-1 whitespace-nowrap h-[18px] leading-[18px]" style={directionLabelStyle}>-5'</span>
+                <span className="h-3.5"></span>
+                <span className="pl-1 whitespace-nowrap h-[18px] leading-[18px]" style={directionLabelStyle}>-3'</span>
+                <span className="h-3.5"></span>
               </div>
             </div>
           </div>
 
-          <div style={{
-            display: 'flex',
-            gap: '16px',
-            marginTop: '14px',
-            paddingTop: '14px',
-            borderTop: `1px solid ${theme.border}`
+          <div className="flex gap-4 mt-3.5 pt-3.5 border-t" style={{
+            borderColor: theme.border
           }}>
-            <span style={{ color: theme.textMuted, fontSize: '11px' }}>
+            <span className="text-xs" style={{ color: theme.textMuted }}>
               Tm: <strong style={{ color: theme.text }}>{forward.tm}°C</strong>
             </span>
-            <span style={{ color: theme.textMuted, fontSize: '11px' }}>
+            <span className="text-xs" style={{ color: theme.textMuted }}>
               GC: <strong style={{ color: theme.text }}>{forward.gcPercent || `${((forward.gc || 0) * 100).toFixed(0)}%`}</strong>
             </span>
-            <span style={{ color: theme.textMuted, fontSize: '11px' }}>
+            <span className="text-xs" style={{ color: theme.textMuted }}>
               dG: <strong style={{ color: (forward.dg || 0) < -3 ? theme.mutation : theme.text }}>{forward.dg?.toFixed(1) || 'N/A'} kcal/mol</strong>
             </span>
           </div>
@@ -1045,74 +964,58 @@ function SequenceDetailView({
 
       {/* Reverse Primer Detail - single-stranded view */}
       {revRegion && reverse && (
-        <div style={{
+        <div className="rounded-lg p-4 border shadow-sm" style={{
           background: theme.bg,
-          borderRadius: '10px',
-          padding: '16px',
-          border: `1px solid ${theme.border}`,
-          boxShadow: '0 2px 4px rgba(0,0,0,0.04)'
+          borderColor: theme.border
         }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '14px'
-          }}>
-            <span style={{ color: theme.reverse, fontWeight: '600', fontSize: '13px' }}>
+          <div className="flex justify-between items-center mb-3.5">
+            <span className="font-semibold text-sm" style={{ color: theme.reverse }}>
               Reverse Primer Binding
             </span>
-            <span style={{
+            <span className="text-xs font-mono px-2 py-0.5 rounded" style={{
               color: theme.textMuted,
-              fontSize: '11px',
-              fontFamily: 'monospace',
-              background: theme.bgTertiary,
-              padding: '2px 8px',
-              borderRadius: '4px'
+              background: theme.bgTertiary
             }}>
               pos {revBinding!.start + 1}-{revBinding!.end}
             </span>
           </div>
 
-          <div style={gridContainerStyle}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '85px' }}>
-                <span style={{ ...labelStyle, height: '18px', lineHeight: '18px' }}>Template:</span>
-                <span style={{ height: '14px' }}></span>
-                <span style={{ ...labelStyle, height: '18px', lineHeight: '18px' }}>Primer:</span>
-                <span style={{ height: '14px' }}></span>
+          <div className="font-mono text-xs leading-relaxed overflow-x-auto p-3 rounded-lg shadow-inner" style={gridContainerStyle}>
+            <div className="flex items-start gap-2">
+              <div className="flex flex-col gap-0.5 min-w-[85px]">
+                <span className="pr-2 whitespace-nowrap font-medium h-[18px] leading-[18px]" style={labelStyle}>Template:</span>
+                <span className="h-3.5"></span>
+                <span className="pr-2 whitespace-nowrap font-medium h-[18px] leading-[18px]" style={labelStyle}>Primer:</span>
+                <span className="h-3.5"></span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <span style={{ ...directionLabelStyle, height: '18px', lineHeight: '18px' }}>5'-</span>
-                <span style={{ height: '14px' }}></span>
-                <span style={{ ...directionLabelStyle, height: '18px', lineHeight: '18px' }}>3'-</span>
-                <span style={{ height: '14px' }}></span>
+              <div className="flex flex-col gap-0.5">
+                <span className="pr-1 whitespace-nowrap h-[18px] leading-[18px]" style={directionLabelStyle}>5'-</span>
+                <span className="h-3.5"></span>
+                <span className="pr-1 whitespace-nowrap h-[18px] leading-[18px]" style={directionLabelStyle}>3'-</span>
+                <span className="h-3.5"></span>
               </div>
-              <div style={{ flex: 1 }}>
+              <div className="flex-1">
                 {renderReverseAlignment(revRegion, reverse.sequence, theme.reverse)}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <span style={{ ...directionLabelStyle, height: '18px', lineHeight: '18px', paddingLeft: '4px' }}>-3'</span>
-                <span style={{ height: '14px' }}></span>
-                <span style={{ ...directionLabelStyle, height: '18px', lineHeight: '18px', paddingLeft: '4px' }}>-5'</span>
-                <span style={{ height: '14px' }}></span>
+              <div className="flex flex-col gap-0.5">
+                <span className="pl-1 whitespace-nowrap h-[18px] leading-[18px]" style={directionLabelStyle}>-3'</span>
+                <span className="h-3.5"></span>
+                <span className="pl-1 whitespace-nowrap h-[18px] leading-[18px]" style={directionLabelStyle}>-5'</span>
+                <span className="h-3.5"></span>
               </div>
             </div>
           </div>
 
-          <div style={{
-            display: 'flex',
-            gap: '16px',
-            marginTop: '14px',
-            paddingTop: '14px',
-            borderTop: `1px solid ${theme.border}`
+          <div className="flex gap-4 mt-3.5 pt-3.5 border-t" style={{
+            borderColor: theme.border
           }}>
-            <span style={{ color: theme.textMuted, fontSize: '11px' }}>
+            <span className="text-xs" style={{ color: theme.textMuted }}>
               Tm: <strong style={{ color: theme.text }}>{reverse.tm}°C</strong>
             </span>
-            <span style={{ color: theme.textMuted, fontSize: '11px' }}>
+            <span className="text-xs" style={{ color: theme.textMuted }}>
               GC: <strong style={{ color: theme.text }}>{reverse.gcPercent || `${((reverse.gc || 0) * 100).toFixed(0)}%`}</strong>
             </span>
-            <span style={{ color: theme.textMuted, fontSize: '11px' }}>
+            <span className="text-xs" style={{ color: theme.textMuted }}>
               dG: <strong style={{ color: (reverse.dg || 0) < -3 ? theme.mutation : theme.text }}>{reverse.dg?.toFixed(1) || 'N/A'} kcal/mol</strong>
             </span>
           </div>
@@ -1197,39 +1100,32 @@ export default function PrimerOnTemplateViewer({
 
   if (!template || (!forward && !reverse)) {
     return (
-      <div style={{ color: theme.textMuted, padding: '20px', textAlign: 'center' }}>
+      <div className="p-5 text-center" style={{ color: theme.textMuted }}>
         No primers to display
       </div>
     );
   }
 
   return (
-    <div style={{
+    <div className="rounded-lg overflow-hidden shadow-sm" style={{
       background: theme.bg,
-      borderRadius: '10px',
-      border: has3PrimeIssue ? `2px solid ${theme.danger}` : `1px solid ${theme.border}`,
-      overflow: 'hidden',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.08)'
+      border: has3PrimeIssue ? `2px solid ${theme.danger}` : `1px solid ${theme.border}`
     }}>
       {/* Header */}
-      <div style={{
-        padding: '14px 18px',
+      <div className="px-4 py-3.5 flex justify-between items-center border-b" style={{
         background: theme.bgSecondary,
-        borderBottom: `1px solid ${theme.border}`,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
+        borderColor: theme.border
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ color: theme.text, fontWeight: '600', fontSize: '15px' }}>
+        <div className="flex items-center gap-3">
+          <span className="font-semibold text-base" style={{ color: theme.text }}>
             Primer Visualization
           </span>
 
           {/* Severity-based structure badge */}
           {(hasProblematicStructure || worstSeverity.shouldWarn) && (
             <span
+              className="px-3 py-1 rounded-md text-xs font-semibold cursor-help"
               style={{
-                padding: '4px 12px',
                 background: worstSeverity.level === 'critical' ? theme.dangerBg
                   : worstSeverity.level === 'warning' ? '#fef3c7'
                   : worstSeverity.level === 'moderate' ? theme.warningBg
@@ -1237,11 +1133,7 @@ export default function PrimerOnTemplateViewer({
                 color: worstSeverity.level === 'critical' ? theme.danger
                   : worstSeverity.level === 'warning' ? '#d97706'
                   : worstSeverity.level === 'moderate' ? theme.warning
-                  : theme.info,
-                borderRadius: '6px',
-                fontSize: '11px',
-                fontWeight: '600',
-                cursor: 'help',
+                  : theme.info
               }}
               title={worstSeverity.tooltip}
             >
@@ -1254,49 +1146,32 @@ export default function PrimerOnTemplateViewer({
         </div>
 
         {/* Tab buttons */}
-        <div style={{ display: 'flex', gap: '4px', background: theme.bgTertiary, padding: '3px', borderRadius: '8px' }}>
+        <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: theme.bgTertiary }}>
           <button
             onClick={() => setActiveTab('overview')}
+            className="px-3.5 py-1.5 border-0 rounded-md text-xs cursor-pointer transition-all duration-150"
             style={{
-              padding: '6px 14px',
               background: activeTab === 'overview' ? theme.bg : 'transparent',
-              border: 'none',
-              borderRadius: '6px',
               color: activeTab === 'overview' ? theme.text : theme.textMuted,
-              fontSize: '12px',
               fontWeight: activeTab === 'overview' ? '600' : '500',
-              cursor: 'pointer',
-              boxShadow: activeTab === 'overview' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
-              transition: 'all 0.15s ease'
+              boxShadow: activeTab === 'overview' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none'
             }}
           >
             Overview
           </button>
           <button
             onClick={() => setActiveTab('structure')}
+            className="px-3.5 py-1.5 border-0 rounded-md text-xs cursor-pointer transition-all duration-150 relative"
             style={{
-              padding: '6px 14px',
               background: activeTab === 'structure' ? theme.bg : 'transparent',
-              border: 'none',
-              borderRadius: '6px',
               color: activeTab === 'structure' ? theme.text : theme.textMuted,
-              fontSize: '12px',
               fontWeight: activeTab === 'structure' ? '600' : '500',
-              cursor: 'pointer',
-              boxShadow: activeTab === 'structure' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
-              transition: 'all 0.15s ease',
-              position: 'relative'
+              boxShadow: activeTab === 'structure' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none'
             }}
           >
             Structure
             {hasProblematicStructure && (
-              <span style={{
-                position: 'absolute',
-                top: '4px',
-                right: '4px',
-                width: '6px',
-                height: '6px',
-                borderRadius: '50%',
+              <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full" style={{
                 background: theme.danger
               }} />
             )}
@@ -1305,7 +1180,7 @@ export default function PrimerOnTemplateViewer({
       </div>
 
       {/* Content */}
-      <div style={{ padding: '18px' }}>
+      <div className="p-4">
         {activeTab === 'overview' && (
           <>
             <TemplateVisualization
@@ -1330,46 +1205,33 @@ export default function PrimerOnTemplateViewer({
             )}
 
             {/* Compact structure summary - detailed values in Analysis section */}
-            <div style={{
-              display: 'flex',
-              gap: '16px',
-              marginTop: '16px',
-              padding: '12px 14px',
+            <div className="flex gap-4 mt-4 px-3.5 py-3 rounded-lg border items-center justify-between" style={{
               background: theme.bgSecondary,
-              borderRadius: '8px',
-              border: `1px solid ${theme.border}`,
-              alignItems: 'center',
-              justifyContent: 'space-between'
+              borderColor: theme.border
             }}>
-              <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+              <div className="flex gap-5 items-center">
                 {forward?.sequence && fwdFold && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{
-                      width: '8px',
-                      height: '8px',
-                      borderRadius: '50%',
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full" style={{
                       background: fwdFold.e > -3 ? '#22c55e' : fwdFold.e > -6 ? '#f59e0b' : '#ef4444'
                     }}></span>
-                    <span style={{ color: theme.forward, fontSize: '12px', fontWeight: '500' }}>
+                    <span className="text-xs font-medium" style={{ color: theme.forward }}>
                       Fwd: {fwdFold.e.toFixed(1)} kcal/mol
                     </span>
                   </div>
                 )}
                 {reverse?.sequence && revFold && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{
-                      width: '8px',
-                      height: '8px',
-                      borderRadius: '50%',
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full" style={{
                       background: revFold.e > -3 ? '#22c55e' : revFold.e > -6 ? '#f59e0b' : '#ef4444'
                     }}></span>
-                    <span style={{ color: theme.reverse, fontSize: '12px', fontWeight: '500' }}>
+                    <span className="text-xs font-medium" style={{ color: theme.reverse }}>
                       Rev: {revFold.e.toFixed(1)} kcal/mol
                     </span>
                   </div>
                 )}
               </div>
-              <span style={{ color: theme.textMuted, fontSize: '11px' }}>
+              <span className="text-xs" style={{ color: theme.textMuted }}>
                 See Analysis section for detailed breakdown
               </span>
             </div>
@@ -1377,16 +1239,12 @@ export default function PrimerOnTemplateViewer({
         )}
 
         {activeTab === 'structure' && showHairpinDiagrams && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="flex flex-col gap-5">
             {/* Introduction */}
-            <div style={{
-              padding: '14px',
+            <div className="p-3.5 rounded-lg text-xs leading-relaxed border" style={{
               background: theme.infoBg,
-              borderRadius: '8px',
               color: theme.info,
-              fontSize: '12px',
-              lineHeight: '1.6',
-              border: `1px solid ${theme.info}30`
+              borderColor: `${theme.info}30`
             }}>
               <strong>"Glass Box" Physics Visualization:</strong> Unlike simple pass/fail scores,
               these diagrams show the <em>actual physics</em> of your primers - how they fold, where they're stable,
@@ -1405,20 +1263,15 @@ export default function PrimerOnTemplateViewer({
             />
 
             {/* Legacy diagrams */}
-            <details style={{ marginTop: '8px' }}>
-              <summary style={{
+            <details className="mt-2">
+              <summary className="cursor-pointer text-xs px-3 py-2.5 rounded-lg border font-medium" style={{
                 color: theme.textSecondary,
-                cursor: 'pointer',
-                fontSize: '12px',
-                padding: '10px 12px',
                 background: theme.bgSecondary,
-                borderRadius: '8px',
-                border: `1px solid ${theme.border}`,
-                fontWeight: '500'
+                borderColor: theme.border
               }}>
                 View Classic Stem-Loop Diagrams
               </summary>
-              <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="mt-3 flex flex-col gap-4">
                 {forward?.sequence && (
                   <HairpinDiagram
                     sequence={forward.sequence}
@@ -1442,89 +1295,54 @@ export default function PrimerOnTemplateViewer({
 
             {/* Severity-based Recommendations */}
             {worstSeverity.shouldWarn && (
-              <div style={{
-                padding: '16px',
+              <div className="p-4 rounded-lg border" style={{
                 background: worstSeverity.level === 'critical' ? theme.dangerBg : '#fef3c7',
-                borderRadius: '8px',
-                border: `1px solid ${worstSeverity.level === 'critical' ? theme.danger : '#f59e0b'}`
+                borderColor: worstSeverity.level === 'critical' ? theme.danger : '#f59e0b'
               }}>
                 {worstSeverity.level === 'critical' ? (
                   <>
-                    <div style={{
-                      color: theme.danger,
-                      fontWeight: '600',
-                      fontSize: '14px',
-                      marginBottom: '10px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
+                    <div className="font-semibold text-sm mb-2.5 flex items-center gap-2" style={{
+                      color: theme.danger
                     }}>
                       🔴 Redesign Required
-                      <span style={{
-                        padding: '2px 8px',
-                        background: theme.danger,
-                        color: '#fff',
-                        borderRadius: '4px',
-                        fontSize: '10px',
-                        fontWeight: '600',
-                        textTransform: 'uppercase',
+                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold uppercase text-white" style={{
+                        background: theme.danger
                       }}>
                         Critical
                       </span>
                     </div>
-                    <ul style={{ color: '#991b1b', fontSize: '12px', margin: 0, paddingLeft: '20px', lineHeight: '1.7' }}>
+                    <ul className="text-xs m-0 pl-5 leading-relaxed" style={{ color: '#991b1b' }}>
                       <li><strong>The 3' end is trapped in a stable structure</strong></li>
                       <li>DNA polymerase requires a free 3' OH to begin extension</li>
                       <li>PCR will likely <strong>fail</strong> or have very low yield</li>
                     </ul>
-                    <div style={{
-                      marginTop: '12px',
-                      padding: '10px 12px',
+                    <div className="mt-3 px-3 py-2.5 rounded-md text-xs font-medium" style={{
                       background: 'rgba(220, 38, 38, 0.1)',
-                      borderRadius: '6px',
-                      fontSize: '12px',
-                      color: theme.danger,
-                      fontWeight: '500'
+                      color: theme.danger
                     }}>
                       ⚠ <strong>Action Required:</strong> Adjust primer length or position to free the 3' end
                     </div>
                   </>
                 ) : (
                   <>
-                    <div style={{
-                      color: '#d97706',
-                      fontWeight: '600',
-                      fontSize: '14px',
-                      marginBottom: '10px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
+                    <div className="font-semibold text-sm mb-2.5 flex items-center gap-2" style={{
+                      color: '#d97706'
                     }}>
                       ⚠ Optimization Recommended
-                      <span style={{
-                        padding: '2px 8px',
-                        background: '#f59e0b',
-                        color: '#fff',
-                        borderRadius: '4px',
-                        fontSize: '10px',
-                        fontWeight: '600',
-                        textTransform: 'uppercase',
+                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold uppercase text-white" style={{
+                        background: '#f59e0b'
                       }}>
                         {worstSeverity.level}
                       </span>
                     </div>
-                    <ul style={{ color: '#92400e', fontSize: '12px', margin: 0, paddingLeft: '20px', lineHeight: '1.7' }}>
+                    <ul className="text-xs m-0 pl-5 leading-relaxed" style={{ color: '#92400e' }}>
                       <li>Structure near 3' end may compete with template binding</li>
                       <li>PCR may work but with <strong>reduced efficiency</strong></li>
                       <li>Consider optimization if you experience low yields</li>
                     </ul>
-                    <div style={{
-                      marginTop: '12px',
-                      padding: '10px 12px',
+                    <div className="mt-3 px-3 py-2.5 rounded-md text-xs" style={{
                       background: 'rgba(245, 158, 11, 0.1)',
-                      borderRadius: '6px',
-                      fontSize: '12px',
-                      color: '#92400e',
+                      color: '#92400e'
                     }}>
                       <strong>Tips:</strong> Adjust primer length by 1-2 bases, use touchdown PCR, or add 2-5% DMSO to reduce secondary structure
                     </div>
@@ -1564,21 +1382,16 @@ export function PrimerBindingBadge({
 
   if (!binding) {
     return (
-      <span style={{ color: theme.textMuted, fontSize: '11px' }}>
+      <span className="text-xs" style={{ color: theme.textMuted }}>
         Binding not found
       </span>
     );
   }
 
   return (
-    <span style={{
-      padding: '3px 10px',
+    <span className="px-2.5 py-0.5 rounded-md text-xs font-mono font-medium" style={{
       background: `${color}15`,
-      color: color,
-      borderRadius: '6px',
-      fontSize: '11px',
-      fontFamily: 'monospace',
-      fontWeight: '500'
+      color: color
     }}>
       {binding.start + 1}-{binding.end} ({binding.matchLength}bp)
     </span>

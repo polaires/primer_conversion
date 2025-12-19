@@ -1185,7 +1185,7 @@ export default function UnifiedPrimerDesigner() {
             ref={fileInputRef}
             onChange={handleFileUpload}
             accept=".fasta,.fa,.fna,.gb,.gbk,.genbank,.txt"
-            style={{ display: 'none' }}
+            className="hidden"
           />
           <button
             type="button"
@@ -1877,19 +1877,8 @@ export default function UnifiedPrimerDesigner() {
                     {/* Quality Score Ring - Clickable for Score Breakdown */}
                     <button
                       type="button"
-                      className="quality-score-container"
+                      className="quality-score-container bg-transparent border-0 p-0 cursor-pointer w-full text-left transition-transform duration-150 hover:scale-[1.02]"
                       onClick={() => setShowScoreBreakdown(true)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        padding: 0,
-                        cursor: 'pointer',
-                        width: '100%',
-                        textAlign: 'left',
-                        transition: 'transform 0.15s ease',
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
-                      onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                       title="Click to see detailed score breakdown"
                     >
                       <div className={`quality-ring quality-${results.quality || results.qualityTier || 'good'}`}>
@@ -1912,7 +1901,7 @@ export default function UnifiedPrimerDesigner() {
                         <span className="quality-title">
                           Quality Score: <span className={`quality-tier tier-${results.quality || results.qualityTier || 'good'}`}>{results.quality || results.qualityTier || 'good'}</span>
                           {results.criticalWarnings && results.criticalWarnings > 0 && (
-                            <span style={{ fontSize: '11px', color: '#ef4444', marginLeft: '6px' }}>
+                            <span className="text-[11px] text-red-500 ml-1.5">
                               ({results.criticalWarnings} critical)
                             </span>
                           )}
@@ -1926,7 +1915,7 @@ export default function UnifiedPrimerDesigner() {
                            (results.quality || results.qualityTier) === 'acceptable' ? 'May work - consider alternatives' :
                            'High failure risk - redesign recommended'}
                         </span>
-                        <span style={{ fontSize: '12px', opacity: 0.8 }}>• Click for details</span>
+                        <span className="text-xs opacity-80">• Click for details</span>
                       </div>
                     </button>
 

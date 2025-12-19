@@ -168,18 +168,11 @@ function QualityBadge({ quality }: QualityBadgeProps) {
 
   return (
     <span
+      className="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold capitalize rounded-xl whitespace-nowrap border"
       style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        padding: '3px 10px',
-        fontSize: '12px',
-        fontWeight: '600',
-        textTransform: 'capitalize',
-        borderRadius: '12px',
         backgroundColor: style.bg,
         color: style.text,
-        border: `1px solid ${style.border}`,
-        whiteSpace: 'nowrap',
+        borderColor: style.border,
       }}
     >
       {quality}
@@ -239,148 +232,72 @@ function PrimerCard({ primer, copyToClipboard, isExpanded, onToggleExpand }: Pri
   };
 
   return (
-    <div style={{
-      backgroundColor: '#fff',
-      borderRadius: '12px',
-      border: '1px solid #e2e8f0',
-      marginBottom: '12px',
-      overflow: 'hidden',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-      transition: 'box-shadow 0.2s, border-color 0.2s',
-    }}>
+    <div className="bg-white rounded-xl border border-slate-200 mb-3 overflow-hidden shadow-sm transition-all duration-200">
       {/* Main card content */}
-      <div style={{
-        padding: '16px 20px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '12px',
-      }}>
+      <div className="p-5 flex flex-col gap-3">
         {/* Header row: Name + Quality */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '12px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{
-              fontWeight: '600',
-              fontSize: '15px',
-              color: '#1e293b',
-            }}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="font-semibold text-[15px] text-slate-800">
               {primer.name}
             </span>
             {primer.isRescue && (
-              <span style={{
-                padding: '2px 8px',
-                fontSize: '11px',
-                fontWeight: '500',
-                backgroundColor: '#fef3c7',
-                color: '#92400e',
-                borderRadius: '6px',
-              }}>
+              <span className="px-2 py-0.5 text-[11px] font-medium bg-amber-100 text-amber-900 rounded-md">
                 Rescue
               </span>
             )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div className="flex items-center gap-2.5">
             <QualityBadge quality={displayQuality || 'acceptable'} />
           </div>
         </div>
 
         {/* Sequence row */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          padding: '10px 14px',
-          backgroundColor: '#f8fafc',
-          borderRadius: '8px',
-          border: '1px solid #e2e8f0',
-        }}>
-          <code style={{
-            fontFamily: "'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace",
-            fontSize: '13px',
-            color: '#334155',
-            letterSpacing: '0.5px',
-            flex: 1,
-            wordBreak: 'break-all',
-          }}>
+        <div className="flex items-center gap-3 p-2.5 px-3.5 bg-slate-50 rounded-lg border border-slate-200">
+          <code className="font-mono text-[13px] text-slate-700 tracking-wide flex-1 break-all">
             {primer.sequence}
           </code>
           <button
             type="button"
             onClick={() => copyToClipboard(primer.sequence)}
-            style={{
-              padding: '6px 14px',
-              fontSize: '12px',
-              fontWeight: '500',
-              color: '#3b82f6',
-              backgroundColor: '#eff6ff',
-              border: '1px solid #bfdbfe',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              transition: 'all 0.15s',
-            }}
+            className="px-3.5 py-1.5 text-xs font-medium text-blue-500 bg-blue-50 border border-blue-200 rounded-md cursor-pointer whitespace-nowrap transition-all duration-150"
           >
             Copy
           </button>
         </div>
 
         {/* Stats row */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '20px',
-          flexWrap: 'wrap',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ color: '#64748b', fontSize: '13px' }}>Length:</span>
-            <span style={{ color: '#1e293b', fontWeight: '500', fontSize: '13px' }}>{primer.length} bp</span>
+        <div className="flex items-center gap-5 flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 text-[13px]">Length:</span>
+            <span className="text-slate-800 font-medium text-[13px]">{primer.length} bp</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ color: '#64748b', fontSize: '13px' }}>Tm:</span>
-            <span style={{ color: '#1e293b', fontWeight: '500', fontSize: '13px' }}>{primer.tm}°C</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 text-[13px]">Tm:</span>
+            <span className="text-slate-800 font-medium text-[13px]">{primer.tm}°C</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ color: '#64748b', fontSize: '13px' }}>GC:</span>
-            <span style={{ color: '#1e293b', fontWeight: '500', fontSize: '13px' }}>{primer.gcPercent}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 text-[13px]">GC:</span>
+            <span className="text-slate-800 font-medium text-[13px]">{primer.gcPercent}</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ color: '#64748b', fontSize: '13px' }}>Position:</span>
-            <span style={{ color: '#1e293b', fontWeight: '500', fontSize: '13px' }}>{primer.position} bp</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 text-[13px]">Position:</span>
+            <span className="text-slate-800 font-medium text-[13px]">{primer.position} bp</span>
           </div>
 
           {/* Score bar */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            marginLeft: 'auto',
-          }}>
-            <span style={{ color: '#64748b', fontSize: '13px' }}>Score:</span>
-            <div style={{
-              width: '80px',
-              height: '8px',
-              backgroundColor: '#e5e7eb',
-              borderRadius: '4px',
-              overflow: 'hidden',
-            }}>
-              <div style={{
-                width: `${Math.min(100, primer.compositeScore || 0)}%`,
-                height: '100%',
-                background: getScoreGradient(primer.compositeScore),
-                borderRadius: '4px',
-                transition: 'width 0.3s ease',
-              }} />
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-slate-500 text-[13px]">Score:</span>
+            <div className="w-20 h-2 bg-slate-200 rounded overflow-hidden">
+              <div
+                className="h-full rounded transition-all duration-300"
+                style={{
+                  width: `${Math.min(100, primer.compositeScore || 0)}%`,
+                  background: getScoreGradient(primer.compositeScore),
+                }}
+              />
             </div>
-            <span style={{
-              color: '#1e293b',
-              fontWeight: '600',
-              fontSize: '13px',
-              minWidth: '24px',
-            }}>
+            <span className="text-slate-800 font-semibold text-[13px] min-w-[24px]">
               {primer.compositeScore?.toFixed(0) || '–'}
             </span>
           </div>
@@ -391,23 +308,7 @@ function PrimerCard({ primer, copyToClipboard, isExpanded, onToggleExpand }: Pri
           <button
             type="button"
             onClick={onToggleExpand}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              padding: '8px',
-              backgroundColor: 'transparent',
-              border: 'none',
-              color: '#64748b',
-              fontSize: '12px',
-              cursor: 'pointer',
-              borderTop: '1px solid #e2e8f0',
-              marginTop: '4px',
-              marginLeft: '-20px',
-              marginRight: '-20px',
-              marginBottom: '-16px',
-            }}
+            className="flex items-center justify-center gap-1.5 p-2 bg-transparent border-none text-slate-500 text-xs cursor-pointer border-t border-slate-200 mt-1 -mx-5 -mb-4"
           >
             {isExpanded ? '▲ Hide Details' : '▼ Show Details'}
             {hasAlternatives && ` (${primer.alternatives.length} alternatives)`}
@@ -417,29 +318,15 @@ function PrimerCard({ primer, copyToClipboard, isExpanded, onToggleExpand }: Pri
 
       {/* Expanded details panel */}
       {isExpanded && (
-        <div style={{
-          padding: '16px 20px',
-          backgroundColor: '#f8fafc',
-          borderTop: '1px solid #e2e8f0',
-        }}>
+        <div className="p-5 bg-slate-50 border-t border-slate-200">
           {/* Critical Issues (shown first, in red) */}
           {primer.issues && primer.issues.length > 0 && (
-            <div style={{ marginBottom: '16px' }}>
-              <div style={{ fontWeight: '600', fontSize: '13px', color: '#991b1b', marginBottom: '8px' }}>
+            <div className="mb-4">
+              <div className="font-semibold text-[13px] text-red-800 mb-2">
                 Issues
               </div>
               {primer.issues.map((issue, i) => (
-                <div key={i} style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '8px 12px',
-                  backgroundColor: '#fee2e2',
-                  borderRadius: '6px',
-                  marginBottom: '6px',
-                  color: '#991b1b',
-                  fontSize: '13px',
-                }}>
+                <div key={i} className="flex items-center gap-2 p-2 px-3 bg-red-100 rounded-md mb-1.5 text-red-800 text-[13px]">
                   <span>⚠</span>
                   <span>{issue}</span>
                 </div>
@@ -449,22 +336,12 @@ function PrimerCard({ primer, copyToClipboard, isExpanded, onToggleExpand }: Pri
 
           {/* Warnings (filtered to exclude informational messages) */}
           {actualWarnings.length > 0 && (
-            <div style={{ marginBottom: '16px' }}>
-              <div style={{ fontWeight: '600', fontSize: '13px', color: '#475569', marginBottom: '8px' }}>
+            <div className="mb-4">
+              <div className="font-semibold text-[13px] text-slate-600 mb-2">
                 Warnings
               </div>
               {actualWarnings.map((w, i) => (
-                <div key={i} style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '8px 12px',
-                  backgroundColor: '#fef3c7',
-                  borderRadius: '6px',
-                  marginBottom: '6px',
-                  color: '#92400e',
-                  fontSize: '13px',
-                }}>
+                <div key={i} className="flex items-center gap-2 p-2 px-3 bg-amber-100 rounded-md mb-1.5 text-amber-900 text-[13px]">
                   <span>⚠</span>
                   <span>{w}</span>
                 </div>
@@ -474,17 +351,13 @@ function PrimerCard({ primer, copyToClipboard, isExpanded, onToggleExpand }: Pri
 
           {/* G-Quadruplex - only show if there's an actual warning/critical */}
           {hasGQuadruplexWarning && primer.gQuadruplex && (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 12px',
-              backgroundColor: primer.gQuadruplex.severity === 'critical' ? '#fee2e2' : '#fef3c7',
-              borderRadius: '6px',
-              marginBottom: '16px',
-              color: primer.gQuadruplex.severity === 'critical' ? '#991b1b' : '#92400e',
-              fontSize: '13px',
-            }}>
+            <div
+              className={`flex items-center gap-2 p-2 px-3 rounded-md mb-4 text-[13px] ${
+                primer.gQuadruplex.severity === 'critical'
+                  ? 'bg-red-100 text-red-800'
+                  : 'bg-amber-100 text-amber-900'
+              }`}
+            >
               <span>{primer.gQuadruplex.severity === 'critical' ? '⚠' : '⚡'}</span>
               <span>G-Quadruplex: {primer.gQuadruplex.message}</span>
             </div>
@@ -492,23 +365,18 @@ function PrimerCard({ primer, copyToClipboard, isExpanded, onToggleExpand }: Pri
 
           {/* Thermodynamics */}
           {primer.thermodynamics && (
-            <div style={{ marginBottom: '16px' }}>
-              <div style={{ fontWeight: '600', fontSize: '13px', color: '#475569', marginBottom: '8px' }}>
+            <div className="mb-4">
+              <div className="font-semibold text-[13px] text-slate-600 mb-2">
                 Thermodynamics
               </div>
-              <div style={{
-                display: 'flex',
-                gap: '16px',
-                flexWrap: 'wrap',
-                fontSize: '13px',
-              }}>
-                <span style={{ color: '#475569' }}>
+              <div className="flex gap-4 flex-wrap text-[13px]">
+                <span className="text-slate-600">
                   Hairpin ΔG: <strong>{primer.thermodynamics.hairpinDG?.toFixed(1)} kcal/mol</strong>
                 </span>
-                <span style={{ color: '#475569' }}>
+                <span className="text-slate-600">
                   Self-dimer ΔG: <strong>{primer.thermodynamics.homodimerDG?.toFixed(1)} kcal/mol</strong>
                 </span>
-                <span style={{ color: '#475569' }}>
+                <span className="text-slate-600">
                   3′ ΔG: <strong>{primer.thermodynamics.terminal3DG?.toFixed(1)} kcal/mol</strong>
                 </span>
               </div>
@@ -518,61 +386,33 @@ function PrimerCard({ primer, copyToClipboard, isExpanded, onToggleExpand }: Pri
           {/* Alternatives */}
           {hasAlternatives && (
             <div>
-              <div style={{ fontWeight: '600', fontSize: '13px', color: '#475569', marginBottom: '10px' }}>
+              <div className="font-semibold text-[13px] text-slate-600 mb-2.5">
                 Alternative Primers ({primer.alternatives!.length})
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div className="flex flex-col gap-2">
                 {primer.alternatives!.map((alt, i) => (
-                  <div key={i} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '12px',
-                    padding: '10px 14px',
-                    backgroundColor: '#fff',
-                    borderRadius: '8px',
-                    border: '1px solid #e2e8f0',
-                    fontSize: '13px',
-                  }}>
-                    <code style={{
-                      fontFamily: "'SF Mono', 'Monaco', 'Inconsolata', monospace",
-                      fontSize: '12px',
-                      color: '#475569',
-                      flex: 1,
-                      wordBreak: 'break-all',
-                    }}>
+                  <div key={i} className="flex items-center justify-between gap-3 p-2.5 px-3.5 bg-white rounded-lg border border-slate-200 text-[13px]">
+                    <code className="font-mono text-xs text-slate-600 flex-1 break-all">
                       {alt.sequence}
                     </code>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-                      <span style={{ color: '#64748b' }}>{alt.length}bp</span>
-                      <span style={{ color: '#64748b' }}>{alt.tm}°C</span>
-                      <span style={{ color: '#64748b' }}>{alt.gcPercent}</span>
-                      <div style={{
-                        width: '50px',
-                        height: '6px',
-                        backgroundColor: '#e5e7eb',
-                        borderRadius: '3px',
-                        overflow: 'hidden',
-                      }}>
-                        <div style={{
-                          width: `${Math.min(100, alt.compositeScore || 0)}%`,
-                          height: '100%',
-                          background: getScoreGradient(alt.compositeScore),
-                        }} />
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span className="text-slate-500">{alt.length}bp</span>
+                      <span className="text-slate-500">{alt.tm}°C</span>
+                      <span className="text-slate-500">{alt.gcPercent}</span>
+                      <div className="w-[50px] h-1.5 bg-slate-200 rounded-sm overflow-hidden">
+                        <div
+                          className="h-full"
+                          style={{
+                            width: `${Math.min(100, alt.compositeScore || 0)}%`,
+                            background: getScoreGradient(alt.compositeScore),
+                          }}
+                        />
                       </div>
-                      <span style={{ fontWeight: '500', minWidth: '24px' }}>{alt.compositeScore?.toFixed(0)}</span>
+                      <span className="font-medium min-w-[24px]">{alt.compositeScore?.toFixed(0)}</span>
                       <button
                         type="button"
                         onClick={() => copyToClipboard(alt.sequence)}
-                        style={{
-                          padding: '4px 10px',
-                          fontSize: '11px',
-                          color: '#3b82f6',
-                          backgroundColor: '#eff6ff',
-                          border: '1px solid #bfdbfe',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                        }}
+                        className="px-2.5 py-1 text-[11px] text-blue-500 bg-blue-50 border border-blue-200 rounded cursor-pointer"
                       >
                         Copy
                       </button>
@@ -743,36 +583,26 @@ function CoverageMap({ results, onPrimerSelect, selectedPrimer }: CoverageMapPro
             </svg>
             Rescue
           </span>
-          <span style={{ borderLeft: '1px solid #e2e8f0', height: '16px', margin: '0 8px' }} />
+          <span className="border-l border-slate-200 h-4 mx-2" />
           <span className="legend-item">
-            <span className="legend-color" style={{ backgroundColor: '#fee2e2' }}></span>
+            <span className="legend-color bg-red-100"></span>
             0x
           </span>
           <span className="legend-item">
-            <span className="legend-color" style={{ backgroundColor: '#fef3c7' }}></span>
+            <span className="legend-color bg-amber-100"></span>
             1x
           </span>
           <span className="legend-item">
-            <span className="legend-color" style={{ backgroundColor: '#d1fae5' }}></span>
+            <span className="legend-color bg-emerald-200"></span>
             2x+
           </span>
-          <span style={{ borderLeft: '1px solid #e2e8f0', height: '16px', margin: '0 8px' }} />
-          <span className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span style={{
-              width: '16px',
-              height: '5px',
-              background: 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)',
-              borderRadius: '2px',
-            }} />
+          <span className="border-l border-slate-200 h-4 mx-2" />
+          <span className="legend-item flex items-center gap-1">
+            <span className="w-4 h-1.5 rounded-sm" style={{ background: 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)' }} />
             ORF (+)
           </span>
-          <span className="legend-item" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span style={{
-              width: '16px',
-              height: '5px',
-              background: 'linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%)',
-              borderRadius: '2px',
-            }} />
+          <span className="legend-item flex items-center gap-1">
+            <span className="w-4 h-1.5 rounded-sm" style={{ background: 'linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%)' }} />
             ORF (−)
           </span>
         </div>
@@ -794,33 +624,13 @@ function CoverageMap({ results, onPrimerSelect, selectedPrimer }: CoverageMapPro
         </div>
 
         {/* Interactive Coverage Track */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          marginBottom: '8px',
-        }}>
-          <span style={{
-            width: '45px',
-            fontSize: '10px',
-            color: '#64748b',
-            textAlign: 'right',
-            paddingRight: '6px',
-            flexShrink: 0,
-          }}>
+        <div className="flex items-center mb-2">
+          <span className="w-[45px] text-[10px] text-slate-500 text-right pr-1.5 flex-shrink-0">
             Cov
           </span>
-          <div style={{
-            width: mapWidth,
-            position: 'relative',
-          }}>
+          <div className="relative" style={{ width: mapWidth }}>
             {/* Coverage heatmap bar - interactive cells */}
-            <div style={{
-              height: '20px',
-              position: 'relative',
-              borderRadius: '4px',
-              overflow: 'hidden',
-              border: '1px solid #e2e8f0',
-            }}>
+            <div className="h-5 relative rounded border border-slate-200 overflow-hidden">
               {coverageData.map((depth, idx) => {
                 const binStart = idx * 10;
                 const binEnd = Math.min((idx + 1) * 10, templateLength);
@@ -831,14 +641,12 @@ function CoverageMap({ results, onPrimerSelect, selectedPrimer }: CoverageMapPro
                 return (
                   <div
                     key={idx}
+                    className="absolute h-full transition-all duration-150"
                     style={{
-                      position: 'absolute',
                       left: `${(binStart / templateLength) * 100}%`,
                       width: `${((binEnd - binStart) / templateLength) * 100}%`,
-                      height: '100%',
                       backgroundColor: getCoverageColor(depth),
                       cursor: depth > 0 ? 'pointer' : 'default',
-                      transition: 'filter 0.15s, transform 0.15s',
                       filter: isHovered ? 'brightness(0.85)' : hasSelection ? 'brightness(0.9)' : 'none',
                       boxShadow: isHovered ? 'inset 0 0 0 2px rgba(59, 130, 246, 0.5)' : 'none',
                     }}
@@ -858,20 +666,10 @@ function CoverageMap({ results, onPrimerSelect, selectedPrimer }: CoverageMapPro
 
             {/* Hovered region info tooltip */}
             {hoveredRegion !== null && primersByBin[hoveredRegion]?.length > 0 && (
-              <div style={{
-                position: 'absolute',
-                left: `${((hoveredRegion * 10 + 5) / templateLength) * 100}%`,
-                top: '-28px',
-                transform: 'translateX(-50%)',
-                backgroundColor: 'rgba(30, 41, 59, 0.95)',
-                color: 'white',
-                padding: '4px 8px',
-                borderRadius: '4px',
-                fontSize: '10px',
-                whiteSpace: 'nowrap',
-                pointerEvents: 'none',
-                zIndex: 20,
-              }}>
+              <div
+                className="absolute -top-7 -translate-x-1/2 bg-slate-800/95 text-white px-2 py-1 rounded text-[10px] whitespace-nowrap pointer-events-none z-20"
+                style={{ left: `${((hoveredRegion * 10 + 5) / templateLength) * 100}%` }}
+              >
                 {primersByBin[hoveredRegion].map(p => p.name).join(', ')}
               </div>
             )}
@@ -880,45 +678,23 @@ function CoverageMap({ results, onPrimerSelect, selectedPrimer }: CoverageMapPro
 
         {/* ORF Track - Separate bar for 6-frame ORFs */}
         {orfs.length > 0 && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            marginBottom: '8px',
-          }}>
-            <span style={{
-              width: '45px',
-              fontSize: '10px',
-              color: '#64748b',
-              textAlign: 'right',
-              paddingRight: '6px',
-              flexShrink: 0,
-            }}>
+          <div className="flex items-center mb-2">
+            <span className="w-[45px] text-[10px] text-slate-500 text-right pr-1.5 flex-shrink-0">
               ORF
             </span>
-            <div style={{
-              width: mapWidth,
-              position: 'relative',
-              height: '28px',
-              backgroundColor: '#f8fafc',
-              borderRadius: '4px',
-              border: '1px solid #e2e8f0',
-            }}>
+            <div className="relative h-7 bg-slate-50 rounded border border-slate-200" style={{ width: mapWidth }}>
               {/* Forward strand ORFs (top half) */}
               {orfs.filter(orf => orf.strand === '+').map((orf, idx) => {
                 const frameOffset = (orf.frame - 1) * 3; // Vertical offset based on frame
                 return (
                   <div
                     key={`fwd-orf-${idx}`}
+                    className="absolute h-1.5 rounded-sm cursor-help opacity-90"
                     style={{
-                      position: 'absolute',
                       left: `${(orf.start / templateLength) * 100}%`,
                       width: `${((orf.end - orf.start) / templateLength) * 100}%`,
                       top: `${2 + frameOffset}px`,
-                      height: '6px',
                       background: 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)',
-                      borderRadius: '3px',
-                      cursor: 'help',
-                      opacity: 0.9,
                     }}
                     title={`ORF +${orf.frame}: ${orf.start + 1}-${orf.end} (${orf.proteinLength} aa)`}
                   />
@@ -930,31 +706,19 @@ function CoverageMap({ results, onPrimerSelect, selectedPrimer }: CoverageMapPro
                 return (
                   <div
                     key={`rev-orf-${idx}`}
+                    className="absolute h-1.5 rounded-sm cursor-help opacity-90"
                     style={{
-                      position: 'absolute',
                       left: `${(orf.start / templateLength) * 100}%`,
                       width: `${((orf.end - orf.start) / templateLength) * 100}%`,
                       bottom: `${2 + frameOffset}px`,
-                      height: '6px',
                       background: 'linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%)',
-                      borderRadius: '3px',
-                      cursor: 'help',
-                      opacity: 0.9,
                     }}
                     title={`ORF ${orf.frame}: ${orf.start + 1}-${orf.end} (${orf.proteinLength} aa)`}
                   />
                 );
               })}
               {/* Center line separating forward/reverse */}
-              <div style={{
-                position: 'absolute',
-                left: 0,
-                right: 0,
-                top: '50%',
-                height: '1px',
-                backgroundColor: '#e2e8f0',
-                pointerEvents: 'none',
-              }} />
+              <div className="absolute left-0 right-0 top-1/2 h-px bg-slate-200 pointer-events-none" />
             </div>
           </div>
         )}
@@ -1320,9 +1084,9 @@ export default function SequencingDesigner() {
           {showAdvanced && (
             <div className="advanced-options">
               {/* Application Preset Selector */}
-              <div className="preset-section" style={{ marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid #e5e7eb' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+              <div className="preset-section mb-4 pb-4 border-b border-slate-200">
+                <div className="flex items-center gap-3">
+                  <div className="form-group flex-1 mb-0">
                     <label>Application Preset</label>
                     <select
                       value={selectedPreset}
@@ -1337,7 +1101,7 @@ export default function SequencingDesigner() {
                           }));
                         }
                       }}
-                      style={{ width: '100%' }}
+                      className="w-full"
                     >
                       {getAvailablePresets().map(preset => (
                         <option key={preset.id} value={preset.id}>
@@ -1355,21 +1119,16 @@ export default function SequencingDesigner() {
                       }
                     }}
                     disabled={cleanSequence(template).length < 50}
+                    className="px-3 py-1.5 text-[13px] bg-slate-100 border border-slate-300 rounded mt-5"
                     style={{
-                      padding: '6px 12px',
-                      fontSize: '13px',
-                      background: '#f3f4f6',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '4px',
                       cursor: cleanSequence(template).length >= 50 ? 'pointer' : 'not-allowed',
                       opacity: cleanSequence(template).length >= 50 ? 1 : 0.5,
-                      marginTop: '20px',
                     }}
                   >
                     Auto-detect
                   </button>
                 </div>
-                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+                <div className="text-xs text-slate-500 mt-1">
                   {getAvailablePresets().find(p => p.id === selectedPreset)?.description || ''}
                 </div>
               </div>
@@ -1416,73 +1175,54 @@ export default function SequencingDesigner() {
                   />
                 </div>
               </div>
-              <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer' }}>
+              <div className="mt-4 flex flex-col gap-3">
+                <label className="flex items-start gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={options.circular}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOptions({ ...options, circular: e.target.checked })}
-                    style={{ marginTop: '2px' }}
+                    className="mt-0.5"
                   />
                   <div>
                     <div>Circular template (plasmid)</div>
-                    <div style={{ fontSize: '12px', color: '#6b7280' }}>Enables primers that wrap around the origin</div>
+                    <div className="text-xs text-slate-500">Enables primers that wrap around the origin</div>
                   </div>
                 </label>
-                <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer' }}>
+                <label className="flex items-start gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={options.generateAlternatives}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOptions({ ...options, generateAlternatives: e.target.checked })}
-                    style={{ marginTop: '2px' }}
+                    className="mt-0.5"
                   />
                   <div>
                     <div>Generate alternative primers</div>
-                    <div style={{ fontSize: '12px', color: '#6b7280' }}>Show up to 5 alternatives per position</div>
+                    <div className="text-xs text-slate-500">Show up to 5 alternatives per position</div>
                   </div>
                 </label>
               </div>
             </div>
           )}
 
-          <div style={{ marginTop: '20px' }}>
+          <div className="mt-5">
             <button
               type="button"
               onClick={handleDesign}
               disabled={loading || cleanSequence(template).length < 100}
+              className="inline-flex items-center justify-center gap-2.5 w-full px-7 py-3.5 text-[15px] font-semibold text-white border-none rounded-xl transition-all duration-200"
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '10px',
-                width: '100%',
-                padding: '14px 28px',
-                fontSize: '15px',
-                fontWeight: '600',
-                color: '#fff',
                 background: loading
                   ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)'
                   : 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-                border: 'none',
-                borderRadius: '10px',
                 cursor: loading || cleanSequence(template).length < 100 ? 'not-allowed' : 'pointer',
                 opacity: cleanSequence(template).length < 100 ? 0.5 : 1,
                 boxShadow: loading ? 'none' : '0 4px 14px rgba(59, 130, 246, 0.35)',
-                transition: 'all 0.2s ease',
               }}
             >
               {loading && (
                 <>
-                  <div style={{
-                    width: '18px',
-                    height: '18px',
-                    border: '2px solid rgba(255,255,255,0.3)',
-                    borderTopColor: '#fff',
-                    borderRadius: '50%',
-                    animation: 'spin 0.8s linear infinite',
-                  }} />
+                  <div className="w-[18px] h-[18px] border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   <span>Calculating Primers...</span>
-                  <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
                 </>
               )}
               {!loading && (
@@ -1510,17 +1250,7 @@ export default function SequencingDesigner() {
             <div className="results-summary">
               <h3>Coverage Summary</h3>
               {results.isCircular && (
-                <div style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '4px 12px',
-                  backgroundColor: '#dbeafe',
-                  color: '#1e40af',
-                  borderRadius: '16px',
-                  fontSize: '13px',
-                  marginBottom: '12px',
-                }}>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-800 rounded-2xl text-[13px] mb-3">
                   <span>○</span>
                   Circular Template
                   {results.circularWrapped && ' (primers wrap origin)'}
@@ -1561,17 +1291,7 @@ export default function SequencingDesigner() {
               )}
 
               {results.tmCompatibility && !results.tmCompatibility.compatible && (
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '8px 12px',
-                  backgroundColor: '#fef3c7',
-                  color: '#92400e',
-                  borderRadius: '6px',
-                  marginTop: '8px',
-                  fontSize: '13px',
-                }}>
+                <div className="flex items-center gap-2 p-2 px-3 bg-amber-100 text-amber-900 rounded-md mt-2 text-[13px]">
                   <span>⚠</span>
                   {results.tmCompatibility.recommendation}
                 </div>
@@ -1586,54 +1306,23 @@ export default function SequencingDesigner() {
             />
 
             {/* Designed Primers - Modern Card Layout */}
-            <div style={{ marginTop: '32px' }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '20px',
-              }}>
-                <h3 style={{
-                  fontSize: '18px',
-                  fontWeight: '600',
-                  color: '#1e293b',
-                  margin: 0,
-                }}>
+            <div className="mt-8">
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-lg font-semibold text-slate-800 m-0">
                   Designed Primers
                 </h3>
-                <span style={{
-                  fontSize: '13px',
-                  color: '#64748b',
-                }}>
+                <span className="text-[13px] text-slate-500">
                   {results.primers.length} total primers
                 </span>
               </div>
 
               {results.forwardPrimers.length > 0 && (
-                <div style={{ marginBottom: '28px' }}>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    marginBottom: '14px',
-                  }}>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: '28px',
-                      height: '28px',
-                      backgroundColor: '#dcfce7',
-                      borderRadius: '6px',
-                    }}>
-                      <span style={{ fontSize: '14px' }}>→</span>
+                <div className="mb-7">
+                  <div className="flex items-center gap-2.5 mb-3.5">
+                    <div className="flex items-center justify-center w-7 h-7 bg-emerald-100 rounded-md">
+                      <span className="text-sm">→</span>
                     </div>
-                    <h4 style={{
-                      fontSize: '15px',
-                      fontWeight: '600',
-                      color: '#166534',
-                      margin: 0,
-                    }}>
+                    <h4 className="text-[15px] font-semibold text-emerald-800 m-0">
                       Forward Primers ({results.forwardPrimers.length})
                     </h4>
                   </div>
@@ -1654,29 +1343,11 @@ export default function SequencingDesigner() {
 
               {results.reversePrimers.length > 0 && (
                 <div>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    marginBottom: '14px',
-                  }}>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: '28px',
-                      height: '28px',
-                      backgroundColor: '#ede9fe',
-                      borderRadius: '6px',
-                    }}>
-                      <span style={{ fontSize: '14px' }}>←</span>
+                  <div className="flex items-center gap-2.5 mb-3.5">
+                    <div className="flex items-center justify-center w-7 h-7 bg-violet-100 rounded-md">
+                      <span className="text-sm">←</span>
                     </div>
-                    <h4 style={{
-                      fontSize: '15px',
-                      fontWeight: '600',
-                      color: '#5b21b6',
-                      margin: 0,
-                    }}>
+                    <h4 className="text-[15px] font-semibold text-violet-800 m-0">
                       Reverse Primers ({results.reversePrimers.length})
                     </h4>
                   </div>
@@ -1697,22 +1368,11 @@ export default function SequencingDesigner() {
             </div>
 
             {/* Export Section */}
-            <div style={{
-              marginTop: '28px',
-              padding: '20px',
-              backgroundColor: '#f8fafc',
-              borderRadius: '12px',
-              border: '1px solid #e2e8f0',
-            }}>
-              <h4 style={{
-                fontSize: '14px',
-                fontWeight: '600',
-                color: '#475569',
-                marginBottom: '14px',
-              }}>
+            <div className="mt-7 p-5 bg-slate-50 rounded-xl border border-slate-200">
+              <h4 className="text-sm font-semibold text-slate-600 mb-3.5">
                 Export All Primers
               </h4>
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <div className="flex gap-2.5 flex-wrap">
                 <button
                   type="button"
                   onClick={() => {
@@ -1721,20 +1381,7 @@ export default function SequencingDesigner() {
                       .join('\n');
                     copyToClipboard(text);
                   }}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '10px 18px',
-                    fontSize: '13px',
-                    fontWeight: '500',
-                    color: '#475569',
-                    backgroundColor: '#fff',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
-                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium text-slate-600 bg-white border border-slate-300 rounded-lg cursor-pointer transition-all duration-150"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2" />
@@ -1750,20 +1397,7 @@ export default function SequencingDesigner() {
                       .join('\n');
                     copyToClipboard(fasta);
                   }}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '10px 18px',
-                    fontSize: '13px',
-                    fontWeight: '500',
-                    color: '#475569',
-                    backgroundColor: '#fff',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
-                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium text-slate-600 bg-white border border-slate-300 rounded-lg cursor-pointer transition-all duration-150"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
@@ -1815,7 +1449,7 @@ export default function SequencingDesigner() {
           </div>
 
           {customPrimer && (
-            <div style={{ marginTop: '16px' }}>
+            <div className="mt-4">
               <PrimerCard
                 primer={{
                   ...customPrimer,

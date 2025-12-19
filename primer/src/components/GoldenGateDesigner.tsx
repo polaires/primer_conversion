@@ -723,14 +723,11 @@ function PartCard({ part, index, onChange, onRemove, canRemove, enzyme, onDragSt
 
       {/* Split into Fragments Panel - inline optimizer */}
       {showSplitPanel && canSplit && (
-        <div className="split-sequence-panel" style={{
-          padding: '1rem',
+        <div className="split-sequence-panel p-4 mt-2 border-t-2 border-amber-500" style={{
           background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
-          borderTop: '2px solid #f59e0b',
-          marginTop: '0.5rem',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#92400e', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="m-0 text-sm text-amber-800 flex items-center gap-2">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
                 <path d="M14 4l2.29 2.29-2.88 2.88 1.42 1.42 2.88-2.88L20 10V4h-6zm-4 0H4v6l2.29-2.29 4.71 4.7V20h2v-8.41l-5.29-5.3L10 4z"/>
               </svg>
@@ -738,7 +735,7 @@ function PartCard({ part, index, onChange, onRemove, canRemove, enzyme, onDragSt
             </h4>
             <button
               onClick={() => setShowSplitPanel(false)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem' }}
+              className="bg-none border-none cursor-pointer p-1"
             >
               <svg viewBox="0 0 24 24" width="18" height="18" fill="#92400e">
                 <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
@@ -746,89 +743,58 @@ function PartCard({ part, index, onChange, onRemove, canRemove, enzyme, onDragSt
             </button>
           </div>
 
-          <p style={{ fontSize: '0.8rem', color: '#78350f', margin: '0 0 1rem 0' }}>
+          <p className="text-xs text-amber-900 m-0 mb-4">
             This will find optimal junction positions to split your {part.seq.length.toLocaleString()} bp sequence
             into fragments with high-fidelity overhangs for {enzyme} Golden Gate assembly.
           </p>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-            <label style={{ fontSize: '0.85rem', color: '#92400e', fontWeight: '500' }}>
+          <div className="flex items-center gap-4 mb-4">
+            <label className="text-sm text-amber-800 font-medium">
               Number of fragments:
             </label>
-            <div style={{ display: 'flex', gap: '0.25rem' }}>
+            <div className="flex gap-1">
               {[2, 3, 4, 5, 6].map(n => (
                 <button
                   key={n}
                   onClick={() => setSplitNumFragments(n)}
-                  style={{
-                    padding: '0.4rem 0.75rem',
-                    border: splitNumFragments === n ? '2px solid #f59e0b' : '1px solid #d97706',
-                    borderRadius: '0.375rem',
-                    background: splitNumFragments === n ? '#f59e0b' : 'white',
-                    color: splitNumFragments === n ? 'white' : '#92400e',
-                    fontWeight: splitNumFragments === n ? '600' : '400',
-                    cursor: 'pointer',
-                    fontSize: '0.85rem',
-                  }}
+                  className={`py-1.5 px-3 rounded-md cursor-pointer text-sm ${
+                    splitNumFragments === n
+                      ? 'border-2 border-amber-500 bg-amber-500 text-white font-semibold'
+                      : 'border border-amber-600 bg-white text-amber-800 font-normal'
+                  }`}
                 >
                   {n}
                 </button>
               ))}
             </div>
-            <span style={{ fontSize: '0.75rem', color: '#a16207' }}>
+            <span className="text-xs text-amber-700">
               ({splitNumFragments - 1} junctions, ~{Math.round(part.seq.length / splitNumFragments).toLocaleString()} bp each)
             </span>
           </div>
 
           {splitError && (
-            <div style={{
-              padding: '0.5rem 0.75rem',
-              background: '#fef2f2',
-              border: '1px solid #fca5a5',
-              borderRadius: '0.375rem',
-              color: '#dc2626',
-              fontSize: '0.8rem',
-              marginBottom: '0.75rem',
-            }}>
+            <div className="py-2 px-3 bg-red-50 border border-red-300 rounded-md text-red-600 text-xs mb-3">
               {splitError}
             </div>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+          <div className="flex justify-end gap-2">
             <button
               onClick={() => setShowSplitPanel(false)}
-              style={{
-                padding: '0.5rem 1rem',
-                border: '1px solid #d97706',
-                borderRadius: '0.375rem',
-                background: 'white',
-                color: '#92400e',
-                cursor: 'pointer',
-                fontSize: '0.85rem',
-              }}
+              className="py-2 px-4 border border-amber-600 rounded-md bg-white text-amber-800 cursor-pointer text-sm"
             >
               Cancel
             </button>
             <button
               onClick={handleSplitSequence}
               disabled={isSplitting}
-              style={{
-                padding: '0.5rem 1rem',
-                border: 'none',
-                borderRadius: '0.375rem',
-                background: isSplitting ? '#d97706' : '#f59e0b',
-                color: 'white',
-                cursor: isSplitting ? 'not-allowed' : 'pointer',
-                fontSize: '0.85rem',
-                fontWeight: '600',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-              }}
+              className={`py-2 px-4 border-none rounded-md text-white text-sm font-semibold flex items-center gap-2 ${
+                isSplitting ? 'bg-amber-600 cursor-not-allowed' : 'bg-amber-500 cursor-pointer'
+              }`}
             >
               {isSplitting ? (
                 <>
-                  <span style={{ animation: 'spin 1s linear infinite' }}>⟳</span>
+                  <span className="animate-spin">⟳</span>
                   Optimizing...
                 </>
               ) : (
@@ -908,7 +874,7 @@ function CircularPlasmidView({ parts, overhangs, totalLength }: CircularPlasmidV
                 stroke={typeInfo.color}
                 strokeWidth={isHovered ? 24 : 20}
                 strokeLinecap="round"
-                style={{ cursor: 'pointer', transition: 'stroke-width 0.2s' }}
+                className="cursor-pointer transition-all duration-200"
                 onMouseEnter={() => setHoveredPart(i)}
                 onMouseLeave={() => setHoveredPart(null)}
               />
@@ -928,14 +894,14 @@ function CircularPlasmidView({ parts, overhangs, totalLength }: CircularPlasmidV
               key={`junction-${i}`}
               onMouseEnter={() => setHoveredJunction(i)}
               onMouseLeave={() => setHoveredJunction(null)}
-              style={{ cursor: 'pointer' }}
+              className="cursor-pointer"
             >
               <circle
                 cx={cx + r * Math.cos(angle)}
                 cy={cy + r * Math.sin(angle)}
                 r={isHovered ? 6 : 4}
                 fill="#10b981"
-                style={{ transition: 'r 0.2s' }}
+                className="transition-all duration-200"
               />
               {isHovered && (
                 <g>
@@ -2426,7 +2392,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                       <div className="issue-header">
                         <span className="issue-part">{issue.partId}</span>
                         {issue.domesticated ? (
-                          <span className="issue-status" style={{ color: '#16a34a', fontWeight: 500 }}>
+                          <span className="issue-status text-green-600 font-medium">
                             ✓ Auto-domesticated
                           </span>
                         ) : (
@@ -2434,26 +2400,26 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                         )}
                       </div>
                       {issue.domesticated ? (
-                        <div className="domestication-info" style={{ fontSize: '12px', color: '#166534', marginTop: '4px' }}>
+                        <div className="domestication-info text-xs text-green-800 mt-1">
                           {issue.strategy === DOMESTICATION_STRATEGY.MUTAGENIC_JUNCTION ? (
                             <>
-                              <div style={{ fontWeight: 500 }}>Mutagenic junction strategy</div>
+                              <div className="font-medium">Mutagenic junction strategy</div>
                               <div>Silent mutations in primer homology region. One-pot compatible.</div>
                               {issue.mutations && issue.mutations.length > 0 && (
-                                <div style={{ marginTop: '4px', fontFamily: 'monospace', fontSize: '11px' }}>
+                                <div className="mt-1 font-mono text-[11px]">
                                   Mutations: {issue.mutations.map(m => `${m.originalBase}${m.position}${m.newBase}`).join(', ')}
                                 </div>
                               )}
                             </>
                           ) : issue.strategy === DOMESTICATION_STRATEGY.DIRECT_PRIMER_MUTATION ? (
                             <>
-                              <div style={{ fontWeight: 500 }}>Direct primer mutation</div>
+                              <div className="font-medium">Direct primer mutation</div>
                               <div>Site near junction, mutation in primer. One-pot compatible.</div>
                             </>
                           ) : issue.strategy === DOMESTICATION_STRATEGY.LEGACY_JUNCTION ? (
                             <>
-                              <div style={{ fontWeight: 500, color: '#ca8a04' }}>Legacy junction-based</div>
-                              <div style={{ color: '#a16207' }}>Site broken at junction but recreated in product. NOT one-pot compatible.</div>
+                              <div className="font-medium text-yellow-600">Legacy junction-based</div>
+                              <div className="text-amber-700">Site broken at junction but recreated in product. NOT one-pot compatible.</div>
                             </>
                           ) : (
                             <div>Site will be broken at assembly junction. Parent: {issue.parentPart || 'unknown'}</div>
@@ -2624,7 +2590,7 @@ function AssemblyViewer({ result }) {
           viewer={viewMode as 'linear' | 'circular' | 'both' | 'both_flip'}
           showComplement={false}
           showIndex={true}
-          style={{ height: '300px', width: '100%' }}
+          className="h-[300px] w-full"
           zoom={{ linear: 25 }}
           rotateOnScroll={false}
         />
@@ -4558,38 +4524,21 @@ export default function GoldenGateDesigner() {
 
           {/* Accept & Design Primers Action Bar - shown when optimization succeeds */}
           {fusionResult?.success && (
-            <div className="fusion-action-bar" style={{
-              marginTop: '1rem',
-              padding: '1rem',
+            <div className="fusion-action-bar mt-4 p-4 rounded-lg border border-green-300 flex items-center justify-between gap-4" style={{
               background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
-              borderRadius: '0.5rem',
-              border: '1px solid #86efac',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '1rem',
             }}>
-              <div className="fusion-summary" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                <span style={{
-                  padding: '0.25rem 0.75rem',
-                  background: '#22c55e',
-                  color: 'white',
-                  borderRadius: '9999px',
-                  fontSize: '0.875rem',
-                  fontWeight: '600',
-                }}>
+              <div className="fusion-summary flex gap-4 items-center">
+                <span className="py-1 px-3 bg-green-500 text-white rounded-full text-sm font-semibold">
                   {((fusionResult.solution?.setFidelity || fusionResult._fullResult?.score?.fidelity || 0.9) * 100).toFixed(1)}% Fidelity
                 </span>
-                <span style={{ color: '#166534', fontSize: '0.875rem' }}>
+                <span className="text-green-800 text-sm">
                   {fusionResult.numFragments || fusionNumFragments} Fragments
                 </span>
-                <span style={{
-                  padding: '0.25rem 0.5rem',
-                  background: fusionResult.failurePrediction?.summary?.highRiskCount > 0 ? '#fef2f2' : '#f0fdf4',
-                  color: fusionResult.failurePrediction?.summary?.highRiskCount > 0 ? '#dc2626' : '#166534',
-                  borderRadius: '0.25rem',
-                  fontSize: '0.75rem',
-                }}>
+                <span className={`py-1 px-2 rounded text-xs ${
+                  fusionResult.failurePrediction?.summary?.highRiskCount > 0
+                    ? 'bg-red-50 text-red-600'
+                    : 'bg-green-50 text-green-800'
+                }`}>
                   {fusionResult.failurePrediction?.summary?.highRiskCount > 0
                     ? `${fusionResult.failurePrediction.summary.highRiskCount} high risk`
                     : 'Low risk'}
@@ -4599,23 +4548,9 @@ export default function GoldenGateDesigner() {
               <button
                 onClick={handleAcceptAndDesignPrimers}
                 disabled={isOptimizing}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  padding: '0.75rem 1.5rem',
-                  background: '#22c55e',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '0.5rem',
-                  fontSize: '1rem',
-                  fontWeight: '600',
-                  cursor: isOptimizing ? 'not-allowed' : 'pointer',
-                  opacity: isOptimizing ? 0.7 : 1,
-                  transition: 'all 0.2s',
-                }}
-                onMouseOver={(e) => !isOptimizing && ((e.target as HTMLElement).style.background = '#16a34a')}
-                onMouseOut={(e) => (e.target as HTMLElement).style.background = '#22c55e'}
+                className={`flex items-center gap-2 py-3 px-6 bg-green-500 text-white border-none rounded-lg text-base font-semibold transition-all duration-200 hover:bg-green-600 ${
+                  isOptimizing ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
+                }`}
               >
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
                   <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
@@ -4651,7 +4586,7 @@ export default function GoldenGateDesigner() {
                   <path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/>
                 </svg>
                 Load
-                <input type="file" accept=".json" onChange={handleLoadProject} style={{ display: 'none' }} />
+                <input type="file" accept=".json" onChange={handleLoadProject} className="hidden" />
               </label>
             </div>
             <div className="toolbar-divider" />
@@ -4944,26 +4879,16 @@ export default function GoldenGateDesigner() {
 
               {/* Boundary Optimization Panel - shown when assessment indicates potential improvements */}
               {isGoldenGate && boundaryAssessment && (
-                <div className="boundary-optimization-panel" style={{
-                  marginTop: '1rem',
-                  padding: '1rem',
-                  borderRadius: '0.5rem',
+                <div className="boundary-optimization-panel mt-4 p-4 rounded-lg" style={{
                   background: boundaryAssessment.needsOptimization
                     ? 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)'
                     : 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
                   border: `1px solid ${boundaryAssessment.needsOptimization ? '#fcd34d' : '#86efac'}`,
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
-                    <div style={{
-                      width: '32px',
-                      height: '32px',
-                      borderRadius: '50%',
-                      background: boundaryAssessment.needsOptimization ? '#fbbf24' : '#22c55e',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}>
+                  <div className="flex items-start gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      boundaryAssessment.needsOptimization ? 'bg-amber-400' : 'bg-green-500'
+                    }`}>
                       <svg viewBox="0 0 24 24" width="18" height="18" fill="white">
                         {boundaryAssessment.needsOptimization ? (
                           <path d="M12 5.99L19.53 19H4.47L12 5.99M12 2L1 21h22L12 2zm1 14h-2v2h2v-2zm0-6h-2v4h2v-4z"/>
@@ -4972,42 +4897,31 @@ export default function GoldenGateDesigner() {
                         )}
                       </svg>
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <h4 style={{
-                        margin: '0 0 0.25rem 0',
-                        fontSize: '0.938rem',
-                        fontWeight: 600,
-                        color: boundaryAssessment.needsOptimization ? '#92400e' : '#166534',
-                      }}>
+                    <div className="flex-1">
+                      <h4 className={`m-0 mb-1 text-[0.938rem] font-semibold ${
+                        boundaryAssessment.needsOptimization ? 'text-amber-800' : 'text-green-800'
+                      }`}>
                         {boundaryAssessment.needsOptimization
                           ? 'Primer Quality Could Be Improved'
                           : 'Primer Quality is Good'}
                       </h4>
-                      <p style={{
-                        margin: '0 0 0.75rem 0',
-                        fontSize: '0.813rem',
-                        color: boundaryAssessment.needsOptimization ? '#a16207' : '#15803d',
-                      }}>
+                      <p className={`m-0 mb-3 text-[0.813rem] ${
+                        boundaryAssessment.needsOptimization ? 'text-amber-700' : 'text-green-700'
+                      }`}>
                         {boundaryAssessment.recommendation}
                       </p>
 
                       {boundaryAssessment.needsOptimization && boundaryAssessment.issues?.length > 0 && (
-                        <div style={{
-                          marginBottom: '0.75rem',
-                          padding: '0.5rem',
-                          background: 'rgba(255,255,255,0.7)',
-                          borderRadius: '0.25rem',
-                          fontSize: '0.75rem',
-                        }}>
-                          <strong style={{ display: 'block', marginBottom: '0.25rem' }}>Issues found:</strong>
+                        <div className="mb-3 p-2 bg-white/70 rounded text-xs">
+                          <strong className="block mb-1">Issues found:</strong>
                           {boundaryAssessment.issues.slice(0, 3).map((issue, i) => (
-                            <div key={i} style={{ color: '#78350f', marginLeft: '0.5rem' }}>
+                            <div key={i} className="text-amber-900 ml-2">
                               • Junction {issue.junction + 1} ({issue.side}): {issue.quality} quality
                               {issue.issues?.[0] && ` - ${issue.issues[0]}`}
                             </div>
                           ))}
                           {boundaryAssessment.issues.length > 3 && (
-                            <div style={{ color: '#78350f', marginLeft: '0.5rem', fontStyle: 'italic' }}>
+                            <div className="text-amber-900 ml-2 italic">
                               + {boundaryAssessment.issues.length - 3} more issues
                             </div>
                           )}
@@ -5018,20 +4932,9 @@ export default function GoldenGateDesigner() {
                         <button
                           onClick={handleOptimizeBoundaries}
                           disabled={isOptimizingBoundaries}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            padding: '0.5rem 1rem',
-                            background: '#f59e0b',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '0.375rem',
-                            fontSize: '0.875rem',
-                            fontWeight: 500,
-                            cursor: isOptimizingBoundaries ? 'not-allowed' : 'pointer',
-                            opacity: isOptimizingBoundaries ? 0.7 : 1,
-                          }}
+                          className={`inline-flex items-center gap-2 py-2 px-4 bg-amber-500 text-white border-none rounded-md text-sm font-medium ${
+                            isOptimizingBoundaries ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
+                          }`}
                         >
                           {isOptimizingBoundaries ? (
                             <>

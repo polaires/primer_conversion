@@ -396,33 +396,22 @@ const FornaViewer: FC<FornaViewerProps> = ({
   const svgHeight = height - 70; // Account for header and footer
 
   return (
-    <div style={{
+    <div className="rounded-lg p-4 overflow-hidden" style={{
       background: theme.bg,
-      borderRadius: '8px',
-      padding: '16px',
       border: `1px solid ${theme.border}`,
-      overflow: 'hidden'
     }}>
       {/* Header */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '12px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ color: theme.text, fontWeight: 'bold', fontSize: '15px' }}>{label}</span>
+      <div className="flex justify-between items-center mb-3">
+        <div className="flex items-center gap-2.5">
+          <span className="font-bold text-[15px]" style={{ color: theme.text }}>{label}</span>
           {onShift && (
-            <div style={{ display: 'flex', gap: '3px' }}>
+            <div className="flex gap-0.5">
               <button
                 onClick={() => onShift(-1)}
+                className="rounded px-2 py-1 cursor-pointer text-sm"
                 style={{
                   background: theme.bgSecondary,
                   border: `1px solid ${theme.border}`,
-                  borderRadius: '4px',
-                  padding: '4px 8px',
-                  cursor: 'pointer',
-                  fontSize: '14px'
                 }}
                 title="Shift primer 1bp upstream"
               >
@@ -430,13 +419,10 @@ const FornaViewer: FC<FornaViewerProps> = ({
               </button>
               <button
                 onClick={() => onShift(1)}
+                className="rounded px-2 py-1 cursor-pointer text-sm"
                 style={{
                   background: theme.bgSecondary,
                   border: `1px solid ${theme.border}`,
-                  borderRadius: '4px',
-                  padding: '4px 8px',
-                  cursor: 'pointer',
-                  fontSize: '14px'
                 }}
                 title="Shift primer 1bp downstream"
               >
@@ -445,12 +431,7 @@ const FornaViewer: FC<FornaViewerProps> = ({
             </div>
           )}
         </div>
-        <span style={{
-          color: energyColor,
-          fontSize: '14px',
-          fontFamily: 'monospace',
-          fontWeight: 'bold'
-        }}>
+        <span className="text-sm font-mono font-bold" style={{ color: energyColor }}>
           ΔG = {energy.toFixed(1)} kcal/mol
         </span>
       </div>
@@ -461,11 +442,8 @@ const FornaViewer: FC<FornaViewerProps> = ({
         height={svgHeight}
         viewBox={viewBox}
         preserveAspectRatio="xMidYMid meet"
-        style={{
-          background: theme.bgTertiary,
-          borderRadius: '8px',
-          display: 'block',
-        }}
+        className="rounded-lg block"
+        style={{ background: theme.bgTertiary }}
       >
         <defs>
           <linearGradient
@@ -652,18 +630,11 @@ const FornaViewer: FC<FornaViewerProps> = ({
       </svg>
 
       {/* Status bar */}
-      <div style={{
+      <div className="rounded-md p-2 px-3.5 mt-3 text-center" style={{
         background: basePairs.length > 0 ? theme.warningBg : theme.successBg,
-        borderRadius: '6px',
-        padding: '8px 14px',
-        marginTop: '12px',
-        textAlign: 'center'
       }}>
-        <span style={{
+        <span className="text-xs font-mono font-medium" style={{
           color: basePairs.length > 0 ? theme.warning : theme.success,
-          fontSize: '12px',
-          fontFamily: 'monospace',
-          fontWeight: '500'
         }}>
           {basePairs.length > 0
             ? `${basePairs.length} base pair${basePairs.length > 1 ? 's' : ''} – Hairpin detected`
@@ -672,14 +643,7 @@ const FornaViewer: FC<FornaViewerProps> = ({
       </div>
 
       {/* Legend */}
-      <div style={{
-        display: 'flex',
-        gap: '16px',
-        marginTop: '10px',
-        fontSize: '11px',
-        color: theme.textMuted,
-        justifyContent: 'center'
-      }}>
+      <div className="flex gap-4 mt-2.5 text-[11px] justify-center" style={{ color: theme.textMuted }}>
         <span><span style={{ color: theme.success }}>●</span> G/C</span>
         <span><span style={{ color: '#ea580c' }}>●</span> A/T</span>
         <span><span style={{ color: theme.prime3 }}>●</span> 3' region</span>

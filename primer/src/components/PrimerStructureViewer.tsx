@@ -450,55 +450,54 @@ function ForceDirectedStructure({
 
   if (simpleView) {
     return (
-      <div style={{ background: theme.bg, borderRadius: '8px', padding: '12px', border: `1px solid ${theme.border}`, overflow: 'hidden' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ color: theme.text, fontWeight: 'bold', fontSize: '13px' }}>{label}</span>
+      <div className="rounded-lg p-3 border overflow-hidden" style={{ background: theme.bg, borderColor: theme.border }}>
+        <div className="flex justify-between items-center mb-2">
+          <div className="flex items-center gap-2">
+            <span className="font-bold" style={{ color: theme.text, fontSize: '13px' }}>{label}</span>
             {onShift && (
-              <div style={{ display: 'flex', gap: '2px' }}>
-                <button onClick={() => onShift(-1)} style={{ background: theme.bgSecondary, border: `1px solid ${theme.border}`, borderRadius: '4px', padding: '2px 6px', cursor: 'pointer', fontSize: '12px' }}>◀</button>
-                <button onClick={() => onShift(1)} style={{ background: theme.bgSecondary, border: `1px solid ${theme.border}`, borderRadius: '4px', padding: '2px 6px', cursor: 'pointer', fontSize: '12px' }}>▶</button>
+              <div className="flex gap-0.5">
+                <button onClick={() => onShift(-1)} className="rounded px-1.5 py-0.5 cursor-pointer text-xs border" style={{ background: theme.bgSecondary, borderColor: theme.border }}>◀</button>
+                <button onClick={() => onShift(1)} className="rounded px-1.5 py-0.5 cursor-pointer text-xs border" style={{ background: theme.bgSecondary, borderColor: theme.border }}>▶</button>
               </div>
             )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ color: energyColor, fontSize: '12px', fontFamily: 'monospace', fontWeight: 'bold' }}>
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-mono font-bold" style={{ color: energyColor }}>
               ΔG = {energy.toFixed(1)} kcal/mol
             </span>
-            <button onClick={handleToggleView} style={{ background: theme.bgSecondary, border: `1px solid ${theme.border}`, borderRadius: '4px', color: theme.text, padding: '4px 8px', fontSize: '10px', cursor: 'pointer' }}>
+            <button onClick={handleToggleView} className="rounded px-2 py-1 cursor-pointer border" style={{ background: theme.bgSecondary, borderColor: theme.border, color: theme.text, fontSize: '10px' }}>
               ◉ Full View
             </button>
           </div>
         </div>
 
-        <div style={{ background: theme.bgTertiary, borderRadius: '6px', padding: '12px', fontFamily: 'monospace' }}>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ color: theme.prime3, marginRight: '8px', fontSize: '11px' }}>5'</span>
+        <div className="rounded-md p-3 font-mono" style={{ background: theme.bgTertiary }}>
+          <div className="flex items-center mb-2">
+            <span className="mr-2" style={{ color: theme.prime3, fontSize: '11px' }}>5'</span>
             {sequence.split('').map((base, i) => {
               const isPaired = basePairs.some(([a, b]) => a === i || b === i);
               const is3Prime = i >= sequence.length - 5;
               const prob = nodes[i]?.pairingProb || 0;
 
               return (
-                <span key={i} style={{
-                  display: 'inline-block', width: '16px', height: '24px', lineHeight: '24px',
-                  textAlign: 'center', fontSize: '11px', fontWeight: isPaired ? 'bold' : 'normal',
+                <span key={i} className="inline-block text-center rounded-sm" style={{
+                  width: '16px', height: '24px', lineHeight: '24px',
+                  fontSize: '11px', fontWeight: isPaired ? 'bold' : 'normal',
                   color: getProbabilityColor(prob, i),
                   background: is3Prime ? 'rgba(37, 99, 235, 0.1)' : 'transparent',
-                  borderRadius: '2px',
                   borderBottom: isPaired ? `2px solid ${getProbabilityColor(prob, i)}` : 'none',
                 }} title={`${base} (pos ${i + 1}) - Risk: ${(prob * 100).toFixed(0)}%${is3Prime ? ' [3\']' : ''}`}>
                   {base}
                 </span>
               );
             })}
-            <span style={{ color: theme.danger, marginLeft: '8px', fontSize: '11px' }}>3'</span>
+            <span className="ml-2" style={{ color: theme.danger, fontSize: '11px' }}>3'</span>
           </div>
-          <div style={{ display: 'flex', gap: '12px', fontSize: '9px', color: theme.textMuted, marginTop: '8px' }}>
+          <div className="flex gap-3 mt-2" style={{ fontSize: '9px', color: theme.textMuted }}>
             <span><span style={{ color: theme.success }}>●</span> Safe</span>
             <span><span style={{ color: theme.warning }}>●</span> Moderate</span>
             <span><span style={{ color: theme.danger }}>●</span> Critical</span>
-            <span style={{ marginLeft: 'auto' }}>{basePairs.length > 0 ? `${basePairs.length} bp` : 'No structure'}</span>
+            <span className="ml-auto">{basePairs.length > 0 ? `${basePairs.length} bp` : 'No structure'}</span>
           </div>
         </div>
       </div>
@@ -506,22 +505,22 @@ function ForceDirectedStructure({
   }
 
   return (
-    <div style={{ background: theme.bg, borderRadius: '8px', padding: '12px', border: `1px solid ${theme.border}`, overflow: 'hidden' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ color: theme.text, fontWeight: 'bold', fontSize: '13px' }}>{label}</span>
+    <div className="rounded-lg p-3 border overflow-hidden" style={{ background: theme.bg, borderColor: theme.border }}>
+      <div className="flex justify-between items-center mb-2">
+        <div className="flex items-center gap-2">
+          <span className="font-bold" style={{ color: theme.text, fontSize: '13px' }}>{label}</span>
           {onShift && (
-            <div style={{ display: 'flex', gap: '2px' }}>
-              <button onClick={() => onShift(-1)} style={{ background: theme.bgSecondary, border: `1px solid ${theme.border}`, borderRadius: '4px', padding: '2px 6px', cursor: 'pointer', fontSize: '12px' }} title="Shift primer 1bp upstream">◀</button>
-              <button onClick={() => onShift(1)} style={{ background: theme.bgSecondary, border: `1px solid ${theme.border}`, borderRadius: '4px', padding: '2px 6px', cursor: 'pointer', fontSize: '12px' }} title="Shift primer 1bp downstream">▶</button>
+            <div className="flex gap-0.5">
+              <button onClick={() => onShift(-1)} className="rounded px-1.5 py-0.5 cursor-pointer text-xs border" style={{ background: theme.bgSecondary, borderColor: theme.border }} title="Shift primer 1bp upstream">◀</button>
+              <button onClick={() => onShift(1)} className="rounded px-1.5 py-0.5 cursor-pointer text-xs border" style={{ background: theme.bgSecondary, borderColor: theme.border }} title="Shift primer 1bp downstream">▶</button>
             </div>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ color: energyColor, fontSize: '12px', fontFamily: 'monospace', fontWeight: 'bold' }}>
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-mono font-bold" style={{ color: energyColor }}>
             ΔG = {energy.toFixed(1)} kcal/mol
           </span>
-          <button onClick={handleToggleView} style={{ background: theme.bgSecondary, border: `1px solid ${theme.border}`, borderRadius: '4px', color: theme.text, padding: '4px 8px', fontSize: '10px', cursor: 'pointer' }}>
+          <button onClick={handleToggleView} className="rounded px-2 py-1 cursor-pointer border" style={{ background: theme.bgSecondary, borderColor: theme.border, color: theme.text, fontSize: '10px' }}>
             ○ Simple View
           </button>
         </div>
@@ -533,13 +532,8 @@ function ForceDirectedStructure({
         height={height}
         viewBox={viewBox}
         preserveAspectRatio="xMidYMid meet"
-        style={{
-          background: theme.bgTertiary,
-          borderRadius: '6px',
-          overflow: 'hidden',
-          display: 'block',
-          maxWidth: '100%'
-        }}
+        className="rounded-md overflow-hidden block max-w-full"
+        style={{ background: theme.bgTertiary }}
       >
         {/* Gradient definition for backbone direction */}
         <defs>
@@ -672,19 +666,15 @@ function ForceDirectedStructure({
       </svg>
 
       {/* Status bar - outside SVG so it's not affected by viewBox */}
-      <div style={{
-        background: basePairs.length > 0 ? theme.warningBg : theme.successBg,
-        borderRadius: '4px',
-        padding: '6px 12px',
-        marginTop: '8px',
-        textAlign: 'center'
+      <div className="rounded px-3 py-1.5 mt-2 text-center" style={{
+        background: basePairs.length > 0 ? theme.warningBg : theme.successBg
       }}>
-        <span style={{ color: basePairs.length > 0 ? theme.warning : theme.success, fontSize: '10px', fontFamily: 'monospace' }}>
+        <span className="font-mono" style={{ color: basePairs.length > 0 ? theme.warning : theme.success, fontSize: '10px' }}>
           {basePairs.length > 0 ? `${basePairs.length} base pair${basePairs.length > 1 ? 's' : ''} – Hairpin detected` : 'Linear structure – No secondary structure'}
         </span>
       </div>
 
-      <div style={{ display: 'flex', gap: '12px', marginTop: '8px', fontSize: '9px', color: theme.textMuted, justifyContent: 'center' }}>
+      <div className="flex gap-3 mt-2 justify-center" style={{ fontSize: '9px', color: theme.textMuted }}>
         <span><span style={{ color: theme.success }}>●</span> Safe</span>
         <span><span style={{ color: theme.warning }}>●</span> Moderate</span>
         <span><span style={{ color: '#ea580c' }}>●</span> High risk</span>
@@ -712,7 +702,7 @@ function CrossDimerZipper({
 
   if (!alignment) {
     return (
-      <div style={{ background: theme.bg, borderRadius: '8px', padding: '16px', textAlign: 'center', color: theme.textMuted, border: `1px solid ${theme.border}` }}>
+      <div className="rounded-lg p-4 text-center border" style={{ background: theme.bg, color: theme.textMuted, borderColor: theme.border }}>
         Unable to analyze cross-dimer
       </div>
     );
@@ -761,17 +751,16 @@ function CrossDimerZipper({
   const pairedPositions2 = new Set(pairs.map(p => p.j));
 
   return (
-    <div style={{ background: theme.bg, borderRadius: '8px', padding: '16px', border: `1px solid ${colors.border}` }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '18px' }}>
+    <div className="rounded-lg p-4 border" style={{ background: theme.bg, borderColor: colors.border }}>
+      <div className="flex justify-between items-center mb-3">
+        <div className="flex items-center gap-2.5">
+          <span className="text-lg">
             {severity === 'critical' ? '⚠️' : severity === 'warning' ? '⚡' : '✓'}
           </span>
-          <span style={{ color: theme.text, fontWeight: 'bold' }}>Cross-Dimer Analysis</span>
+          <span className="font-bold" style={{ color: theme.text }}>Cross-Dimer Analysis</span>
         </div>
-        <span style={{
-          padding: '4px 12px', borderRadius: '4px', background: colors.badgeBg, color: colors.badge,
-          fontSize: '11px', fontWeight: 'bold', fontFamily: 'monospace'
+        <span className="px-3 py-1 rounded font-bold font-mono" style={{
+          background: colors.badgeBg, color: colors.badge, fontSize: '11px'
         }}>
           {dimerType === '3prime_extensible' ? "3' EXTENSIBLE DIMER!" :
            dimerType === 'ligation_junction' ? '🔗 Ligation Junction (Intended)' :
@@ -796,14 +785,14 @@ function CrossDimerZipper({
         const totalLen = Math.max(forwardSeq.length + fwdPadding, reverseSeq.length + revPadding);
 
         return (
-          <div style={{ background: theme.bgTertiary, borderRadius: '6px', padding: '16px', fontFamily: 'monospace', fontSize: '12px', overflowX: 'auto' }}>
+          <div className="rounded-md p-4 font-mono text-xs overflow-x-auto" style={{ background: theme.bgTertiary }}>
             {/* Forward primer */}
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px', whiteSpace: 'nowrap' }}>
-              <span style={{ color: theme.info, width: '70px', flexShrink: 0 }}>Forward:</span>
-              <span style={{ color: theme.info, width: '50px', flexShrink: 0, textAlign: 'right', marginRight: '4px' }}>5' —</span>
+            <div className="flex items-center mb-1 whitespace-nowrap">
+              <span className="flex-shrink-0" style={{ color: theme.info, width: '70px' }}>Forward:</span>
+              <span className="flex-shrink-0 text-right mr-1" style={{ color: theme.info, width: '50px' }}>5' —</span>
               {/* Padding spacers */}
               {Array(fwdPadding).fill(null).map((_, i) => (
-                <span key={`fpad-${i}`} style={{ display: 'inline-block', width: '10px', textAlign: 'center', color: 'transparent' }}>·</span>
+                <span key={`fpad-${i}`} className="inline-block text-center text-transparent" style={{ width: '10px' }}>·</span>
               ))}
               {forwardSeq.split('').map((base, i) => {
                 const isPaired = pairedPositions1.has(i);
@@ -845,25 +834,25 @@ function CrossDimerZipper({
                 } : {};
 
                 return (
-                  <span key={i} style={{ color, background: bg, padding: '0 1px', fontWeight: isPaired ? 'bold' : 'normal', display: 'inline-block', width: '10px', textAlign: 'center', ...boxStyle }}>
+                  <span key={i} className="inline-block text-center" style={{ color, background: bg, padding: '0 1px', fontWeight: isPaired ? 'bold' : 'normal', width: '10px', ...boxStyle }}>
                     {base}
                   </span>
                 );
               })}
-              <span style={{ color: theme.info, marginLeft: '4px' }}>—▶ 3'</span>
+              <span className="ml-1" style={{ color: theme.info }}>—▶ 3'</span>
             </div>
 
             {/* Binding lines */}
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px', whiteSpace: 'nowrap' }}>
-              <span style={{ width: '70px', flexShrink: 0 }}></span>
-              <span style={{ width: '50px', flexShrink: 0, marginRight: '4px' }}></span>
+            <div className="flex items-center mb-1 whitespace-nowrap">
+              <span className="flex-shrink-0" style={{ width: '70px' }}></span>
+              <span className="flex-shrink-0 mr-1" style={{ width: '50px' }}></span>
               {/* Padding spacers */}
               {Array(fwdPadding).fill(null).map((_, i) => (
-                <span key={`bpad-${i}`} style={{ display: 'inline-block', width: '10px', textAlign: 'center' }}>&nbsp;</span>
+                <span key={`bpad-${i}`} className="inline-block text-center" style={{ width: '10px' }}>&nbsp;</span>
               ))}
               {forwardSeq.split('').map((_, i) => {
                 const pair = pairs.find(p => p.i === i);
-                if (!pair) return <span key={i} style={{ display: 'inline-block', width: '10px', textAlign: 'center' }}>&nbsp;</span>;
+                if (!pair) return <span key={i} className="inline-block text-center" style={{ width: '10px' }}>&nbsp;</span>;
 
                 const is3Prime = i >= forwardSeq.length - 5 || pair.j >= reverseSeq.length - 5;
                 const is5Prime = i < 5 && pair.j >= reverseSeq.length - 5;
@@ -874,7 +863,7 @@ function CrossDimerZipper({
                 else if (is5Prime && hasLigationJunction) color = theme.success;
 
                 return (
-                  <span key={i} style={{ color, fontWeight: 'bold', display: 'inline-block', width: '10px', textAlign: 'center' }}>
+                  <span key={i} className="font-bold inline-block text-center" style={{ color, width: '10px' }}>
                     {isStrong ? '║' : '│'}
                   </span>
                 );
@@ -882,12 +871,12 @@ function CrossDimerZipper({
             </div>
 
             {/* Reverse primer - displayed 3' to 5' but aligned by offset */}
-            <div style={{ display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
-              <span style={{ color: '#7c3aed', width: '70px', flexShrink: 0 }}>Reverse:</span>
-              <span style={{ color: '#7c3aed', width: '50px', flexShrink: 0, textAlign: 'right', marginRight: '4px' }}>3' ◀—</span>
+            <div className="flex items-center whitespace-nowrap">
+              <span className="flex-shrink-0" style={{ color: '#7c3aed', width: '70px' }}>Reverse:</span>
+              <span className="flex-shrink-0 text-right mr-1" style={{ color: '#7c3aed', width: '50px' }}>3' ◀—</span>
               {/* Padding spacers for reverse */}
               {Array(revPadding).fill(null).map((_, i) => (
-                <span key={`rpad-${i}`} style={{ display: 'inline-block', width: '10px', textAlign: 'center', color: 'transparent' }}>·</span>
+                <span key={`rpad-${i}`} className="inline-block text-center text-transparent" style={{ width: '10px' }}>·</span>
               ))}
               {reverseSeq.split('').reverse().map((base, i) => {
                 const actualIndex = reverseSeq.length - 1 - i;
@@ -923,44 +912,44 @@ function CrossDimerZipper({
                 } : {};
 
                 return (
-                  <span key={i} style={{ color, background: bg, padding: '0 1px', fontWeight: isPaired ? 'bold' : 'normal', display: 'inline-block', width: '10px', textAlign: 'center', ...boxStyle }}>
+                  <span key={i} className="inline-block text-center" style={{ color, background: bg, padding: '0 1px', fontWeight: isPaired ? 'bold' : 'normal', width: '10px', ...boxStyle }}>
                     {base}
                   </span>
                 );
               })}
-              <span style={{ color: '#7c3aed', marginLeft: '4px' }}>— 5'</span>
+              <span className="ml-1" style={{ color: '#7c3aed' }}>— 5'</span>
             </div>
           </div>
         );
       })()}
 
       {/* Stats */}
-      <div style={{ display: 'flex', gap: '16px', marginTop: '12px', padding: '10px', background: theme.bgSecondary, borderRadius: '6px' }}>
+      <div className="flex gap-4 mt-3 p-2.5 rounded-md" style={{ background: theme.bgSecondary }}>
         <div style={{ fontSize: '11px' }}>
           <span style={{ color: theme.textMuted }}>Paired bases: </span>
-          <span style={{ color: theme.text, fontWeight: 'bold' }}>{pairs.length}</span>
+          <span className="font-bold" style={{ color: theme.text }}>{pairs.length}</span>
         </div>
         <div style={{ fontSize: '11px' }}>
           <span style={{ color: theme.textMuted }}>Max consecutive: </span>
-          <span style={{ color: theme.text, fontWeight: 'bold' }}>{maxConsecutive}</span>
+          <span className="font-bold" style={{ color: theme.text }}>{maxConsecutive}</span>
         </div>
         <div style={{ fontSize: '11px' }}>
           <span style={{ color: theme.textMuted }}>FWD 3' involved: </span>
-          <span style={{ color: involves3Prime1 ? theme.danger : theme.success, fontWeight: 'bold' }}>
+          <span className="font-bold" style={{ color: involves3Prime1 ? theme.danger : theme.success }}>
             {involves3Prime1 ? 'YES ⚠️' : 'No'}
           </span>
         </div>
         <div style={{ fontSize: '11px' }}>
           <span style={{ color: theme.textMuted }}>REV 3' involved: </span>
-          <span style={{ color: involves3Prime2 ? theme.danger : theme.success, fontWeight: 'bold' }}>
+          <span className="font-bold" style={{ color: involves3Prime2 ? theme.danger : theme.success }}>
             {involves3Prime2 ? 'YES ⚠️' : 'No'}
           </span>
         </div>
       </div>
 
       {/* Dynamic suggestions */}
-      <div style={{ marginTop: '12px', padding: '12px', background: colors.bg, borderRadius: '6px', border: `1px solid ${colors.border}`, fontSize: '12px' }}>
-        <div style={{ fontWeight: 'bold', color: colors.text, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <div className="mt-3 p-3 rounded-md border text-xs" style={{ background: colors.bg, borderColor: colors.border }}>
+        <div className="font-bold mb-2 flex items-center gap-1.5" style={{ color: colors.text }}>
           {severity === 'critical' ? '⚠️ Critical: 3\' Extensible Dimer!' :
            severity === 'warning' ? '⚡ Attention Recommended' :
            hasLigationJunction ? '🔗 SDM Ligation Junction Detected' : '✓ Good Primer Pair'}
@@ -968,13 +957,13 @@ function CrossDimerZipper({
 
         {severity === 'critical' ? (
           <div style={{ color: colors.text }}>
-            <p style={{ margin: '0 0 8px 0' }}>
+            <p className="m-0 mb-2">
               <strong>3' ends can extend off each other</strong> ({maxConsecutive} consecutive bp).
               This is the most severe type of primer dimer - polymerase can extend both 3' ends, creating artifacts.
             </p>
-            <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: `1px solid ${theme.danger}33` }}>
+            <div className="mt-2.5 pt-2.5" style={{ borderTop: `1px solid ${theme.danger}33` }}>
               <strong>💡 Suggestions:</strong>
-              <ul style={{ margin: '6px 0 0 16px', padding: 0, color: theme.text, lineHeight: '1.6' }}>
+              <ul className="mt-1.5 ml-4 p-0 leading-relaxed" style={{ color: theme.text }}>
                 <li>Try shifting one primer by 2-3 bases</li>
                 {involves3Prime1 && <li>Modify forward primer's 3' end</li>}
                 {involves3Prime2 && <li>Modify reverse primer's 3' end</li>}
@@ -984,14 +973,14 @@ function CrossDimerZipper({
           </div>
         ) : severity === 'warning' ? (
           <div style={{ color: colors.text }}>
-            <p style={{ margin: '0 0 8px 0' }}>
+            <p className="m-0 mb-2">
               {dimerType === 'internal_with_3prime'
                 ? `Internal binding with one 3' end involved (${pairs.length} bp). This may cause some dimer formation but 3' end is not fully hybridized.`
                 : `Internal/5' binding detected (${pairs.length} bp). The 3' ends are free (dangling), so this is annoying but often PCR-viable.`}
             </p>
-            <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: `1px solid ${theme.warning}33` }}>
+            <div className="mt-2.5 pt-2.5" style={{ borderTop: `1px solid ${theme.warning}33` }}>
               <strong>💡 Suggestions:</strong>
-              <ul style={{ margin: '6px 0 0 16px', padding: 0, color: theme.text, lineHeight: '1.6' }}>
+              <ul className="mt-1.5 ml-4 p-0 leading-relaxed" style={{ color: theme.text }}>
                 <li>Monitor for primer-dimer bands</li>
                 <li>Consider increasing annealing temp by 2-3°C</li>
                 <li>Reduce primer concentration if dimers observed</li>
@@ -1000,18 +989,18 @@ function CrossDimerZipper({
           </div>
         ) : hasLigationJunction ? (
           <div style={{ color: colors.text }}>
-            <p style={{ margin: '0' }}>
+            <p className="m-0">
               <strong>SDM back-to-back design:</strong> The 5' ends show complementarity which is <em>expected and intended</em>.
               This forms the ligation junction for plasmid circularization after KLD enzyme treatment.
             </p>
-            <p style={{ margin: '8px 0 0 0', color: theme.textSecondary, fontSize: '11px' }}>
+            <p className="mt-2 mb-0" style={{ color: theme.textSecondary, fontSize: '11px' }}>
               ✓ 3' ends are free (not hybridized) - primers will work correctly<br/>
               ✓ 5' junction allows efficient KLD ligation
             </p>
           </div>
         ) : (
           <div style={{ color: colors.text }}>
-            <p style={{ margin: '0' }}>
+            <p className="m-0">
               {pairs.length > 0
                 ? `Minor complementarity (${pairs.length} bp) is within acceptable limits.`
                 : 'No significant cross-dimer potential detected.'}
@@ -1070,10 +1059,10 @@ function ThermodynamicHeatmap({
   const range = maxE - minE || 1;
 
   return (
-    <div style={{ background: theme.bg, borderRadius: '8px', padding: '12px', border: `1px solid ${theme.border}` }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-        <span style={{ color: theme.text, fontWeight: 'bold', fontSize: '13px' }}>{label} Analysis</span>
-        <div style={{ display: 'flex', gap: '12px', fontSize: '11px' }}>
+    <div className="rounded-lg p-3 border" style={{ background: theme.bg, borderColor: theme.border }}>
+      <div className="flex justify-between items-center mb-2.5">
+        <span className="font-bold" style={{ color: theme.text, fontSize: '13px' }}>{label} Analysis</span>
+        <div className="flex gap-3" style={{ fontSize: '11px' }}>
           <span style={{ color: theme.textMuted }}>
             GC: <strong style={{ color: theme.text }}>{gcContent}%</strong>
           </span>
@@ -1085,18 +1074,18 @@ function ThermodynamicHeatmap({
         </div>
       </div>
 
-      <div style={{ background: theme.bgTertiary, borderRadius: '6px', padding: '12px', paddingTop: '40px', overflowX: 'auto' }}>
+      <div className="rounded-md p-3 pt-10 overflow-x-auto" style={{ background: theme.bgTertiary }}>
         {/* Y-axis label for binding strength */}
-        <div style={{ display: 'flex' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', marginRight: '8px', height: `${barHeight}px` }}>
-            <span style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: '9px', color: theme.textMuted, fontFamily: 'monospace' }}>
+        <div className="flex">
+          <div className="flex flex-col justify-center mr-2" style={{ height: `${barHeight}px` }}>
+            <span className="font-mono" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: '9px', color: theme.textMuted }}>
               Strength
             </span>
           </div>
 
-          <div style={{ flex: 1, position: 'relative' }}>
+          <div className="flex-1 relative">
             {/* Binding Strength Bars */}
-            <div style={{ display: 'flex', height: `${barHeight}px`, position: 'relative' }}>
+            <div className="flex relative" style={{ height: `${barHeight}px` }}>
               {sequence.split('').map((base, i) => {
                 const strength = getBindingStrength(base, i);
                 const height = Math.round(strength * barHeight);
@@ -1110,9 +1099,8 @@ function ThermodynamicHeatmap({
                 if (is3Prime) color = isGC ? theme.gc : theme.prime3;
 
                 return (
-                  <div key={i} style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', width: '18px',
-                    position: 'relative', cursor: 'pointer',
+                  <div key={i} className="flex flex-col items-center relative cursor-pointer" style={{
+                    width: '18px',
                     borderTop: is3Prime ? `2px solid ${theme.prime3}50` : 'none',
                     borderBottom: is3Prime ? `2px solid ${theme.prime3}50` : 'none',
                     borderLeft: isFirst3Prime ? `2px solid ${theme.prime3}50` : 'none',
@@ -1123,19 +1111,17 @@ function ThermodynamicHeatmap({
                     onMouseEnter={() => setHoveredBar(i)}
                     onMouseLeave={() => setHoveredBar(null)}
                   >
-                    <div style={{
+                    <div className="rounded-t-sm transition-all duration-150" style={{
                       width: isHovered ? '16px' : '14px', height: `${height}px`,
                       background: color, opacity: isHovered ? 1 : (0.4 + strength * 0.4),
-                      borderRadius: '2px 2px 0 0', marginTop: `${barHeight - height}px`,
-                      transition: 'all 0.15s ease',
+                      marginTop: `${barHeight - height}px`,
                       boxShadow: isHovered ? `0 0 8px ${color}` : 'none',
                     }} />
 
                     {isHovered && (
-                      <div style={{
-                        position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
-                        background: theme.text, borderRadius: '4px', padding: '4px 8px',
-                        fontSize: '9px', color: theme.bg, whiteSpace: 'nowrap', zIndex: 10, marginBottom: '4px', fontFamily: 'monospace'
+                      <div className="absolute rounded px-2 py-1 whitespace-nowrap z-10 mb-1 font-mono -translate-x-1/2" style={{
+                        bottom: '100%', left: '50%',
+                        background: theme.text, fontSize: '9px', color: theme.bg
                       }}>
                         <div>{base} @ pos {i + 1}</div>
                         <div>{(strength * 100).toFixed(0)}% • {energies[i]?.toFixed(1) || 'N/A'} kcal/mol</div>
@@ -1147,13 +1133,13 @@ function ThermodynamicHeatmap({
             </div>
 
             {/* Sequence labels */}
-            <div style={{ display: 'flex', marginTop: '4px' }}>
+            <div className="flex mt-1">
               {sequence.split('').map((base, i) => {
                 const isGC = base === 'G' || base === 'C';
                 const is3Prime = i >= sequence.length - 5;
                 return (
-                  <span key={i} style={{
-                    width: '18px', textAlign: 'center', fontFamily: 'monospace', fontSize: '12px',
+                  <span key={i} className="text-center font-mono text-xs" style={{
+                    width: '18px',
                     color: is3Prime ? (isGC ? theme.gc : theme.prime3) : (isGC ? theme.gc : theme.textMuted),
                     fontWeight: is3Prime ? 'bold' : 'normal',
                     background: is3Prime ? `${theme.prime3}10` : 'transparent'
@@ -1165,9 +1151,9 @@ function ThermodynamicHeatmap({
             </div>
 
             {/* Position markers */}
-            <div style={{ display: 'flex' }}>
+            <div className="flex">
               {sequence.split('').map((_, i) => (
-                <span key={i} style={{ width: '18px', textAlign: 'center', fontSize: '8px', color: theme.textMuted, fontFamily: 'monospace' }}>
+                <span key={i} className="text-center font-mono" style={{ width: '18px', fontSize: '8px', color: theme.textMuted }}>
                   {(i + 1) % 5 === 0 ? i + 1 : ''}
                 </span>
               ))}
@@ -1180,17 +1166,17 @@ function ThermodynamicHeatmap({
 
         {/* ΔG Sparkline Section */}
         {energies.length > 0 && (
-          <div style={{ display: 'flex' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', marginRight: '8px', height: `${sparklineHeight}px` }}>
-              <span style={{ fontSize: '8px', color: theme.textMuted, fontFamily: 'monospace' }}>{maxE.toFixed(0)}</span>
-              <span style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: '9px', color: theme.textMuted, fontFamily: 'monospace' }}>
+          <div className="flex">
+            <div className="flex flex-col justify-between mr-2" style={{ height: `${sparklineHeight}px` }}>
+              <span className="font-mono" style={{ fontSize: '8px', color: theme.textMuted }}>{maxE.toFixed(0)}</span>
+              <span className="font-mono" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: '9px', color: theme.textMuted }}>
                 ΔG
               </span>
-              <span style={{ fontSize: '8px', color: theme.textMuted, fontFamily: 'monospace' }}>{minE.toFixed(0)}</span>
+              <span className="font-mono" style={{ fontSize: '8px', color: theme.textMuted }}>{minE.toFixed(0)}</span>
             </div>
 
-            <div style={{ flex: 1, position: 'relative' }}>
-              <svg width={sequence.length * 18} height={sparklineHeight} style={{ display: 'block' }}>
+            <div className="flex-1 relative">
+              <svg width={sequence.length * 18} height={sparklineHeight} className="block">
                 {/* Background */}
                 <rect x="0" y="0" width={sequence.length * 18} height={sparklineHeight} fill={theme.bgSecondary} rx="4" />
 
@@ -1255,7 +1241,7 @@ function ThermodynamicHeatmap({
               </svg>
 
               {/* Sparkline label */}
-              <div style={{ marginTop: '4px', fontSize: '9px', color: theme.textMuted, fontFamily: 'monospace' }}>
+              <div className="mt-1 font-mono" style={{ fontSize: '9px', color: theme.textMuted }}>
                 Position-wise ΔG (kcal/mol) — <span style={{ color: theme.danger }}>dashed line = -3 threshold</span>
               </div>
             </div>
@@ -1264,11 +1250,11 @@ function ThermodynamicHeatmap({
       </div>
 
       {/* Legend */}
-      <div style={{ display: 'flex', gap: '16px', marginTop: '10px', fontSize: '10px', color: theme.textMuted, alignItems: 'center', flexWrap: 'wrap' }}>
-        <span><span style={{ display: 'inline-block', width: '10px', height: '10px', background: theme.gc, borderRadius: '2px', marginRight: '4px' }}></span>G/C</span>
-        <span><span style={{ display: 'inline-block', width: '10px', height: '10px', background: theme.at, borderRadius: '2px', marginRight: '4px' }}></span>A/T</span>
-        <span><span style={{ display: 'inline-block', width: '10px', height: '10px', background: theme.prime3, opacity: 0.5, borderRadius: '2px', marginRight: '4px' }}></span>3' region</span>
-        <span style={{ marginLeft: 'auto' }}><span style={{ display: 'inline-block', width: '16px', height: '2px', background: theme.text, marginRight: '4px', verticalAlign: 'middle' }}></span>ΔG profile</span>
+      <div className="flex gap-4 mt-2.5 text-xs items-center flex-wrap" style={{ color: theme.textMuted }}>
+        <span><span className="inline-block rounded-sm mr-1" style={{ width: '10px', height: '10px', background: theme.gc }}></span>G/C</span>
+        <span><span className="inline-block rounded-sm mr-1" style={{ width: '10px', height: '10px', background: theme.at }}></span>A/T</span>
+        <span><span className="inline-block rounded-sm mr-1" style={{ width: '10px', height: '10px', background: theme.prime3, opacity: 0.5 }}></span>3' region</span>
+        <span className="ml-auto"><span className="inline-block align-middle mr-1" style={{ width: '16px', height: '2px', background: theme.text }}></span>ΔG profile</span>
       </div>
     </div>
   );
@@ -1323,11 +1309,11 @@ export default function PrimerStructureViewer({
   const StructureViewer = useFornaViewer ? FornaViewer : ForceDirectedStructure;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <div className="flex flex-col gap-4">
       {/* Structure visualization panels */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '20px' }}>
+      <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))' }}>
         {forwardSeq && (
-          <div style={{ overflow: 'auto', maxHeight: '550px' }}>
+          <div className="overflow-auto" style={{ maxHeight: '550px' }}>
             <StructureViewer
               sequence={forwardSeq}
               basePairs={fwdFold.ij}
@@ -1339,7 +1325,7 @@ export default function PrimerStructureViewer({
           </div>
         )}
         {reverseSeq && (
-          <div style={{ overflow: 'auto', maxHeight: '550px' }}>
+          <div className="overflow-auto" style={{ maxHeight: '550px' }}>
             <StructureViewer
               sequence={reverseSeq}
               basePairs={revFold.ij}
@@ -1359,14 +1345,14 @@ export default function PrimerStructureViewer({
 
       {/* Combined heatmap with sparkline overlay */}
       {showHeatmap && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '16px' }}>
+        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))' }}>
           {forwardSeq && (
-            <div style={{ overflow: 'auto', maxWidth: '100%' }}>
+            <div className="overflow-auto max-w-full">
               <ThermodynamicHeatmap sequence={forwardSeq} label={forwardName} />
             </div>
           )}
           {reverseSeq && (
-            <div style={{ overflow: 'auto', maxWidth: '100%' }}>
+            <div className="overflow-auto max-w-full">
               <ThermodynamicHeatmap sequence={reverseSeq} label={reverseName} />
             </div>
           )}
