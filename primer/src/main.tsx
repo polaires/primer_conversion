@@ -1,8 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import './styles/index.css';
-import './App.css'; // Keep original CSS during migration
+import './styles/index.css';      // Tailwind + custom components
+import './styles/seqviz.css';     // SeqViz library styles (do not convert)
+import './App.css';               // Legacy CSS (gradually migrate to Tailwind)
 
 const rootElement = document.getElementById('root');
 
