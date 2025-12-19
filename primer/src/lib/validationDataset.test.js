@@ -9,7 +9,7 @@ import {
   toCalibrationFormat,
   getDatasetStats,
   splitDataset,
-} from './validationDataset.js';
+} from './validationDataset';
 
 describe('VALIDATION_DATASET', () => {
   it('should have at least 100 entries', () => {

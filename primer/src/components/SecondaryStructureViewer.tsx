@@ -111,7 +111,7 @@ function ArcDiagram({ sequence, basePairs, energy, width = 600, height = 200 }: 
   const severity = energyToSeverity(energy);
 
   return (
-    <svg width={width} height={height} style={{ background: '#1a1a2e' }}>
+    <svg width={width} height={height} className="bg-[#1a1a2e]">
       {/* Title and energy label */}
       <text x={padding} y={20} fill="#94a3b8" fontSize="12" fontFamily="monospace">
         Secondary Structure (dG = {energy.toFixed(1)} kcal/mol)
@@ -264,17 +264,10 @@ function BracketNotation({ sequence, basePairs }: BracketNotationProps) {
   }, [sequence, basePairs]);
 
   return (
-    <div style={{
-      fontFamily: 'monospace',
-      fontSize: '12px',
-      background: '#0f172a',
-      padding: '8px 12px',
-      borderRadius: '4px',
-      overflowX: 'auto'
-    }}>
-      <div style={{ color: '#94a3b8', marginBottom: '4px' }}>Dot-bracket notation:</div>
-      <div style={{ color: '#e2e8f0', letterSpacing: '1px' }}>{sequence}</div>
-      <div style={{ color: '#f97316', letterSpacing: '1px' }}>{notation}</div>
+    <div className="font-mono text-xs bg-slate-950 px-3 py-2 rounded overflow-x-auto">
+      <div className="text-slate-400 mb-1">Dot-bracket notation:</div>
+      <div className="text-slate-200 tracking-wide">{sequence}</div>
+      <div className="text-orange-500 tracking-wide">{notation}</div>
     </div>
   );
 }
@@ -307,21 +300,14 @@ function StructureTypeIndicator({ type, energy }: StructureTypeIndicatorProps) {
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-      padding: '8px 12px',
-      background: '#1e293b',
-      borderRadius: '6px',
-      borderLeft: `3px solid ${energyToColor(energy)}`
-    }}>
-      <span style={{ fontSize: '20px' }}>{icons[type as StructureType] || '🧬'}</span>
+    <div className="flex items-center gap-2 px-3 py-2 bg-slate-800 rounded-md border-l-[3px]"
+         style={{ borderLeftColor: energyToColor(energy) }}>
+      <span className="text-xl">{icons[type as StructureType] || '🧬'}</span>
       <div>
-        <div style={{ color: '#e2e8f0', fontWeight: 'bold', fontSize: '13px' }}>
+        <div className="text-slate-200 font-bold text-[13px]">
           {type?.replace(/_/g, ' ') || 'Unknown Structure'}
         </div>
-        <div style={{ color: '#94a3b8', fontSize: '11px' }}>
+        <div className="text-slate-400 text-[11px]">
           {descriptions[type as StructureType] || 'Secondary structure element'}
         </div>
       </div>
@@ -351,19 +337,11 @@ function StructureWarning({ sequence, basePairs }: StructureWarningProps) {
 
   if (threePrimePairs.length === 0) {
     return (
-      <div style={{
-        padding: '12px',
-        background: '#052e16',
-        borderRadius: '6px',
-        border: '1px solid #166534',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px'
-      }}>
-        <span style={{ fontSize: '20px' }}>✅</span>
+      <div className="p-3 bg-green-950 rounded-md border border-green-700 flex items-center gap-2.5">
+        <span className="text-xl">✅</span>
         <div>
-          <div style={{ color: '#4ade80', fontWeight: 'bold' }}>3' End Clear</div>
-          <div style={{ color: '#86efac', fontSize: '12px' }}>
+          <div className="text-green-400 font-bold">3' End Clear</div>
+          <div className="text-green-300 text-xs">
             No secondary structure in the critical 3' annealing region
           </div>
         </div>
@@ -372,25 +350,17 @@ function StructureWarning({ sequence, basePairs }: StructureWarningProps) {
   }
 
   return (
-    <div style={{
-      padding: '12px',
-      background: '#450a0a',
-      borderRadius: '6px',
-      border: '1px solid #dc2626',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '10px'
-    }}>
-      <span style={{ fontSize: '24px' }}>⚠️</span>
+    <div className="p-3 bg-red-950 rounded-md border border-red-600 flex items-center gap-2.5">
+      <span className="text-2xl">⚠️</span>
       <div>
-        <div style={{ color: '#fca5a5', fontWeight: 'bold' }}>
+        <div className="text-red-300 font-bold">
           3' End Structure Detected!
         </div>
-        <div style={{ color: '#fecaca', fontSize: '12px' }}>
+        <div className="text-red-200 text-xs">
           {threePrimePairs.length} base pair(s) involve the 3' annealing region.
           This can severely reduce primer efficiency by preventing proper template binding.
         </div>
-        <div style={{ color: '#f87171', fontSize: '11px', marginTop: '4px' }}>
+        <div className="text-red-400 text-[11px] mt-1">
           Consider repositioning the mutation site or redesigning with different flanking sequences.
         </div>
       </div>
@@ -435,7 +405,7 @@ export default function SecondaryStructureViewer({
 
   if (!sequence) {
     return (
-      <div style={{ color: '#94a3b8', padding: '20px', textAlign: 'center' }}>
+      <div className="text-slate-400 p-5 text-center">
         No sequence provided
       </div>
     );
@@ -448,48 +418,17 @@ export default function SecondaryStructureViewer({
   // No significant structure
   if (energy > -0.5 || basePairs.length === 0) {
     return (
-      <div style={{
-        background: '#0f172a',
-        borderRadius: '8px',
-        padding: '16px',
-        border: '1px solid #1e293b'
-      }}>
-        <div style={{
-          color: '#94a3b8',
-          fontSize: '13px',
-          marginBottom: '12px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <span style={{ fontWeight: 'bold' }}>{primerName}</span>
-          <span style={{ color: '#22c55e' }}>No significant structure (dG = {energy.toFixed(1)} kcal/mol)</span>
+      <div className="bg-slate-950 rounded-lg p-4 border border-slate-800">
+        <div className="text-slate-400 text-[13px] mb-3 flex justify-between items-center">
+          <span className="font-bold">{primerName}</span>
+          <span className="text-green-500">No significant structure (dG = {energy.toFixed(1)} kcal/mol)</span>
         </div>
 
-        <div style={{
-          fontFamily: 'monospace',
-          fontSize: '14px',
-          color: '#e2e8f0',
-          background: '#1a1a2e',
-          padding: '12px',
-          borderRadius: '4px',
-          letterSpacing: '1px'
-        }}>
+        <div className="font-mono text-sm text-slate-200 bg-[#1a1a2e] p-3 rounded tracking-wide">
           5'-{sequence}-3'
         </div>
 
-        <div style={{
-          marginTop: '12px',
-          padding: '10px',
-          background: '#052e16',
-          borderRadius: '6px',
-          border: '1px solid #166534',
-          color: '#4ade80',
-          fontSize: '12px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px'
-        }}>
+        <div className="mt-3 p-2.5 bg-green-950 rounded-md border border-green-700 text-green-400 text-xs flex items-center gap-2">
           <span>✅</span>
           <span>Minimal secondary structure - good primer design!</span>
         </div>
@@ -498,40 +437,26 @@ export default function SecondaryStructureViewer({
   }
 
   return (
-    <div style={{
-      background: '#0f172a',
-      borderRadius: '8px',
-      padding: '16px',
-      border: '1px solid #1e293b'
-    }}>
+    <div className="bg-slate-950 rounded-lg p-4 border border-slate-800">
       {/* Header */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '12px'
-      }}>
-        <span style={{ color: '#e2e8f0', fontWeight: 'bold', fontSize: '14px' }}>
+      <div className="flex justify-between items-center mb-3">
+        <span className="text-slate-200 font-bold text-sm">
           {primerName}
         </span>
-        <span style={{
-          color: energyToColor(energy),
-          fontSize: '12px',
-          fontFamily: 'monospace'
-        }}>
+        <span className="text-xs font-mono" style={{ color: energyToColor(energy) }}>
           {sequence.length}bp
         </span>
       </div>
 
       {/* Structure type indicator */}
       {showStructureType && structureType && (
-        <div style={{ marginBottom: '12px' }}>
+        <div className="mb-3">
           <StructureTypeIndicator type={structureType} energy={energy} />
         </div>
       )}
 
       {/* Arc diagram visualization */}
-      <div style={{ marginBottom: '12px', overflowX: 'auto' }}>
+      <div className="mb-3 overflow-x-auto">
         <ArcDiagram
           sequence={sequence}
           basePairs={basePairs}
@@ -542,7 +467,7 @@ export default function SecondaryStructureViewer({
       </div>
 
       {/* Warning for 3' structure */}
-      <div style={{ marginBottom: '12px' }}>
+      <div className="mb-3">
         <StructureWarning
           sequence={sequence}
           basePairs={basePairs}
@@ -552,37 +477,29 @@ export default function SecondaryStructureViewer({
 
       {/* Bracket notation */}
       {showBracketNotation && (
-        <div style={{ marginBottom: '12px' }}>
+        <div className="mb-3">
           <BracketNotation sequence={sequence} basePairs={basePairs} />
         </div>
       )}
 
       {/* Base pair details */}
       {basePairs.length > 0 && (
-        <div style={{
-          fontSize: '11px',
-          color: '#64748b',
-          fontFamily: 'monospace',
-          padding: '8px',
-          background: '#1e293b',
-          borderRadius: '4px'
-        }}>
-          <div style={{ marginBottom: '4px', color: '#94a3b8' }}>
+        <div className="text-[11px] text-slate-500 font-mono p-2 bg-slate-800 rounded">
+          <div className="mb-1 text-slate-400">
             Base pairs ({basePairs.length}):
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+          <div className="flex flex-wrap gap-1.5">
             {basePairs.map(([i, j], idx) => {
               const in3Prime = isIn3PrimeRegion(i, sequence.length) ||
                                isIn3PrimeRegion(j, sequence.length);
               return (
                 <span
                   key={idx}
-                  style={{
-                    padding: '2px 6px',
-                    background: in3Prime ? '#7f1d1d' : '#334155',
-                    borderRadius: '3px',
-                    color: in3Prime ? '#fca5a5' : '#cbd5e1'
-                  }}
+                  className={`px-1.5 py-0.5 rounded-sm ${
+                    in3Prime
+                      ? 'bg-red-900 text-red-300'
+                      : 'bg-slate-700 text-slate-300'
+                  }`}
                 >
                   {sequence[i]}{i + 1}:{sequence[j]}{j + 1}
                 </span>
@@ -627,28 +544,18 @@ export function SecondaryStructureBadge({ sequence, foldResult = null, temperatu
 
   if (energy > -1) {
     return (
-      <span style={{
-        padding: '2px 8px',
-        background: '#052e16',
-        color: '#4ade80',
-        borderRadius: '4px',
-        fontSize: '11px',
-        fontFamily: 'monospace'
-      }}>
+      <span className="px-2 py-0.5 bg-green-950 text-green-400 rounded text-[11px] font-mono">
         ✓ No structure
       </span>
     );
   }
 
   return (
-    <span style={{
-      padding: '2px 8px',
-      background: has3PrimeStructure ? '#450a0a' : '#422006',
-      color: has3PrimeStructure ? '#fca5a5' : '#fcd34d',
-      borderRadius: '4px',
-      fontSize: '11px',
-      fontFamily: 'monospace'
-    }}>
+    <span className={`px-2 py-0.5 rounded text-[11px] font-mono ${
+      has3PrimeStructure
+        ? 'bg-red-950 text-red-300'
+        : 'bg-yellow-950 text-yellow-300'
+    }`}>
       {has3PrimeStructure ? '⚠️ 3\' structure!' : '⚡'} {energy.toFixed(1)} kcal/mol
     </span>
   );

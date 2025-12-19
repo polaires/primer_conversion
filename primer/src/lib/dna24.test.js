@@ -17,8 +17,8 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { tm, setParameterSet } from './tm.js';
-import { calculateTmQ5 } from './tmQ5.js';
+import { tm, setParameterSet } from './tm';
+import { calculateTmQ5 } from './tmQ5';
 import {
   DNA24_NN,
   DNA24_INTERNAL_MM,
@@ -27,8 +27,8 @@ import {
   DNA24_TETRALOOPS,
   DNA24_TRILOOPS,
   DNA24_COMPLEMENT,
-} from './dna24.js';
-import { DNA_ENERGIES } from './dna.js';
+} from './dna24';
+import { DNA_ENERGIES } from './dna';
 
 // Published experimental Tm data for validation
 // Source: Allawi & SantaLucia (1997), Owczarzy et al. (2004)

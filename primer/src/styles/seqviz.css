@@ -1,0 +1,286 @@
+/**
+ * SeqViz Library Styles
+ *
+ * This file contains all CSS overrides and customizations for the SeqViz
+ * sequence viewer library (https://github.com/Lattice-Automation/seqviz).
+ *
+ * SeqViz uses `.la-vz-*` class prefixes for its internal components.
+ * These styles customize the appearance of the sequence viewer to match
+ * the Primer application's design system.
+ *
+ * IMPORTANT: Do NOT convert these classes to Tailwind CSS.
+ * SeqViz is a third-party library and requires these CSS class names
+ * to properly style its rendered components.
+ *
+ * Last extracted: 2025-12-19
+ */
+
+/* ==============================================
+   Modern SeqViz Viewer Overrides
+   ============================================== */
+
+/* Root container */
+.la-vz-seqviz {
+  font-family: 'SF Mono', 'Roboto Mono', 'Monaco', 'Menlo', monospace !important;
+  background: var(--card-bg);
+  border-radius: 8px;
+}
+
+/* Linear viewer scroller - modern scrollbar */
+.la-vz-linear-scroller {
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary-color) var(--bg-color);
+}
+
+.la-vz-linear-scroller::-webkit-scrollbar {
+  height: 8px;
+}
+
+.la-vz-linear-scroller::-webkit-scrollbar-track {
+  background: var(--bg-color);
+  border-radius: 4px;
+}
+
+.la-vz-linear-scroller::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, var(--primary-color), #60a5fa);
+  border-radius: 4px;
+}
+
+.la-vz-linear-scroller::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(90deg, #1d4ed8, var(--primary-color));
+}
+
+/* Sequence block container */
+.la-vz-seqblock-container {
+  padding: 0.5rem 0;
+}
+
+.la-vz-seqblock {
+  transition: background-color 0.15s ease;
+}
+
+.la-vz-seqblock:hover {
+  background-color: rgba(37, 99, 235, 0.03);
+}
+
+/* Index ticks and labels - modernized */
+.la-vz-index-tick {
+  stroke: var(--border-color) !important;
+  stroke-width: 1px;
+}
+
+.la-vz-index-tick-label {
+  fill: var(--text-light) !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  font-family: 'SF Mono', 'Roboto Mono', monospace !important;
+}
+
+.la-vz-index-line {
+  stroke: var(--border-color) !important;
+  stroke-width: 1px !important;
+}
+
+/* Sequence text - nucleotide styling */
+.la-vz-seq text,
+.la-vz-comp-seq text {
+  font-family: 'SF Mono', 'Roboto Mono', 'Monaco', monospace !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  letter-spacing: 0.5px;
+}
+
+/* Annotation styling - modern cards */
+.la-vz-annotation {
+  rx: 4px !important;
+  ry: 4px !important;
+  opacity: 0.85 !important;
+  transition: opacity 0.15s ease, filter 0.15s ease !important;
+}
+
+.la-vz-annotation:hover {
+  opacity: 1 !important;
+  filter: brightness(1.05) saturate(1.1);
+}
+
+.la-vz-annotation-label {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  fill: var(--text-color) !important;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+}
+
+/* Linear annotation rows */
+.la-vz-linear-annotation-row {
+  margin: 2px 0;
+}
+
+/* Primer styling */
+.la-vz-primer {
+  rx: 3px !important;
+  ry: 3px !important;
+  stroke-width: 1.5px !important;
+  transition: all 0.15s ease !important;
+}
+
+.la-vz-primer:hover {
+  stroke-width: 2px !important;
+  filter: brightness(1.1);
+}
+
+.la-vz-primer-label {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+}
+
+/* Selection highlighting - modern glow effect */
+.la-vz-selection {
+  fill: rgba(251, 191, 36, 0.35) !important;
+  stroke: #f59e0b !important;
+  stroke-width: 1px !important;
+}
+
+.la-vz-selection-edge {
+  fill: #f59e0b !important;
+  stroke: #d97706 !important;
+  stroke-width: 1px !important;
+}
+
+.la-vz-selection-block {
+  fill: rgba(251, 191, 36, 0.25) !important;
+}
+
+/* Search highlight - distinct from selection */
+.la-vz-search {
+  fill: rgba(34, 197, 94, 0.4) !important;
+  stroke: #16a34a !important;
+  stroke-width: 1.5px !important;
+  rx: 2px !important;
+  ry: 2px !important;
+}
+
+.la-vz-highlight {
+  rx: 2px !important;
+  ry: 2px !important;
+  opacity: 0.6 !important;
+}
+
+/* Cut site styling */
+.la-vz-cut-site {
+  stroke: #ef4444 !important;
+  stroke-width: 1.5px !important;
+  stroke-dasharray: 3 2 !important;
+}
+
+.la-vz-cut-site-highlight {
+  fill: rgba(239, 68, 68, 0.15) !important;
+}
+
+.la-vz-cut-site-text {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  font-size: 9px !important;
+  font-weight: 600 !important;
+  fill: #dc2626 !important;
+}
+
+/* Translation (amino acids in viewer) */
+.la-vz-translation,
+.la-vz-linear-translation,
+.la-vz-linear-aa-translation {
+  opacity: 0.9;
+}
+
+.la-vz-translation-handle {
+  fill: var(--primary-color) !important;
+  rx: 3px !important;
+  ry: 3px !important;
+}
+
+.la-vz-translation-handle-label,
+.la-vz-handle-label {
+  font-family: 'SF Mono', monospace !important;
+  font-size: 9px !important;
+  font-weight: 600 !important;
+  fill: white !important;
+}
+
+.la-vz-translation-amino-acid-label {
+  font-family: 'SF Mono', 'Roboto Mono', monospace !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+}
+
+/* Circular viewer enhancements */
+.la-vz-viewer-circular,
+.la-vz-circular-root {
+  background: var(--card-bg);
+}
+
+.la-vz-circular-bps text {
+  font-family: 'SF Mono', 'Roboto Mono', monospace !important;
+  font-weight: 600 !important;
+}
+
+.la-vz-circular-label {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  transition: all 0.2s ease !important;
+}
+
+.la-vz-circular-label:hover {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+}
+
+.la-vz-circular-annotations path {
+  transition: opacity 0.15s ease, stroke-width 0.15s ease !important;
+}
+
+.la-vz-circular-annotations path:hover {
+  opacity: 1 !important;
+  stroke-width: 2px !important;
+}
+
+.la-vz-label-line {
+  stroke: var(--text-light) !important;
+  stroke-width: 1px !important;
+  opacity: 0.5 !important;
+}
+
+.la-vz-circular-cutsites line {
+  stroke: #ef4444 !important;
+  stroke-width: 2px !important;
+}
+
+.la-vz-circular-search {
+  stroke: #16a34a !important;
+  stroke-width: 3px !important;
+}
+
+/* Event router - ensure clicks work */
+.la-vz-event-router,
+.la-vz-viewer-event-router {
+  cursor: text;
+}
+
+/* Viewer containers */
+.la-vz-viewer-container {
+  background: var(--card-bg);
+}
+
+.la-vz-viewer-linear {
+  background: var(--card-bg);
+  padding: 0.25rem 0;
+}
+
+/* Ensure SeqViz doesn't render elements outside container */
+.sv-viewer-wrap,
+.sv-single-view,
+.sv-split-top,
+.sv-split-bottom {
+  position: relative;
+  overflow: hidden;
+}

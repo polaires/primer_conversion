@@ -239,7 +239,7 @@ const StemLoopDiagram: FC<StemLoopDiagramProps> = ({
   };
 
   return (
-    <svg width={width} height={height} style={{ background: theme.bg, borderRadius: '6px' }}>
+    <svg width={width} height={height} className="rounded-md" style={{ background: theme.bg }}>
       <defs>
         {/* Glow filter for 3' warnings */}
         <filter id="glow3prime">
@@ -552,7 +552,7 @@ const FlatStructureDiagram: FC<FlatStructureDiagramProps> = ({ sequence, basePai
   }).filter((arc): arc is NonNullable<typeof arc> => arc !== null);
 
   return (
-    <svg width={width} height={height} style={{ background: theme.bg, borderRadius: '6px' }}>
+    <svg width={width} height={height} className="rounded-md" style={{ background: theme.bg }}>
       {/* Energy label */}
       <text x={padding} y={20} fill={theme.text} fontSize="12" fontFamily="monospace">
         Secondary Structure (ΔG = {energy.toFixed(1)} kcal/mol)
@@ -679,7 +679,7 @@ const HairpinDiagram: FC<HairpinDiagramProps> = ({
     if (!sequence || sequence.length < 6) return null;
 
     try {
-      return foldSequence(sequence, temperature) as FoldResult;
+      return foldSequence(sequence, temperature) as any;
     } catch (e) {
       console.error('Fold failed:', e);
       return null;
@@ -707,7 +707,7 @@ const HairpinDiagram: FC<HairpinDiagramProps> = ({
 
   if (!sequence) {
     return (
-      <div style={{ color: theme.textMuted, padding: '20px', textAlign: 'center', background: theme.bg, borderRadius: '8px' }}>
+      <div className="p-5 text-center rounded-lg" style={{ color: theme.textMuted, background: theme.bg }}>
         No sequence provided
       </div>
     );
@@ -719,51 +719,32 @@ const HairpinDiagram: FC<HairpinDiagramProps> = ({
   // No significant structure
   if (energy > -0.5 || basePairs.length === 0) {
     return (
-      <div style={{
+      <div className="rounded-lg p-5" style={{
         background: theme.bg,
-        borderRadius: '8px',
-        padding: '20px',
         border: `1px solid ${theme.border}`
       }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '15px'
-        }}>
-          <span style={{ color: theme.text, fontWeight: 'bold' }}>{primerName}</span>
-          <span style={{ color: theme.success, fontSize: '13px' }}>
+        <div className="flex justify-between items-center mb-[15px]">
+          <span className="font-bold" style={{ color: theme.text }}>{primerName}</span>
+          <span className="text-[13px]" style={{ color: theme.success }}>
             No significant structure (ΔG = {energy.toFixed(1)} kcal/mol)
           </span>
         </div>
 
-        <div style={{
-          fontFamily: 'monospace',
-          fontSize: '13px',
+        <div className="font-mono text-[13px] p-3 rounded tracking-wide break-all" style={{
           color: theme.text,
-          background: theme.bgTertiary,
-          padding: '12px',
-          borderRadius: '4px',
-          letterSpacing: '1px',
-          wordBreak: 'break-all'
+          background: theme.bgTertiary
         }}>
           5'-{sequence}-3'
         </div>
 
-        <div style={{
-          marginTop: '15px',
-          padding: '12px',
+        <div className="mt-[15px] p-3 rounded-md flex items-center gap-2.5" style={{
           background: theme.successBg,
-          borderRadius: '6px',
-          border: `1px solid ${theme.success}`,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px'
+          border: `1px solid ${theme.success}`
         }}>
-          <span style={{ fontSize: '20px' }}>✓</span>
+          <span className="text-xl">✓</span>
           <div>
-            <div style={{ color: theme.success, fontWeight: 'bold' }}>Excellent - No Hairpin Formation</div>
-            <div style={{ color: theme.textSecondary, fontSize: '12px' }}>
+            <div className="font-bold" style={{ color: theme.success }}>Excellent - No Hairpin Formation</div>
+            <div className="text-xs" style={{ color: theme.textSecondary }}>
               This primer has minimal secondary structure and should perform well
             </div>
           </div>
@@ -783,62 +764,44 @@ const HairpinDiagram: FC<HairpinDiagramProps> = ({
     : viewMode;
 
   return (
-    <div style={{
+    <div className="rounded-lg p-4" style={{
       background: theme.bg,
-      borderRadius: '8px',
-      padding: '16px',
       border: `1px solid ${energy < -4 ? theme.danger : theme.border}`
     }}>
       {/* Header */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '12px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ color: theme.text, fontWeight: 'bold', fontSize: '14px' }}>
+      <div className="flex justify-between items-center mb-3">
+        <div className="flex items-center gap-3">
+          <span className="font-bold text-sm" style={{ color: theme.text }}>
             {primerName}
           </span>
-          <span style={{
-            padding: '3px 10px',
-            borderRadius: '4px',
-            fontSize: '11px',
-            fontFamily: 'monospace',
+          <span className="px-2.5 py-0.5 rounded font-mono text-[11px] font-bold" style={{
             background: color + '18',
-            color: color,
-            fontWeight: 'bold'
+            color: color
           }}>
             {severity.label}
           </span>
         </div>
 
         {/* View mode toggle */}
-        <div style={{ display: 'flex', gap: '4px' }}>
+        <div className="flex gap-1">
           <button
             onClick={() => setViewMode('stemloop')}
+            className="px-2.5 py-1 rounded text-[11px] cursor-pointer"
             style={{
-              padding: '4px 10px',
               background: effectiveMode === 'stemloop' ? theme.prime5 : theme.bgSecondary,
               border: `1px solid ${effectiveMode === 'stemloop' ? theme.prime5 : theme.border}`,
-              borderRadius: '4px',
-              color: effectiveMode === 'stemloop' ? '#fff' : theme.textMuted,
-              fontSize: '11px',
-              cursor: 'pointer'
+              color: effectiveMode === 'stemloop' ? '#fff' : theme.textMuted
             }}
           >
             Stem-Loop
           </button>
           <button
             onClick={() => setViewMode('flat')}
+            className="px-2.5 py-1 rounded text-[11px] cursor-pointer"
             style={{
-              padding: '4px 10px',
               background: effectiveMode === 'flat' ? theme.prime5 : theme.bgSecondary,
               border: `1px solid ${effectiveMode === 'flat' ? theme.prime5 : theme.border}`,
-              borderRadius: '4px',
-              color: effectiveMode === 'flat' ? '#fff' : theme.textMuted,
-              fontSize: '11px',
-              cursor: 'pointer'
+              color: effectiveMode === 'flat' ? '#fff' : theme.textMuted
             }}
           >
             Arc View
@@ -847,7 +810,7 @@ const HairpinDiagram: FC<HairpinDiagramProps> = ({
       </div>
 
       {/* Structure Visualization */}
-      <div style={{ marginBottom: '12px', overflowX: 'auto' }}>
+      <div className="mb-3 overflow-x-auto">
         {effectiveMode === 'stemloop' && structure ? (
           <StemLoopDiagram
             sequence={sequence}
@@ -892,44 +855,26 @@ const HairpinDiagram: FC<HairpinDiagramProps> = ({
         const colors = severityColors[severityResult.level] || severityColors.info;
 
         return (
-          <div style={{
-            padding: '12px',
+          <div className="p-3 rounded-md mb-3" style={{
             background: colors.bg,
-            borderRadius: '6px',
-            border: `1px solid ${colors.border}`,
-            marginBottom: '12px'
+            border: `1px solid ${colors.border}`
           }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '10px'
-            }}>
-              <span style={{ fontSize: '20px' }}>{colors.icon}</span>
-              <div style={{ flex: 1 }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  marginBottom: '4px'
-                }}>
-                  <div style={{ color: colors.text, fontWeight: 'bold', fontSize: '13px' }}>
+            <div className="flex items-start gap-2.5">
+              <span className="text-xl">{colors.icon}</span>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="font-bold text-[13px]" style={{ color: colors.text }}>
                     {severityResult.label}
                   </div>
-                  <span style={{
-                    padding: '2px 6px',
-                    background: colors.border,
-                    color: '#fff',
-                    borderRadius: '4px',
-                    fontSize: '10px',
-                    fontWeight: '600',
-                    textTransform: 'uppercase',
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase text-white" style={{
+                    background: colors.border
                   }}>
                     {severityResult.level}
                   </span>
                 </div>
 
                 {severityResult.message && (
-                  <div style={{ color: theme.text, fontSize: '12px', lineHeight: '1.5', marginBottom: '8px' }}>
+                  <div className="text-xs leading-6 mb-2" style={{ color: theme.text }}>
                     {severityResult.message}
                   </div>
                 )}
@@ -937,20 +882,16 @@ const HairpinDiagram: FC<HairpinDiagramProps> = ({
                 {/* Detailed explanation for critical/warning levels */}
                 {severityResult.level === 'critical' && (
                   <>
-                    <div style={{ color: theme.text, fontSize: '12px', lineHeight: '1.5', marginBottom: '4px' }}>
+                    <div className="text-xs leading-6 mb-1" style={{ color: theme.text }}>
                       The 3' end is involved in a {structure?.has3PrimeInStem ? 'stem' : 'loop'} structure:
                     </div>
-                    <ul style={{ color: theme.text, fontSize: '12px', margin: '4px 0 8px 0', paddingLeft: '20px', lineHeight: '1.6' }}>
+                    <ul className="text-xs my-1 mx-0 pl-5 leading-[1.6]" style={{ color: theme.text }}>
                       <li>DNA polymerase <strong>requires</strong> a free 3' OH to begin extension</li>
                       <li>Hairpin ΔG = {energy.toFixed(1)} kcal/mol (stable at annealing temp)</li>
                       <li>PCR will likely <strong>fail</strong> or have very low yield</li>
                     </ul>
-                    <div style={{
-                      padding: '8px 10px',
+                    <div className="px-2.5 py-2 rounded text-xs font-semibold" style={{
                       background: 'rgba(220, 38, 38, 0.1)',
-                      borderRadius: '4px',
-                      fontSize: '12px',
-                      fontWeight: '600',
                       color: theme.danger
                     }}>
                       ⚠ Action Required: Redesign primer to free the 3' end
@@ -960,16 +901,13 @@ const HairpinDiagram: FC<HairpinDiagramProps> = ({
 
                 {severityResult.level === 'warning' && (
                   <>
-                    <ul style={{ color: theme.text, fontSize: '12px', margin: '4px 0 8px 0', paddingLeft: '20px', lineHeight: '1.6' }}>
+                    <ul className="text-xs my-1 mx-0 pl-5 leading-[1.6]" style={{ color: theme.text }}>
                       <li>Structure may compete with template binding</li>
                       <li>ΔG = {energy.toFixed(1)} kcal/mol (moderately stable)</li>
                       <li>PCR may work but with reduced efficiency</li>
                     </ul>
-                    <div style={{
-                      padding: '8px 10px',
+                    <div className="px-2.5 py-2 rounded text-xs" style={{
                       background: 'rgba(217, 119, 6, 0.1)',
-                      borderRadius: '4px',
-                      fontSize: '12px',
                       color: colors.text
                     }}>
                       <strong>Tips:</strong> Adjust length by 1-2 bases, use touchdown PCR, or add 2-5% DMSO
@@ -978,13 +916,9 @@ const HairpinDiagram: FC<HairpinDiagramProps> = ({
                 )}
 
                 {(severityResult.level === 'moderate' || severityResult.level === 'low' || severityResult.level === 'info') && (
-                  <div style={{
-                    padding: '6px 10px',
+                  <div className="px-2.5 py-1.5 rounded text-[11px] leading-6" style={{
                     background: 'rgba(3, 105, 161, 0.08)',
-                    borderRadius: '4px',
-                    fontSize: '11px',
-                    color: theme.textMuted,
-                    lineHeight: '1.5'
+                    color: theme.textMuted
                   }}>
                     ΔG = {energy.toFixed(1)} kcal/mol • {severityResult.level === 'info' || severityResult.level === 'low'
                       ? 'Structure is weak and typically melts at annealing temperature'
@@ -999,33 +933,28 @@ const HairpinDiagram: FC<HairpinDiagramProps> = ({
 
       {/* Details panel */}
       {showDetails && (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-          gap: '12px',
-          padding: '12px',
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3 p-3 rounded-md" style={{
           background: theme.bgSecondary,
-          borderRadius: '6px',
           border: `1px solid ${theme.border}`
         }}>
           <div>
-            <div style={{ color: theme.textMuted, fontSize: '11px', marginBottom: '2px' }}>Free Energy (ΔG)</div>
-            <div style={{ color: color, fontSize: '16px', fontWeight: 'bold', fontFamily: 'monospace' }}>
+            <div className="text-[11px] mb-0.5" style={{ color: theme.textMuted }}>Free Energy (ΔG)</div>
+            <div className="text-base font-bold font-mono" style={{ color: color }}>
               {energy.toFixed(1)} kcal/mol
             </div>
           </div>
 
           <div>
-            <div style={{ color: theme.textMuted, fontSize: '11px', marginBottom: '2px' }}>Base Pairs</div>
-            <div style={{ color: theme.text, fontSize: '16px', fontWeight: 'bold' }}>
+            <div className="text-[11px] mb-0.5" style={{ color: theme.textMuted }}>Base Pairs</div>
+            <div className="text-base font-bold" style={{ color: theme.text }}>
               {basePairs.length}
             </div>
           </div>
 
           {structure?.loopSequence && (
             <div>
-              <div style={{ color: theme.textMuted, fontSize: '11px', marginBottom: '2px' }}>Loop Size</div>
-              <div style={{ color: theme.text, fontSize: '16px', fontWeight: 'bold' }}>
+              <div className="text-[11px] mb-0.5" style={{ color: theme.textMuted }}>Loop Size</div>
+              <div className="text-base font-bold" style={{ color: theme.text }}>
                 {structure.loopSequence.length} nt
               </div>
             </div>
@@ -1049,32 +978,16 @@ const HairpinDiagram: FC<HairpinDiagramProps> = ({
             };
 
             return (
-              <div style={{ position: 'relative' }}>
-                <div style={{ color: theme.textMuted, fontSize: '11px', marginBottom: '2px' }}>3' Status</div>
+              <div className="relative">
+                <div className="text-[11px] mb-0.5" style={{ color: theme.textMuted }}>3' Status</div>
                 <div
-                  style={{
-                    color: statusColors[severityResult.level] || theme.success,
-                    fontSize: '14px',
-                    fontWeight: 'bold',
-                    cursor: 'help',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                  }}
+                  className="text-sm font-bold cursor-help inline-flex items-center gap-1"
+                  style={{ color: statusColors[severityResult.level] || theme.success }}
                   title={severityResult.tooltip}
                 >
                   {severityResult.shortLabel}
-                  <span style={{
-                    width: '14px',
-                    height: '14px',
-                    borderRadius: '50%',
-                    background: statusColors[severityResult.level] || theme.success,
-                    color: '#fff',
-                    fontSize: '9px',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 'normal',
+                  <span className="w-3.5 h-3.5 rounded-full text-white text-[9px] inline-flex items-center justify-center font-normal" style={{
+                    background: statusColors[severityResult.level] || theme.success
                   }}>
                     ?
                   </span>
@@ -1087,21 +1000,15 @@ const HairpinDiagram: FC<HairpinDiagramProps> = ({
 
       {/* Dot-bracket notation */}
       {showDetails && (
-        <div style={{
-          marginTop: '12px',
-          padding: '10px',
+        <div className="mt-3 p-2.5 rounded font-mono text-[11px] overflow-x-auto" style={{
           background: theme.bgTertiary,
-          borderRadius: '4px',
-          fontFamily: 'monospace',
-          fontSize: '11px',
-          overflowX: 'auto',
           border: `1px solid ${theme.border}`
         }}>
-          <div style={{ color: theme.textMuted, marginBottom: '4px' }}>Dot-bracket notation:</div>
-          <div style={{ color: theme.text, letterSpacing: '0.5px', wordBreak: 'break-all' }}>
+          <div className="mb-1" style={{ color: theme.textMuted }}>Dot-bracket notation:</div>
+          <div className="tracking-[0.5px] break-all" style={{ color: theme.text }}>
             {sequence}
           </div>
-          <div style={{ color: '#ea580c', letterSpacing: '0.5px' }}>
+          <div className="tracking-[0.5px]" style={{ color: '#ea580c' }}>
             {(() => {
               const dots = new Array(sequence.length).fill('.');
               basePairs.forEach(([i, j]) => {
@@ -1133,7 +1040,7 @@ export const HairpinBadge: FC<HairpinBadgeProps> = ({ sequence, foldResult = nul
     if (!sequence || sequence.length < 6) return null;
 
     try {
-      return foldSequence(sequence, temperature) as FoldResult;
+      return foldSequence(sequence, temperature) as any;
     } catch (e) {
       return null;
     }
@@ -1180,15 +1087,11 @@ export const HairpinBadge: FC<HairpinBadgeProps> = ({ sequence, foldResult = nul
   if (energy > -1 && severity.level === 'none') {
     return (
       <span
+        className="px-2.5 py-1 rounded-md text-[11px] font-mono font-medium"
         style={{
-          padding: '4px 10px',
           background: colors.bg,
           color: colors.text,
-          borderRadius: '6px',
-          fontSize: '11px',
-          fontFamily: 'monospace',
-          fontWeight: '500',
-          cursor: showTooltip ? 'help' : 'default',
+          cursor: showTooltip ? 'help' : 'default'
         }}
         title={showTooltip ? severity.tooltip : undefined}
       >
@@ -1211,27 +1114,18 @@ export const HairpinBadge: FC<HairpinBadgeProps> = ({ sequence, foldResult = nul
 
   return (
     <span
-      style={{
-        position: 'relative',
-        display: 'inline-block',
-      }}
+      className="relative inline-block"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       <span
+        className="px-2.5 py-1 rounded-md text-[11px] font-mono inline-flex items-center gap-1"
         style={{
-          padding: '4px 10px',
           background: colors.bg,
           color: colors.text,
           border: `1px solid ${colors.border}`,
-          borderRadius: '6px',
-          fontSize: '11px',
-          fontFamily: 'monospace',
           fontWeight: severity.shouldWarn ? '600' : '500',
-          cursor: showTooltip ? 'help' : 'default',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '4px',
+          cursor: showTooltip ? 'help' : 'default'
         }}
         title={showTooltip ? severity.tooltip : undefined}
       >

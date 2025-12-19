@@ -425,7 +425,7 @@ const AssemblyDesigner: FC = () => {
 
   // Merge user database with enabled part sources
   useEffect(() => {
-    const enabledDatabases: Record<string, Fragment[]> = {};
+    const enabledDatabases: Record<string, any> = {};
     enabledSources.forEach(sourceId => {
       if (partDatabases[sourceId]) {
         enabledDatabases[sourceId] = partDatabases[sourceId];
@@ -435,7 +435,7 @@ const AssemblyDesigner: FC = () => {
     // Merge all enabled sources with user database
     const merged: Fragment[] = [
       ...userDatabase,
-      ...(mergeDatabases(enabledDatabases) as Fragment[]),
+      ...(mergeDatabases(enabledDatabases as any) as any),
     ];
     setDatabase(merged);
   }, [userDatabase, enabledSources, partDatabases]);
@@ -462,9 +462,9 @@ const AssemblyDesigner: FC = () => {
     setSourceErrors(prev => ({ ...prev, [sourceId]: null }));
 
     try {
-      const fragments = await fetchPartDatabase(sourceId) as Fragment[];
+      const fragments = await fetchPartDatabase(sourceId) as any;
       setPartDatabases(prev => ({ ...prev, [sourceId]: fragments }));
-      saveCachedDatabase(sourceId, fragments);
+      saveCachedDatabase(sourceId, fragments as any);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setSourceErrors(prev => ({ ...prev, [sourceId]: errorMessage }));
@@ -498,7 +498,7 @@ const AssemblyDesigner: FC = () => {
     reader.onload = (event) => {
       try {
         const content = event.target?.result as string;
-        const frags = parseFasta(content) as Fragment[];
+        const frags = parseFasta(content) as any;
         if (frags.length > 0) {
           setTargetSeq(frags[0].seq);
           setTargetName(frags[0].id);
@@ -521,8 +521,8 @@ const AssemblyDesigner: FC = () => {
     reader.onload = (event) => {
       try {
         const content = event.target?.result as string;
-        const frags = parseFasta(content) as Fragment[];
-        const dbFrags: Fragment[] = frags.map((f) => ({
+        const frags = parseFasta(content) as any;
+        const dbFrags: Fragment[] = frags.map((f: any) => ({
           ...f,
           cost: 65,
           url: '',

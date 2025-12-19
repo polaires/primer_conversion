@@ -24,7 +24,7 @@ import {
   AA_NAMES,
   selectOptimalCodon,
   analyzePrimerPair,
-} from './unifiedPrimerDesign.js';
+} from './unifiedPrimerDesign';
 
 // Legacy Designer imports
 import {
@@ -44,10 +44,10 @@ import {
   scorePrimerPair,
   MUTAGENESIS_DEFAULTS as LEGACY_DEFAULTS,
   MUTATION_TYPES,
-} from './mutagenesis.js';
+} from './mutagenesis';
 
 // PCR primer design imports
-import { primers, generateAlternatives, score } from './primers.js';
+import { primers, generateAlternatives, score } from './primers';
 
 // =============================================================================
 // Test Data - Various sequence types for comprehensive testing
@@ -226,7 +226,7 @@ describe('Feature Inventory', () => {
       expect(MUTATION_TYPES).toBeDefined();
     });
 
-    it('should have PCR primer design from primers.js', () => {
+    it('should have PCR primer design from primers', () => {
       expect(typeof primers).toBe('function');
       expect(typeof generateAlternatives).toBe('function');
       expect(typeof score).toBe('function');

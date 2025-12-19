@@ -11,7 +11,7 @@ import {
   identifyStrengths,
   generateLabel,
   generateExplanation,
-} from './diversitySelection.js';
+} from './diversitySelection';
 
 describe('calculateDistance', () => {
   const defaultRanges = {

@@ -1131,7 +1131,7 @@ const SequenceViewer: FC<SequenceViewerProps> = ({
 
       {/* Annotation Tooltip */}
       {hoveredAnnotation && (
-        <div className="sv-tooltip" style={{ position: 'fixed', top: '50%', right: sidebarCollapsed ? '20px' : '280px' }}>
+        <div className="sv-tooltip fixed top-1/2" style={{ right: sidebarCollapsed ? '20px' : '280px' }}>
           <div className="sv-tooltip-header">
             <span className="sv-tooltip-color" style={{ backgroundColor: hoveredAnnotation.color }}></span>
             <strong>{hoveredAnnotation.name}</strong>

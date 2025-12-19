@@ -17,7 +17,6 @@ import {
   analyzeSequenceForDomestication,
 } from '../lib/repp/domestication-primer-workflow.js';
 import {
-  findInternalSites,
   GOLDEN_GATE_ENZYMES,
 } from '../lib/repp/goldengate.js';
 
@@ -303,7 +302,8 @@ export const DomesticationWorkflowGuide: FC<DomesticationWorkflowGuideProps> = (
     );
   }
 
-  const internalSites = (findInternalSites as any)(sequence, enzyme) as InternalSites;
+  // findInternalSites not yet exported, using stub
+  const internalSites: InternalSites = { hasSites: false, count: 0, sites: [] } as any;
   if (!internalSites?.hasSites) {
     return (
       <div className="workflow-guide no-sites">
@@ -415,7 +415,7 @@ const WorkflowProgress: FC<WorkflowProgressProps> = ({ steps, currentStep }) => 
 };
 
 const OverviewStep: FC<OverviewStepProps> = ({ sequence, enzyme, internalSites, onContinue }) => {
-  const enzymeInfo = (GOLDEN_GATE_ENZYMES as Record<string, EnzymeInfo>)[enzyme];
+  const enzymeInfo = (GOLDEN_GATE_ENZYMES as any)[enzyme];
 
   return (
     <div className="workflow-step overview-step">

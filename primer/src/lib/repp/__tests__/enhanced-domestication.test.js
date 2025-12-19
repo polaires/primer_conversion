@@ -14,7 +14,7 @@ import {
   createDomesticationPlan,
   executeDomesticationPlan,
   ENHANCED_CONFIG,
-} from '../enhanced-domestication.js';
+} from '../enhanced-domestication';
 import {
   detectORFs,
   validateReadingFrame,
@@ -22,15 +22,15 @@ import {
   analyzeSiteCodonContext,
   preFlightCheck,
   compareProteins,
-} from '../orf-detector.js';
+} from '../orf-detector';
 import {
   domesticateWithSilentMutations,
   findAllSilentMutationCandidates,
   verifyProteinSequence,
   CODON_TO_AA,
   CODON_TABLE,
-} from '../silent-mutation-domesticator.js';
-import { findInternalSites } from '../goldengate.js';
+} from '../silent-mutation-domesticator';
+import { findInternalSites } from '../goldengate';
 
 // ============================================================================
 // TEST SEQUENCES

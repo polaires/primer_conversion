@@ -4,10 +4,10 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { primers, score, LEN_MIN, LEN_MAX } from './primers.js';
-import { gcCache, tmCache } from './tm.js';
-import { dgCache } from './fold.js';
-import { offTargets } from './offTargets.js';
+import { primers, score, LEN_MIN, LEN_MAX } from './primers';
+import { gcCache, tmCache } from './tm';
+import { dgCache } from './fold';
+import { offTargets } from './offTargets';
 
 // Helper to reverse complement
 function rc(seq) {

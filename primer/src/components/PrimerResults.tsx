@@ -135,36 +135,17 @@ export default function PrimerResults({ results, error, sequence, options = {} }
             <>
               <button
                 type="button"
-                className="quality-badge"
+                className="quality-badge text-white p-2 px-4 rounded-lg mb-4 inline-flex items-center gap-2 cursor-pointer border-0 text-sm transition-all duration-200 hover:scale-[1.02] hover:shadow-lg"
                 onClick={() => setShowScoreBreakdown(true)}
                 style={{
                   backgroundColor: fwd.scoring.qualityTier ? QUALITY_INFO[fwd.scoring.qualityTier]?.color : '#6b7280',
-                  color: 'white',
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  marginBottom: '16px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  cursor: 'pointer',
-                  border: 'none',
-                  fontSize: '14px',
-                  transition: 'all 0.2s ease',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'scale(1.02)';
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'scale(1)';
-                  e.currentTarget.style.boxShadow = 'none';
                 }}
                 title="Click to see detailed score breakdown"
               >
                 <strong>Quality Score: {fwd.scoring.compositeScore}/100</strong>
                 {' '}
                 ({fwd.scoring.qualityTier ? QUALITY_INFO[fwd.scoring.qualityTier]?.label : fwd.scoring.qualityTier})
-                <span style={{ fontSize: '12px', opacity: 0.8 }}>• Click for details</span>
+                <span className="text-xs opacity-80">• Click for details</span>
               </button>
 
               {/* Score Breakdown Popup */}
@@ -191,13 +172,13 @@ export default function PrimerResults({ results, error, sequence, options = {} }
                 <th>dG</th>
                 <th
                   title="Lower penalty = better primer (legacy scoring)"
-                  style={{ cursor: 'help' }}
+                  className="cursor-help"
                 >
                   Penalty
                 </th>
                 <th
                   title="Calibrated quality score (0-100). Higher = better. Based on empirical validation with 81.9% F1 score."
-                  style={{ cursor: 'help' }}
+                  className="cursor-help"
                 >
                   Score
                 </th>
@@ -214,9 +195,9 @@ export default function PrimerResults({ results, error, sequence, options = {} }
                   <td>{fwd.dg}</td>
                   <td>{fwd.scoring.penalty?.toFixed(1)}</td>
                   <td
+                    className="font-bold"
                     style={{
                       color: fwd.scoring?.qualityTier ? QUALITY_INFO[fwd.scoring.qualityTier]?.color : undefined,
-                      fontWeight: 'bold',
                     }}
                     title={fwd.scoring?.qualityTier ? QUALITY_INFO[fwd.scoring.qualityTier]?.description : undefined}
                   >
@@ -234,9 +215,9 @@ export default function PrimerResults({ results, error, sequence, options = {} }
                   <td>{rev.dg}</td>
                   <td>{rev.scoring.penalty?.toFixed(1)}</td>
                   <td
+                    className="font-bold"
                     style={{
                       color: rev.scoring?.qualityTier ? QUALITY_INFO[rev.scoring.qualityTier]?.color : undefined,
-                      fontWeight: 'bold',
                     }}
                     title={rev.scoring?.qualityTier ? QUALITY_INFO[rev.scoring.qualityTier]?.description : undefined}
                   >
@@ -251,7 +232,7 @@ export default function PrimerResults({ results, error, sequence, options = {} }
           <div className="scoring-details">
             <h4
               title="Feature scores calibrated on Döring immunoglobulin PCR dataset (829 pairs). Higher = better for each metric."
-              style={{ cursor: 'help' }}
+              className="cursor-help"
             >
               Scoring Breakdown
             </h4>
@@ -267,42 +248,42 @@ export default function PrimerResults({ results, error, sequence, options = {} }
                       <>
                         <dt
                           title="Melting temperature score. Optimal: 55-60°C"
-                          style={{ cursor: 'help' }}
+                          className="cursor-help"
                         >
                           Tm Score
                         </dt>
                         <dd>{(fwd.scoring.piecewiseScores.tm * 100).toFixed(0)}%</dd>
                         <dt
                           title="GC content score. Optimal: 40-60%"
-                          style={{ cursor: 'help' }}
+                          className="cursor-help"
                         >
                           GC Score
                         </dt>
                         <dd>{(fwd.scoring.piecewiseScores.gc * 100).toFixed(0)}%</dd>
                         <dt
                           title="3' terminal binding stability. Critical for priming efficiency."
-                          style={{ cursor: 'help' }}
+                          className="cursor-help"
                         >
                           3' ΔG Score
                         </dt>
                         <dd>{(fwd.scoring.piecewiseScores.terminal3DG * 100).toFixed(0)}%</dd>
                         <dt
                           title="Off-target specificity. Most predictive of PCR success (+0.515 correlation)."
-                          style={{ cursor: 'help' }}
+                          className="cursor-help"
                         >
                           Specificity
                         </dt>
                         <dd>{(fwd.scoring.piecewiseScores.offTarget * 100).toFixed(0)}%</dd>
                         <dt
                           title="Hairpin formation risk. Lower stability = better."
-                          style={{ cursor: 'help' }}
+                          className="cursor-help"
                         >
                           Hairpin Score
                         </dt>
                         <dd>{(fwd.scoring.piecewiseScores.hairpin * 100).toFixed(0)}%</dd>
                         <dt
                           title="Self-dimer formation risk."
-                          style={{ cursor: 'help' }}
+                          className="cursor-help"
                         >
                           Homodimer Score
                         </dt>
@@ -327,42 +308,42 @@ export default function PrimerResults({ results, error, sequence, options = {} }
                       <>
                         <dt
                           title="Melting temperature score. Optimal: 55-60°C"
-                          style={{ cursor: 'help' }}
+                          className="cursor-help"
                         >
                           Tm Score
                         </dt>
                         <dd>{(rev.scoring.piecewiseScores.tm * 100).toFixed(0)}%</dd>
                         <dt
                           title="GC content score. Optimal: 40-60%"
-                          style={{ cursor: 'help' }}
+                          className="cursor-help"
                         >
                           GC Score
                         </dt>
                         <dd>{(rev.scoring.piecewiseScores.gc * 100).toFixed(0)}%</dd>
                         <dt
                           title="3' terminal binding stability. Critical for priming efficiency."
-                          style={{ cursor: 'help' }}
+                          className="cursor-help"
                         >
                           3' ΔG Score
                         </dt>
                         <dd>{(rev.scoring.piecewiseScores.terminal3DG * 100).toFixed(0)}%</dd>
                         <dt
                           title="Off-target specificity. Most predictive of PCR success (+0.515 correlation)."
-                          style={{ cursor: 'help' }}
+                          className="cursor-help"
                         >
                           Specificity
                         </dt>
                         <dd>{(rev.scoring.piecewiseScores.offTarget * 100).toFixed(0)}%</dd>
                         <dt
                           title="Hairpin formation risk. Lower stability = better."
-                          style={{ cursor: 'help' }}
+                          className="cursor-help"
                         >
                           Hairpin Score
                         </dt>
                         <dd>{(rev.scoring.piecewiseScores.hairpin * 100).toFixed(0)}%</dd>
                         <dt
                           title="Self-dimer formation risk."
-                          style={{ cursor: 'help' }}
+                          className="cursor-help"
                         >
                           Homodimer Score
                         </dt>
@@ -371,7 +352,7 @@ export default function PrimerResults({ results, error, sequence, options = {} }
                           <>
                             <dt
                               title="Primer-primer dimer risk between forward and reverse."
-                              style={{ cursor: 'help' }}
+                              className="cursor-help"
                             >
                               Heterodimer Score
                             </dt>
@@ -382,7 +363,7 @@ export default function PrimerResults({ results, error, sequence, options = {} }
                           <>
                             <dt
                               title="Tm difference between primers. Has 'little effect' on PCR success."
-                              style={{ cursor: 'help' }}
+                              className="cursor-help"
                             >
                               Tm Match Score
                             </dt>
@@ -458,10 +439,10 @@ export default function PrimerResults({ results, error, sequence, options = {} }
           <SequenceViewer
             sequence={sequence}
             name="Template"
-            fwdPrimer={fwd.seq}
-            revPrimer={rev?.seq}
-            addFwd={options.addFwd}
-            addRev={options.addRev}
+            fwdPrimer={fwd.seq as any}
+            revPrimer={rev?.seq as any}
+            addFwd={options.addFwd as any}
+            addRev={options.addRev as any}
             viewer={viewerMode}
             height={viewerMode === 'both' ? 400 : 300}
           />

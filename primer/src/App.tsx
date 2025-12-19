@@ -8,6 +8,7 @@ import TmCalculator from './components/TmCalculator';
 import SequencingDesigner from './components/SequencingDesigner';
 import UnifiedPrimerDesigner from './components/UnifiedPrimerDesigner';
 import EnhancedScorer from './components/EnhancedScorer';
+import ErrorBoundary from './components/ErrorBoundary';
 import { primers, score } from './lib/index.js';
 import type { Tool, ToolMode } from './types';
 
@@ -99,6 +100,9 @@ export default function App() {
 
   return (
     <div className="app">
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
       <header className="app-header">
         <div className="header-content">
           <h1>Primers</h1>
@@ -106,14 +110,17 @@ export default function App() {
         </div>
       </header>
 
-      <nav className="app-nav">
-        <div className="nav-section">
-          <span className="nav-label">Design</span>
-          <div className="nav-buttons">
+      <nav className="app-nav" aria-label="Main navigation">
+        <div className="nav-section" role="group" aria-labelledby="design-tools-label">
+          <span id="design-tools-label" className="nav-label">Design</span>
+          <div className="nav-buttons" role="tablist">
             {designTools.map((tool) => (
               <button
                 key={tool.id}
                 type="button"
+                role="tab"
+                aria-selected={mode === tool.id}
+                aria-controls="main-content"
                 className={mode === tool.id ? 'active' : ''}
                 onClick={() => switchMode(tool.id)}
                 title={tool.description}
@@ -123,13 +130,16 @@ export default function App() {
             ))}
           </div>
         </div>
-        <div className="nav-section">
-          <span className="nav-label">Analysis</span>
-          <div className="nav-buttons">
+        <div className="nav-section" role="group" aria-labelledby="analysis-tools-label">
+          <span id="analysis-tools-label" className="nav-label">Analysis</span>
+          <div className="nav-buttons" role="tablist">
             {analysisTools.map((tool) => (
               <button
                 key={tool.id}
                 type="button"
+                role="tab"
+                aria-selected={mode === tool.id}
+                aria-controls="main-content"
                 className={mode === tool.id ? 'active' : ''}
                 onClick={() => switchMode(tool.id)}
                 title={tool.description}
@@ -139,13 +149,16 @@ export default function App() {
             ))}
           </div>
         </div>
-        <div className="nav-section">
-          <span className="nav-label">Assembly</span>
-          <div className="nav-buttons">
+        <div className="nav-section" role="group" aria-labelledby="assembly-tools-label">
+          <span id="assembly-tools-label" className="nav-label">Assembly</span>
+          <div className="nav-buttons" role="tablist">
             {assemblyTools.map((tool) => (
               <button
                 key={tool.id}
                 type="button"
+                role="tab"
+                aria-selected={mode === tool.id}
+                aria-controls="main-content"
                 className={mode === tool.id ? 'active' : ''}
                 onClick={() => switchMode(tool.id)}
                 title={tool.description}
@@ -157,22 +170,23 @@ export default function App() {
         </div>
       </nav>
 
-      <main className="app-main">
-        {mode === 'viewer' ? (
-          <StandaloneViewer />
-        ) : mode === 'assembly-studio' ? (
-          <GoldenGateDesigner />
-        ) : mode === 'fragment-planner' ? (
-          <AssemblyDesigner />
-        ) : mode === 'tm' ? (
-          <TmCalculator />
-        ) : mode === 'sequencing' ? (
-          <SequencingDesigner />
-        ) : mode === 'primer-designer' ? (
-          <UnifiedPrimerDesigner />
-        ) : mode === 'score' ? (
-          <EnhancedScorer />
-        ) : (
+      <main className="app-main" id="main-content" role="tabpanel" aria-label="Tool content">
+        <ErrorBoundary>
+          {mode === 'viewer' ? (
+            <StandaloneViewer />
+          ) : mode === 'assembly-studio' ? (
+            <GoldenGateDesigner />
+          ) : mode === 'fragment-planner' ? (
+            <AssemblyDesigner />
+          ) : mode === 'tm' ? (
+            <TmCalculator />
+          ) : mode === 'sequencing' ? (
+            <SequencingDesigner />
+          ) : mode === 'primer-designer' ? (
+            <UnifiedPrimerDesigner />
+          ) : mode === 'score' ? (
+            <EnhancedScorer />
+          ) : (
           <div className="content">
             <section className="form-section">
               <PrimerForm
@@ -196,7 +210,8 @@ export default function App() {
               />
             </section>
           </div>
-        )}
+          )}
+        </ErrorBoundary>
       </main>
 
       <footer className="app-footer">

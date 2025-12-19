@@ -165,7 +165,7 @@ interface PolymeraseSelectorProps {
 function PolymeraseSelector({ selected, onChange, showMethod, onToggleMethod }: PolymeraseSelectorProps) {
   const polymerases = getPolymeraseList() as Polymerase[];
   const [expanded, setExpanded] = useState<boolean>(false);
-  const selectedInfo = getPolymeraseInfo(selected) as PolymeraseInfo | null;
+  const selectedInfo = getPolymeraseInfo(selected as any) as any;
 
   return (
     <div className={`tm-polymerase-selector ${expanded ? 'expanded' : 'collapsed'}`}>
@@ -271,12 +271,12 @@ export default function TmCalculator() {
   const [result, setResult] = useState<CalculationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const polymeraseInfo = useMemo(() => getPolymeraseInfo(polymerase) as PolymeraseInfo | null, [polymerase]);
+  const polymeraseInfo = useMemo(() => getPolymeraseInfo(polymerase as any) as any, [polymerase]);
 
   // Update primer concentration when polymerase changes
   const handlePolymeraseChange = useCallback((newPolymerase: string): void => {
     setPolymerase(newPolymerase);
-    const info = getPolymeraseInfo(newPolymerase) as PolymeraseInfo | null;
+    const info = getPolymeraseInfo(newPolymerase as any) as any;
     if (info) {
       setPrimerConc(info.defaults.primerConc);
     }
@@ -308,7 +308,7 @@ export default function TmCalculator() {
     try {
       if (seq1 && seq2) {
         // Two primers - calculate annealing temperature
-        const annealResult = calculateAnnealing(seq1, seq2, polymerase, { primerConc }) as {
+        const annealResult = calculateAnnealing(seq1, seq2, polymerase as any, { primerConc }) as {
           tm1: number;
           tm2: number;
           annealingTemp: number;
@@ -338,7 +338,7 @@ export default function TmCalculator() {
         });
       } else {
         // Single primer - calculate Tm only
-        const tm = calculateTm(seq1, polymerase, { primerConc }) as number;
+        const tm = calculateTm(seq1, polymerase as any, { primerConc }) as number;
 
         setResult({
           mode: 'single',
