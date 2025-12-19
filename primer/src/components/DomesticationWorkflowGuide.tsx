@@ -11,50 +11,254 @@
  * - Interactive workflow steps with progress tracking
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, FC } from 'react';
 import {
   runDomesticationWorkflow,
   analyzeSequenceForDomestication,
-  WORKFLOW_CONFIG,
 } from '../lib/repp/domestication-primer-workflow.js';
 import {
   findInternalSites,
   GOLDEN_GATE_ENZYMES,
-  calculateExperimentalFidelity,
 } from '../lib/repp/goldengate.js';
+
+// ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
+
+type WorkflowStepType = 'overview' | 'analysis' | 'strategy' | 'primers' | 'summary';
+type StrategyType = 'none' | 'silent_mutation' | 'mutagenic_junction' | 'hybrid' | 'alternative_enzyme';
+
+interface Site {
+  position: number;
+  [key: string]: unknown;
+}
+
+interface InternalSites {
+  hasSites: boolean;
+  count: number;
+  sites: Site[];
+}
+
+interface Analysis {
+  error?: string;
+  siteCount?: number;
+  silentMutationPossible?: boolean;
+  recommendedStrategy?: string;
+  [key: string]: unknown;
+}
+
+interface MutationData {
+  mutation?: {
+    sequencePosition?: number;
+    position?: number;
+    codonStart?: number;
+    originalCodon?: string;
+    newCodon?: string;
+    aminoAcid?: string;
+    score?: number;
+  };
+  sequencePosition?: number;
+  position?: number;
+  codonStart?: number;
+  originalCodon?: string;
+  newCodon?: string;
+  aminoAcid?: string;
+  score?: number;
+}
+
+interface JunctionData {
+  junctionPosition?: number;
+  position?: number;
+  overhang?: string;
+  fidelity?: {
+    singleOverhang?: number;
+  } | number;
+}
+
+interface FidelityData {
+  assembly?: number;
+  [key: string]: unknown;
+}
+
+interface DomesticationData {
+  mutations?: MutationData[];
+  junctions?: JunctionData[];
+  fidelity?: FidelityData | number;
+  additionalFragments?: number;
+}
+
+interface ValidationData {
+  isValid: boolean;
+  warnings?: Array<{ message?: string } | string>;
+}
+
+interface ThermodynamicsData {
+  hairpinDG?: number;
+  homodimerDG?: number;
+  terminal3DG?: number;
+}
+
+interface PrimerData {
+  sequence?: string;
+  length?: number;
+  homologyTm?: number;
+  gcPercent?: string;
+  gc?: number;
+  thermodynamics?: ThermodynamicsData;
+  score?: number;
+  qualityTier?: string;
+  issues?: string[];
+  warnings?: string[];
+}
+
+interface HeterodimerData {
+  dG?: number;
+  risk?: string;
+}
+
+interface PrimerPairData {
+  type?: string;
+  name?: string;
+  forward?: PrimerData;
+  reverse?: PrimerData;
+  junctionPosition?: number;
+  overhang?: string;
+  pairQuality?: number;
+  tmDifference?: number;
+  heterodimer?: HeterodimerData;
+}
+
+interface OrderListItem {
+  name: string;
+  sequence: string;
+  length: number;
+  tm?: number;
+}
+
+interface PrimerSummaryData {
+  totalPrimers: number;
+  totalLength: number;
+  estimatedCost?: number;
+  totalCost?: number;
+  orderList?: OrderListItem[];
+}
+
+interface WorkflowStep {
+  title: string;
+  description: string;
+  materials?: string[];
+}
+
+interface WorkflowGuideData {
+  steps?: WorkflowStep[];
+}
+
+interface WorkflowResult {
+  success: boolean;
+  message?: string;
+  strategy: StrategyType;
+  domestication?: DomesticationData;
+  analysis?: Analysis;
+  validation?: ValidationData;
+  primers?: PrimerPairData[];
+  primerSummary?: PrimerSummaryData;
+  workflowGuide?: WorkflowGuideData;
+}
+
+interface DomesticationWorkflowGuideProps {
+  sequence: string;
+  enzyme?: string;
+  existingOverhangs?: string[];
+  onWorkflowComplete?: (result: WorkflowResult) => void;
+  onCancel?: () => void;
+}
+
+interface WorkflowProgressProps {
+  steps: string[];
+  currentStep: WorkflowStepType;
+}
+
+interface OverviewStepProps {
+  sequence: string;
+  enzyme: string;
+  internalSites: InternalSites;
+  onContinue: () => void;
+}
+
+interface AnalysisStepProps {
+  sequence: string;
+  analysis: Analysis | null;
+  selectedFrame: number;
+  onFrameChange: (frame: number) => void;
+  selectedOrganism: string;
+  onOrganismChange: (organism: string) => void;
+  isCoding: boolean;
+  onCodingChange: (isCoding: boolean) => void;
+  onRunWorkflow: () => void;
+  isProcessing: boolean;
+  onBack: () => void;
+}
+
+interface StrategyStepProps {
+  result: WorkflowResult;
+  onContinue: () => void;
+  onBack: () => void;
+}
+
+interface PrimersStepProps {
+  result: WorkflowResult;
+  onContinue: () => void;
+  onBack: () => void;
+}
+
+interface PrimerPairCardProps {
+  primerPair: PrimerPairData;
+  index: number;
+}
+
+interface SummaryStepProps {
+  result: WorkflowResult;
+  onAccept: () => void;
+  onBack: () => void;
+}
+
+interface EnzymeInfo {
+  recognition?: string;
+  [key: string]: unknown;
+}
 
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
-export function DomesticationWorkflowGuide({
+export const DomesticationWorkflowGuide: FC<DomesticationWorkflowGuideProps> = ({
   sequence,
   enzyme = 'BsaI',
   existingOverhangs = [],
   onWorkflowComplete,
   onCancel,
-}) {
+}) => {
   // State
-  const [step, setStep] = useState('overview'); // overview, analysis, strategy, primers, summary
-  const [workflowResult, setWorkflowResult] = useState(null);
-  const [selectedFrame, setSelectedFrame] = useState(0);
-  const [selectedOrganism, setSelectedOrganism] = useState('ecoli');
-  const [isCoding, setIsCoding] = useState(true);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState(null);
+  const [step, setStep] = useState<WorkflowStepType>('overview');
+  const [workflowResult, setWorkflowResult] = useState<WorkflowResult | null>(null);
+  const [selectedFrame, setSelectedFrame] = useState<number>(0);
+  const [selectedOrganism, setSelectedOrganism] = useState<string>('ecoli');
+  const [isCoding, setIsCoding] = useState<boolean>(true);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Initial analysis
-  const analysis = useMemo(() => {
+  const analysis = useMemo((): Analysis | null => {
     if (!sequence) return null;
     try {
-      return analyzeSequenceForDomestication(sequence, enzyme, {
+      return (analyzeSequenceForDomestication as any)(sequence, enzyme, {
         frame: selectedFrame,
         isCodingSequence: isCoding,
         organism: selectedOrganism,
         existingOverhangs,
-      });
+      }) as Analysis;
     } catch (err) {
-      return { error: err.message };
+      return { error: (err as Error).message };
     }
   }, [sequence, enzyme, selectedFrame, isCoding, selectedOrganism, existingOverhangs]);
 
@@ -66,18 +270,18 @@ export function DomesticationWorkflowGuide({
     setError(null);
 
     try {
-      const result = runDomesticationWorkflow(sequence, enzyme, {
+      const result = (runDomesticationWorkflow as any)(sequence, enzyme, {
         frame: selectedFrame,
         isCodingSequence: isCoding,
         organism: selectedOrganism,
         existingOverhangs,
         includeWorkflowGuide: true,
-      });
+      }) as WorkflowResult;
 
       setWorkflowResult(result);
       setStep('strategy');
     } catch (err) {
-      setError(err.message);
+      setError((err as Error).message);
     } finally {
       setIsProcessing(false);
     }
@@ -99,7 +303,7 @@ export function DomesticationWorkflowGuide({
     );
   }
 
-  const internalSites = findInternalSites(sequence, enzyme);
+  const internalSites = (findInternalSites as any)(sequence, enzyme) as InternalSites;
   if (!internalSites?.hasSites) {
     return (
       <div className="workflow-guide no-sites">
@@ -179,14 +383,14 @@ export function DomesticationWorkflowGuide({
       )}
     </div>
   );
-}
+};
 
 // ============================================================================
 // STEP COMPONENTS
 // ============================================================================
 
-function WorkflowProgress({ steps, currentStep }) {
-  const stepMap = {
+const WorkflowProgress: FC<WorkflowProgressProps> = ({ steps, currentStep }) => {
+  const stepMap: Record<WorkflowStepType, number> = {
     overview: 0,
     analysis: 1,
     strategy: 2,
@@ -208,10 +412,10 @@ function WorkflowProgress({ steps, currentStep }) {
       ))}
     </div>
   );
-}
+};
 
-function OverviewStep({ sequence, enzyme, internalSites, onContinue }) {
-  const enzymeInfo = GOLDEN_GATE_ENZYMES[enzyme];
+const OverviewStep: FC<OverviewStepProps> = ({ sequence, enzyme, internalSites, onContinue }) => {
+  const enzymeInfo = (GOLDEN_GATE_ENZYMES as Record<string, EnzymeInfo>)[enzyme];
 
   return (
     <div className="workflow-step overview-step">
@@ -284,10 +488,10 @@ function OverviewStep({ sequence, enzyme, internalSites, onContinue }) {
       </div>
     </div>
   );
-}
+};
 
-function AnalysisStep({
-  sequence,
+const AnalysisStep: FC<AnalysisStepProps> = ({
+  sequence: _sequence,
   analysis,
   selectedFrame,
   onFrameChange,
@@ -298,7 +502,7 @@ function AnalysisStep({
   onRunWorkflow,
   isProcessing,
   onBack,
-}) {
+}) => {
   return (
     <div className="workflow-step analysis-step">
       <h2>Configuration</h2>
@@ -311,7 +515,7 @@ function AnalysisStep({
           <input
             type="checkbox"
             checked={isCoding}
-            onChange={(e) => onCodingChange(e.target.checked)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => onCodingChange(e.target.checked)}
           />
           <span>Coding Sequence (CDS)</span>
         </label>
@@ -344,7 +548,7 @@ function AnalysisStep({
             <label>Target Organism</label>
             <select
               value={selectedOrganism}
-              onChange={(e) => onOrganismChange(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onOrganismChange(e.target.value)}
             >
               <option value="ecoli">E. coli</option>
               <option value="yeast">S. cerevisiae (Yeast)</option>
@@ -400,12 +604,12 @@ function AnalysisStep({
       </div>
     </div>
   );
-}
+};
 
-function StrategyStep({ result, onContinue, onBack }) {
-  const { strategy, domestication, analysis } = result;
+const StrategyStep: FC<StrategyStepProps> = ({ result, onContinue, onBack }) => {
+  const { strategy, domestication, analysis: _analysis } = result;
 
-  const strategyInfo = {
+  const strategyInfo: Record<string, { name: string; desc: string; icon: string }> = {
     none: { name: 'No Domestication', desc: 'Sequence is already compatible', icon: '✓' },
     silent_mutation: { name: 'Silent Mutations', desc: 'Synonymous codon changes', icon: '🧬' },
     mutagenic_junction: { name: 'Mutagenic Junctions', desc: 'Assembly junction splitting', icon: '✂️' },
@@ -458,7 +662,7 @@ function StrategyStep({ result, onContinue, onBack }) {
                     <td><code>{newCodon}</code></td>
                     <td>{aminoAcid}</td>
                     <td>
-                      <span className={`score-badge ${score >= 80 ? 'good' : score >= 60 ? 'ok' : 'poor'}`}>
+                      <span className={`score-badge ${(score ?? 0) >= 80 ? 'good' : (score ?? 0) >= 60 ? 'ok' : 'poor'}`}>
                         {score?.toFixed?.(0) || 'N/A'}
                       </span>
                     </td>
@@ -487,7 +691,9 @@ function StrategyStep({ result, onContinue, onBack }) {
                 // Handle both position and junctionPosition field names
                 const pos = jnc.junctionPosition ?? jnc.position ?? 0;
                 // Handle fidelity from junction or from nested fidelity object
-                const fidelity = jnc.fidelity?.singleOverhang ?? jnc.fidelity ?? 0.9;
+                const fidelity = typeof jnc.fidelity === 'object'
+                  ? jnc.fidelity?.singleOverhang ?? 0.9
+                  : jnc.fidelity ?? 0.9;
                 return (
                   <tr key={i}>
                     <td>J{i + 1}</td>
@@ -507,8 +713,8 @@ function StrategyStep({ result, onContinue, onBack }) {
           {domestication.fidelity && (
             <div className="assembly-fidelity">
               <strong>Overall Assembly Fidelity:</strong>{' '}
-              <span className={`fidelity-value ${(domestication.fidelity.assembly || domestication.fidelity) >= 0.95 ? 'excellent' : (domestication.fidelity.assembly || domestication.fidelity) >= 0.85 ? 'good' : 'acceptable'}`}>
-                {(((domestication.fidelity.assembly || domestication.fidelity) || 0.9) * 100).toFixed(1)}%
+              <span className={`fidelity-value ${getFidelityValue(domestication.fidelity) >= 0.95 ? 'excellent' : getFidelityValue(domestication.fidelity) >= 0.85 ? 'good' : 'acceptable'}`}>
+                {(getFidelityValue(domestication.fidelity) * 100).toFixed(1)}%
               </span>
               <span className="fidelity-source">
                 (NEB experimental data)
@@ -548,7 +754,7 @@ function StrategyStep({ result, onContinue, onBack }) {
                     <td><code>{newCodon}</code></td>
                     <td>{aminoAcid}</td>
                     <td>
-                      <span className={`score-badge ${score >= 80 ? 'good' : score >= 60 ? 'ok' : 'poor'}`}>
+                      <span className={`score-badge ${(score ?? 0) >= 80 ? 'good' : (score ?? 0) >= 60 ? 'ok' : 'poor'}`}>
                         {score?.toFixed?.(0) || 'N/A'}
                       </span>
                     </td>
@@ -568,10 +774,10 @@ function StrategyStep({ result, onContinue, onBack }) {
             <span className="status-icon">{result.validation.isValid ? '✓' : '⚠'}</span>
             <span>{result.validation.isValid ? 'All checks passed' : 'Issues detected'}</span>
           </div>
-          {result.validation.warnings?.length > 0 && (
+          {result.validation.warnings && result.validation.warnings.length > 0 && (
             <ul className="validation-warnings">
               {result.validation.warnings.map((w, i) => (
-                <li key={i}>{w.message || w}</li>
+                <li key={i}>{typeof w === 'object' ? w.message : w}</li>
               ))}
             </ul>
           )}
@@ -586,9 +792,15 @@ function StrategyStep({ result, onContinue, onBack }) {
       </div>
     </div>
   );
+};
+
+// Helper function to extract fidelity value
+function getFidelityValue(fidelity: FidelityData | number): number {
+  if (typeof fidelity === 'number') return fidelity;
+  return fidelity.assembly ?? 0.9;
 }
 
-function PrimersStep({ result, onContinue, onBack }) {
+const PrimersStep: FC<PrimersStepProps> = ({ result, onContinue, onBack }) => {
   const { primers, primerSummary } = result;
 
   if (!primers || primers.length === 0) {
@@ -632,7 +844,7 @@ function PrimersStep({ result, onContinue, onBack }) {
             </div>
             {(primerSummary.estimatedCost || primerSummary.totalCost) && (
               <div className="stat">
-                <span className="stat-value">${(primerSummary.estimatedCost || primerSummary.totalCost).toFixed(2)}</span>
+                <span className="stat-value">${(primerSummary.estimatedCost || primerSummary.totalCost || 0).toFixed(2)}</span>
                 <span className="stat-label">Est. Cost</span>
               </div>
             )}
@@ -664,7 +876,7 @@ function PrimersStep({ result, onContinue, onBack }) {
               <button
                 className="btn-copy"
                 onClick={() => {
-                  const text = primerSummary.orderList
+                  const text = primerSummary.orderList!
                     .map(p => `${p.name}\t${p.sequence}`)
                     .join('\n');
                   navigator.clipboard.writeText(text);
@@ -685,10 +897,10 @@ function PrimersStep({ result, onContinue, onBack }) {
       </div>
     </div>
   );
-}
+};
 
-function PrimerPairCard({ primerPair, index }) {
-  const [expanded, setExpanded] = useState(false);
+const PrimerPairCard: FC<PrimerPairCardProps> = ({ primerPair, index }) => {
+  const [expanded, setExpanded] = useState<boolean>(false);
 
   // Handle silent_mutation_info type - no primers to show
   if (primerPair.type === 'silent_mutation_info') {
@@ -766,14 +978,14 @@ function PrimerPairCard({ primerPair, index }) {
                   <span className="classification">{forward.qualityTier || 'N/A'}</span>
                 </div>
               )}
-              {forward.issues?.length > 0 && (
+              {forward.issues && forward.issues.length > 0 && (
                 <div className="primer-issues">
                   {forward.issues.map((issue, i) => (
                     <span key={i} className="issue">{issue}</span>
                   ))}
                 </div>
               )}
-              {forward.warnings?.length > 0 && (
+              {forward.warnings && forward.warnings.length > 0 && (
                 <div className="primer-warnings">
                   {forward.warnings.map((warning, i) => (
                     <span key={i} className="warning">{warning}</span>
@@ -819,14 +1031,14 @@ function PrimerPairCard({ primerPair, index }) {
                   <span className="classification">{reverse.qualityTier || 'N/A'}</span>
                 </div>
               )}
-              {reverse.issues?.length > 0 && (
+              {reverse.issues && reverse.issues.length > 0 && (
                 <div className="primer-issues">
                   {reverse.issues.map((issue, i) => (
                     <span key={i} className="issue">{issue}</span>
                   ))}
                 </div>
               )}
-              {reverse.warnings?.length > 0 && (
+              {reverse.warnings && reverse.warnings.length > 0 && (
                 <div className="primer-warnings">
                   {reverse.warnings.map((warning, i) => (
                     <span key={i} className="warning">{warning}</span>
@@ -861,10 +1073,10 @@ function PrimerPairCard({ primerPair, index }) {
       )}
     </div>
   );
-}
+};
 
-function SummaryStep({ result, onAccept, onBack }) {
-  const { workflowGuide, validation, domestication, strategy } = result;
+const SummaryStep: FC<SummaryStepProps> = ({ result, onAccept, onBack }) => {
+  const { workflowGuide, validation: _validation, domestication, strategy: _strategy } = result;
 
   return (
     <div className="workflow-step summary-step">
@@ -920,7 +1132,7 @@ function SummaryStep({ result, onAccept, onBack }) {
           {domestication?.fidelity && (
             <div className="metric">
               <span className="metric-value">
-                {((domestication.fidelity.assembly || domestication.fidelity) * 100).toFixed(1)}%
+                {(getFidelityValue(domestication.fidelity) * 100).toFixed(1)}%
               </span>
               <span className="metric-label">Assembly Fidelity</span>
             </div>
@@ -953,7 +1165,7 @@ function SummaryStep({ result, onAccept, onBack }) {
       </div>
     </div>
   );
-}
+};
 
 // ============================================================================
 // STYLES

@@ -13,19 +13,136 @@
  * - PrimerOnTemplateViewer for template binding visualization
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import { useState, useCallback, FC, FormEvent } from 'react';
 import { analyzePrimers } from '../lib/primerAnalysis.js';
-import { checkHeterodimer, compareTmMethods, DIMER_THRESHOLDS } from '../lib/mutagenesis.js';
+import { checkHeterodimer, compareTmMethods } from '../lib/mutagenesis.js';
 import { calculateTmQ5, calculateGC } from '../lib/tmQ5.js';
 import { offTargets } from '../lib/offTargets.js';
 import EnhancedAnalysisSection from './primers/EnhancedAnalysisSection';
 import SummaryStatusPanel from './primers/SummaryStatusPanel';
-import ScoreBreakdownPopup from './primers/ScoreBreakdownPopup.jsx';
+import ScoreBreakdownPopup from './primers/ScoreBreakdownPopup';
 import HairpinDiagram from './HairpinDiagram.jsx';
 import PrimerOnTemplateViewer from './PrimerOnTemplateViewer.jsx';
 
+// Type definitions
+interface Thermodynamics {
+  hairpinDG?: number;
+  homodimerDG?: number;
+  [key: string]: unknown;
+}
+
+interface Scores {
+  [key: string]: number | undefined;
+}
+
+interface GQuadruplex {
+  hasGQuadruplex?: boolean;
+  [key: string]: unknown;
+}
+
+interface AnnealingRegion {
+  sequence: string;
+  length: number;
+  tm: number;
+  gcPercent: string;
+}
+
+interface GoldenGateDetection {
+  primaryEnzyme?: string;
+  [key: string]: unknown;
+}
+
+interface PrimerAnalysis {
+  sequence: string;
+  tm: number;
+  gc: number;
+  hairpinDG?: number;
+  selfDimerDG?: number;
+  thermodynamics?: Thermodynamics;
+  scores?: Scores;
+  gQuadruplex?: GQuadruplex;
+  isAssemblyPrimer?: boolean;
+  annealingRegion?: AnnealingRegion;
+  tailRegion?: string;
+  fullPrimerTm?: number;
+  templateBinding?: unknown;
+}
+
+interface HeterodimerDetails {
+  dg?: number;
+  [key: string]: unknown;
+}
+
+interface TmComparison {
+  [key: string]: unknown;
+}
+
+interface OffTargetResult {
+  [key: string]: unknown;
+}
+
+interface OffTargetAnalysis {
+  forward: OffTargetResult | null;
+  reverse: OffTargetResult | null;
+}
+
+interface EnhancedAnalysis {
+  forward: PrimerAnalysis;
+  reverse: PrimerAnalysis | null;
+  heterodimer: HeterodimerDetails | null;
+  fwdTmComparison: TmComparison;
+  revTmComparison: TmComparison | null;
+  offTargets: OffTargetAnalysis | null;
+  warnings: string[];
+  composite: CompositeScore | null;
+  quality: Quality;
+  isAssemblyMode: boolean;
+}
+
+interface CompositeScore {
+  score?: number;
+  [key: string]: unknown;
+}
+
+interface Quality {
+  tier?: string;
+  label?: string;
+}
+
+interface PrimerResult {
+  sequence: string;
+  tm: number;
+  gc: number;
+  length: number;
+  isAssemblyPrimer?: boolean;
+  annealingRegion?: AnnealingRegion;
+  fullPrimerTm?: number;
+  goldenGateDetection?: GoldenGateDetection;
+  thermodynamics?: Thermodynamics;
+}
+
+interface Results {
+  forward: PrimerResult;
+  reverse: PrimerResult | null;
+  template: string | null;
+  mode: string;
+  analysis: EnhancedAnalysis;
+  composite: CompositeScore | null;
+  quality: Quality;
+  effectiveScore?: number;
+  criticalWarnings?: number;
+}
+
+interface CollapsedSections {
+  summary: boolean;
+  primers: boolean;
+  analysis: boolean;
+  visualization: boolean;
+  hairpins: boolean;
+}
+
 // Quality tier colors
-const QUALITY_COLORS = {
+const QUALITY_COLORS: Record<string, string> = {
   excellent: '#22c55e',
   good: '#3b82f6',
   acceptable: '#eab308',
@@ -33,24 +150,24 @@ const QUALITY_COLORS = {
   poor: '#ef4444',
 };
 
-export default function EnhancedScorer() {
+const EnhancedScorer: FC = () => {
   // Form state
-  const [fwdPrimer, setFwdPrimer] = useState('');
-  const [revPrimer, setRevPrimer] = useState('');
-  const [template, setTemplate] = useState('');
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [mode, setMode] = useState('amplification');
+  const [fwdPrimer, setFwdPrimer] = useState<string>('');
+  const [revPrimer, setRevPrimer] = useState<string>('');
+  const [template, setTemplate] = useState<string>('');
+  const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
+  const [mode, setMode] = useState<string>('amplification');
 
   // Results state
-  const [results, setResults] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [results, setResults] = useState<Results | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Score breakdown popup state
-  const [showScoreBreakdown, setShowScoreBreakdown] = useState(false);
+  const [showScoreBreakdown, setShowScoreBreakdown] = useState<boolean>(false);
 
   // Collapsible sections
-  const [collapsedSections, setCollapsedSections] = useState({
+  const [collapsedSections, setCollapsedSections] = useState<CollapsedSections>({
     summary: false,
     primers: false,
     analysis: false,
@@ -58,29 +175,29 @@ export default function EnhancedScorer() {
     hairpins: false,
   });
 
-  const toggleSection = useCallback((sectionId) => {
+  const toggleSection = useCallback((sectionId: keyof CollapsedSections): void => {
     setCollapsedSections((prev) => ({
       ...prev,
       [sectionId]: !prev[sectionId],
     }));
   }, []);
 
-  const scrollToSection = useCallback((sectionId) => {
+  const scrollToSection = useCallback((sectionId: string): void => {
     const element = document.getElementById(`section-${sectionId}`);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'start' });
       setCollapsedSections((prev) => ({
         ...prev,
-        [sectionId]: false,
+        [sectionId as keyof CollapsedSections]: false,
       }));
     }
   }, []);
 
   // Clean sequence input
-  const cleanSequence = (seq) => seq.toUpperCase().replace(/[^ATGC]/gi, '');
+  const cleanSequence = (seq: string): string => seq.toUpperCase().replace(/[^ATGC]/gi, '');
 
   // Analyze primers
-  const handleAnalyze = useCallback(() => {
+  const handleAnalyze = useCallback((): void => {
     const fwdSeq = cleanSequence(fwdPrimer);
     if (!fwdSeq || fwdSeq.length < 10) {
       setError('Forward primer must be at least 10 bases');
@@ -98,39 +215,39 @@ export default function EnhancedScorer() {
         const templateSeq = template ? cleanSequence(template) : null;
 
         // Calculate basic properties
-        const fwdTm = calculateTmQ5(fwdSeq);
-        const fwdGc = calculateGC(fwdSeq);
-        const revTm = revSeq ? calculateTmQ5(revSeq) : null;
-        const revGc = revSeq ? calculateGC(revSeq) : null;
+        const fwdTm = calculateTmQ5(fwdSeq) as number;
+        const fwdGc = calculateGC(fwdSeq) as number;
+        const revTm = revSeq ? (calculateTmQ5(revSeq) as number) : null;
+        const revGc = revSeq ? (calculateGC(revSeq) as number) : null;
 
         // Run unified analysis
         const analysis = analyzePrimers(
           { seq: fwdSeq, tm: fwdTm, gc: fwdGc },
-          revSeq ? { seq: revSeq, tm: revTm, gc: revGc } : null,
+          revSeq ? { seq: revSeq, tm: revTm, gc: revGc } : undefined,
           { mode, template: templateSeq }
-        );
+        ) as any;
 
         // Get heterodimer details if we have both primers
-        let heterodimerDetails = null;
+        let heterodimerDetails: HeterodimerDetails | null = null;
         if (revSeq) {
-          heterodimerDetails = checkHeterodimer(fwdSeq, revSeq);
+          heterodimerDetails = checkHeterodimer(fwdSeq, revSeq) as HeterodimerDetails;
         }
 
         // Get Tm comparison
-        const fwdTmComparison = compareTmMethods(fwdSeq);
-        const revTmComparison = revSeq ? compareTmMethods(revSeq) : null;
+        const fwdTmComparison = compareTmMethods(fwdSeq) as TmComparison;
+        const revTmComparison = revSeq ? (compareTmMethods(revSeq) as TmComparison) : null;
 
         // Check off-targets if template provided
-        let offTargetAnalysis = null;
+        let offTargetAnalysis: OffTargetAnalysis | null = null;
         if (templateSeq) {
           offTargetAnalysis = {
-            forward: offTargets(fwdSeq, templateSeq),
-            reverse: revSeq ? offTargets(revSeq, templateSeq) : null,
+            forward: offTargets(fwdSeq, templateSeq) as unknown as OffTargetResult,
+            reverse: revSeq ? (offTargets(revSeq, templateSeq) as unknown as OffTargetResult) : null,
           };
         }
 
         // Build enhanced analysis object (matching UnifiedPrimerDesigner format)
-        const enhancedAnalysis = {
+        const enhancedAnalysis: EnhancedAnalysis = {
           forward: {
             sequence: fwdSeq,
             tm: fwdTm,
@@ -150,8 +267,8 @@ export default function EnhancedScorer() {
           reverse: revSeq
             ? {
                 sequence: revSeq,
-                tm: revTm,
-                gc: revGc,
+                tm: revTm!,
+                gc: revGc!,
                 hairpinDG: analysis.reverse?.thermodynamics?.hairpinDG,
                 selfDimerDG: analysis.reverse?.thermodynamics?.homodimerDG,
                 thermodynamics: analysis.reverse?.thermodynamics,
@@ -200,7 +317,7 @@ export default function EnhancedScorer() {
           reverse: revSeq
             ? {
                 sequence: revSeq,
-                tm: Math.round(revResultTm * 10) / 10,
+                tm: Math.round((revResultTm || 0) * 10) / 10,
                 gc: Math.round((revResultGc || 0) * 100),  // Guard against NaN
                 length: revSeq.length,
                 // Assembly-specific: include annealing region data
@@ -224,7 +341,8 @@ export default function EnhancedScorer() {
         });
       } catch (err) {
         console.error('Analysis error:', err);
-        setError(err.message || 'Analysis failed');
+        const errorMessage = err instanceof Error ? err.message : 'Analysis failed';
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -232,9 +350,20 @@ export default function EnhancedScorer() {
   }, [fwdPrimer, revPrimer, template, mode]);
 
   // Handle form submit
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
     handleAnalyze();
+  };
+
+  const getQualityTier = (): string => {
+    if (!results?.quality) return 'good';
+    return typeof results.quality === 'string' ? results.quality : (results.quality.tier || 'good');
+  };
+
+  const getQualityLabel = (): string => {
+    if (!results?.quality) return 'Good';
+    if (typeof results.quality === 'string') return results.quality;
+    return results.quality.label || results.quality.tier || 'Good';
   };
 
   return (
@@ -380,8 +509,8 @@ export default function EnhancedScorer() {
                 alignItems: 'center',
                 gap: '12px',
                 padding: '12px 20px',
-                backgroundColor: QUALITY_COLORS[results.quality?.tier || results.quality] + '15',
-                border: `2px solid ${QUALITY_COLORS[results.quality?.tier || results.quality]}`,
+                backgroundColor: QUALITY_COLORS[getQualityTier()] + '15',
+                border: `2px solid ${QUALITY_COLORS[getQualityTier()]}`,
                 borderRadius: '8px',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
@@ -400,7 +529,7 @@ export default function EnhancedScorer() {
                 style={{
                   fontSize: '28px',
                   fontWeight: 'bold',
-                  color: QUALITY_COLORS[results.quality?.tier || results.quality],
+                  color: QUALITY_COLORS[getQualityTier()],
                 }}
               >
                 {results.effectiveScore ?? results.composite?.score ?? 'N/A'}
@@ -410,15 +539,15 @@ export default function EnhancedScorer() {
                   style={{
                     fontSize: '16px',
                     fontWeight: '600',
-                    color: QUALITY_COLORS[results.quality?.tier || results.quality],
+                    color: QUALITY_COLORS[getQualityTier()],
                     textTransform: 'capitalize',
                   }}
                 >
-                  {results.quality?.label || results.quality?.tier || results.quality}
+                  {getQualityLabel()}
                 </div>
                 <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <span>Composite Score</span>
-                  {results.criticalWarnings > 0 && (
+                  {(results.criticalWarnings ?? 0) > 0 && (
                     <span style={{ fontSize: '10px', color: '#ef4444' }}>
                       ({results.criticalWarnings} critical)
                     </span>
@@ -552,8 +681,8 @@ export default function EnhancedScorer() {
                 <SummaryStatusPanel
                   forward={results.forward}
                   reverse={results.reverse}
-                  analysis={results.analysis}
-                  quality={results.quality?.tier || results.quality}
+                  analysis={results.analysis as any}
+                  quality={getQualityTier()}
                   onSectionClick={scrollToSection}
                 />
               </div>
@@ -851,7 +980,7 @@ export default function EnhancedScorer() {
           {/* Enhanced Analysis Section */}
           <div style={{ marginBottom: '20px' }}>
             <EnhancedAnalysisSection
-              analysis={results.analysis}
+              analysis={results.analysis as any}
               collapsible={true}
               defaultCollapsed={collapsedSections.analysis}
             />
@@ -983,7 +1112,7 @@ export default function EnhancedScorer() {
             {results.reverse && (
               <button
                 type="button"
-                onClick={() => navigator.clipboard.writeText(results.reverse.sequence)}
+                onClick={() => navigator.clipboard.writeText(results.reverse!.sequence)}
                 style={{
                   padding: '8px 16px',
                   backgroundColor: '#dc2626',
@@ -1001,7 +1130,7 @@ export default function EnhancedScorer() {
               <button
                 type="button"
                 onClick={() => navigator.clipboard.writeText(
-                  `Forward: ${results.forward.sequence}\nReverse: ${results.reverse.sequence}`
+                  `Forward: ${results.forward.sequence}\nReverse: ${results.reverse!.sequence}`
                 )}
                 style={{
                   padding: '8px 16px',
@@ -1097,4 +1226,6 @@ export default function EnhancedScorer() {
       `}</style>
     </div>
   );
-}
+};
+
+export default EnhancedScorer;
