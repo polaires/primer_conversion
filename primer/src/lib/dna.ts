@@ -3,9 +3,61 @@
  * Ported from seqfold Python library
  */
 
-export const DNA_COMPLEMENT = { A: "T", T: "A", G: "C", C: "G", N: "N" };
+/**
+ * Type for energy pairs [deltaH, deltaS]
+ * deltaH: enthalpy change (kcal/mol)
+ * deltaS: entropy change (cal/K·mol)
+ * Note: Using number[] instead of [number, number] for compatibility with existing JS code
+ */
+export type EnergyPair = number[];
 
-export const DNA_MULTIBRANCH = [2.6, 0.2, 0.2, 2.0];
+/**
+ * Type for energy maps with string keys (e.g., "AA/TT")
+ */
+export type EnergyMap = Record<string, EnergyPair>;
+
+/**
+ * Type for loop energy maps with numeric keys (loop size)
+ */
+export type LoopEnergyMap = Record<number, EnergyPair>;
+
+/**
+ * DNA complement mapping
+ */
+export interface ComplementMap {
+  A: string;
+  T: string;
+  G: string;
+  C: string;
+  N: string;
+  [key: string]: string;
+}
+
+/**
+ * Multi-branch loop parameters [a, b, c, d]
+ * Note: Using number[] instead of tuple for compatibility with existing JS code
+ */
+export type MultiBranchParams = number[];
+
+/**
+ * DNA energies collection interface
+ */
+export interface DNAEnergies {
+  BULGE_LOOPS: LoopEnergyMap;
+  COMPLEMENT: ComplementMap;
+  DE: EnergyMap;
+  HAIRPIN_LOOPS: LoopEnergyMap;
+  MULTIBRANCH: MultiBranchParams;
+  INTERNAL_LOOPS: LoopEnergyMap;
+  INTERNAL_MM: EnergyMap;
+  NN: EnergyMap;
+  TERMINAL_MM: EnergyMap;
+  TRI_TETRA_LOOPS: EnergyMap;
+}
+
+export const DNA_COMPLEMENT: ComplementMap = { A: "T", T: "A", G: "C", C: "G", N: "N" };
+
+export const DNA_MULTIBRANCH: MultiBranchParams = [2.6, 0.2, 0.2, 2.0];
 /**
  * a, b, c, d in a linear multi-branch energy change function.
  * Inferred from:
@@ -15,7 +67,7 @@ export const DNA_MULTIBRANCH = [2.6, 0.2, 0.2, 2.0];
  * SantaLucia and Hicks, 2004
  */
 
-export const DNA_NN = {
+export const DNA_NN: EnergyMap = {
   init: [0.2, -5.7],
   "init_G/C": [0.0, 0.0],
   "init_A/T": [2.2, 6.9],
@@ -36,7 +88,7 @@ export const DNA_NN = {
  * SantaLucia and Hicks, 2004
  */
 
-export const DNA_INTERNAL_MM = {
+export const DNA_INTERNAL_MM: EnergyMap = {
   "AG/TT": [1.0, 0.9],
   "AT/TG": [-2.5, -8.3],
   "CG/GT": [-4.1, -11.7],
@@ -98,7 +150,7 @@ export const DNA_INTERNAL_MM = {
  * Peyret et al. (1999), Biochemistry 38: 3468-3477
  */
 
-export const DNA_TERMINAL_MM = {
+export const DNA_TERMINAL_MM: EnergyMap = {
   "AA/TA": [-3.1, -7.8],
   "TA/AA": [-2.5, -6.3],
   "CA/GA": [-4.3, -10.7],
@@ -153,7 +205,7 @@ export const DNA_TERMINAL_MM = {
  * SantaLucia & Peyret (2001) Patent Application WO 01/94611
  */
 
-export const DNA_DE = {
+export const DNA_DE: EnergyMap = {
   "AA/.T": [0.2, 2.3],
   "AC/.G": [-6.3, -17.1],
   "AG/.C": [-3.7, -10.0],
@@ -193,7 +245,7 @@ export const DNA_DE = {
  */
 
 // Add reverse complements to the energy maps
-function reverseString(s) {
+function reverseString(s: string): string {
   return s.split("").reverse().join("");
 }
 
@@ -226,7 +278,7 @@ Object.keys(DNA_DE).forEach((k) => {
   }
 });
 
-export const DNA_TRI_TETRA_LOOPS = {
+export const DNA_TRI_TETRA_LOOPS: EnergyMap = {
   AGAAT: [-1.5, 0.0],
   AGCAT: [-1.5, 0.0],
   AGGAT: [-1.5, 0.0],
@@ -367,7 +419,7 @@ export const DNA_TRI_TETRA_LOOPS = {
  * SantaLucia and Hicks, 2004
  */
 
-export const DNA_INTERNAL_LOOPS = {
+export const DNA_INTERNAL_LOOPS: LoopEnergyMap = {
   1: [0, 0],
   2: [0, 0],
   3: [0, -10.3],
@@ -400,7 +452,7 @@ export const DNA_INTERNAL_LOOPS = {
   30: [0, -21.3],
 };
 
-export const DNA_BULGE_LOOPS = {
+export const DNA_BULGE_LOOPS: LoopEnergyMap = {
   1: [0, -12.9],
   2: [0, -9.4],
   3: [0, -10.0],
@@ -433,7 +485,7 @@ export const DNA_BULGE_LOOPS = {
   30: [0, -19.0],
 };
 
-export const DNA_HAIRPIN_LOOPS = {
+export const DNA_HAIRPIN_LOOPS: LoopEnergyMap = {
   1: [0, 0.0],
   2: [0, 0.0],
   3: [0, -11.3],
@@ -466,7 +518,7 @@ export const DNA_HAIRPIN_LOOPS = {
   30: [0, -20.3],
 };
 
-export const DNA_ENERGIES = {
+export const DNA_ENERGIES: DNAEnergies = {
   BULGE_LOOPS: DNA_BULGE_LOOPS,
   COMPLEMENT: DNA_COMPLEMENT,
   DE: DNA_DE,

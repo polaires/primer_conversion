@@ -15,6 +15,13 @@
  * Conversion: dS = (dH - dG) * 1000 / 310.15
  */
 
+
+// Type definitions for DNA24 thermodynamic parameters
+export type EnergyPair = [number, number]; // [dH, dS]
+export type EnergyMap = { [key: string]: EnergyPair | number[] };
+export type LoopEnergyMap = { [key: number]: EnergyPair };
+export interface ComplementMap { [key: string]: string; }
+
 export const DNA24_COMPLEMENT = { A: "T", T: "A", G: "C", C: "G", N: "N" };
 
 // Nearest-neighbor stacking parameters

@@ -6,31 +6,61 @@
  * which provide ~50% better accuracy for mismatches and G-T wobbles.
  */
 
-import { DNA_COMPLEMENT, DNA_ENERGIES } from "./dna.js";
+import { DNA_COMPLEMENT, DNA_ENERGIES } from "./dna";
 import { DNA24_COMPLEMENT, DNA24_ENERGIES } from "./dna24.js";
+
+// Type definitions for energy parameters
+// Note: Using number[] instead of [number, number] for compatibility with JS imports
+export type EnergyTuple = number[]; // [enthalpy, entropy]
+
+export interface ComplementMap {
+  [key: string]: string;
+}
+
+export interface NearestNeighborMap {
+  [key: string]: EnergyTuple;
+}
+
+export interface LoopEnergyMap {
+  [key: number]: EnergyTuple;
+}
+
+export interface EnergyParameters {
+  NN: NearestNeighborMap;
+  INTERNAL_MM?: NearestNeighborMap;
+  TERMINAL_MM?: NearestNeighborMap;
+  COMPLEMENT?: ComplementMap;
+  DE?: NearestNeighborMap;
+  HAIRPIN_LOOPS?: LoopEnergyMap;
+  BULGE_LOOPS?: LoopEnergyMap;
+  INTERNAL_LOOPS?: LoopEnergyMap;
+  TRI_TETRA_LOOPS?: NearestNeighborMap;
+  MULTIBRANCH?: number[];
+  [key: string]: any; // Allow for additional properties
+}
 
 // Default to DNA24 parameters for better accuracy
 let USE_DNA24 = true;
 
 /**
  * Set which parameter set to use for Tm calculations
- * @param {boolean} useDna24 - true for DNA24 (recommended), false for SantaLucia 1998
+ * @param useDna24 - true for DNA24 (recommended), false for SantaLucia 1998
  */
-export function setParameterSet(useDna24) {
+export function setParameterSet(useDna24: boolean): void {
   USE_DNA24 = useDna24;
 }
 
 /**
  * Get the current energy parameters based on selected parameter set
  */
-function getEnergyParams() {
+function getEnergyParams(): EnergyParameters {
   return USE_DNA24 ? DNA24_ENERGIES : DNA_ENERGIES;
 }
 
 /**
  * Get the complement map based on selected parameter set
  */
-function getComplement() {
+function getComplement(): ComplementMap {
   return USE_DNA24 ? DNA24_COMPLEMENT : DNA_COMPLEMENT;
 }
 
@@ -44,12 +74,12 @@ function getComplement() {
  * some different defaults. Here, the reaction mixture is assumed to
  * be PCR and concentrations for Mg, Tris, K, and dNTPs are included.
  *
- * @param {string} seq1 - The seq whose tm is calculated
- * @param {string} seq2 - The seq that seq1 anneals to in 3' -> 5' direction
- * @param {boolean} pcr - Whether tm is being calculated for PCR
- * @returns {number} The estimated tm as a float
+ * @param seq1 - The seq whose tm is calculated
+ * @param seq2 - The seq that seq1 anneals to in 3' -> 5' direction
+ * @param pcr - Whether tm is being calculated for PCR
+ * @returns The estimated tm as a float
  */
-export function tm(seq1, seq2 = "", pcr = true) {
+export function tm(seq1: string, seq2: string = "", pcr: boolean = true): number {
   [seq1, seq2] = parseInput(seq1, seq2);
   const energies = getEnergyParams();
 
@@ -104,25 +134,25 @@ export function tm(seq1, seq2 = "", pcr = true) {
 /**
  * Return a TmCache where each (i, j) returns the Tm for that subspan.
  *
- * @param {string} seq1 - The seq whose tm is calculated
- * @param {string} seq2 - The seq that seq1 anneals to
- * @param {boolean} pcr - Whether for PCR
- * @returns {number[][]} 2D array where [i][j] returns tm for that range
+ * @param seq1 - The seq whose tm is calculated
+ * @param seq2 - The seq that seq1 anneals to
+ * @param pcr - Whether for PCR
+ * @returns 2D array where [i][j] returns tm for that range
  */
-export function tmCache(seq1, seq2 = "", pcr = true) {
+export function tmCache(seq1: string, seq2: string = "", pcr: boolean = true): number[][] {
   [seq1, seq2] = parseInput(seq1, seq2);
   const energies = getEnergyParams();
   const n = seq1.length;
 
   const arrGc = gcCache(seq1);
-  const arrDh = [];
-  const arrDs = [];
-  const arrTm = [];
+  const arrDh: number[][] = [];
+  const arrDs: number[][] = [];
+  const arrTm: number[][] = [];
 
   for (let i = 0; i < n; i++) {
-    arrDh.push(new Array(n).fill(0.0));
-    arrDs.push(new Array(n).fill(0.0));
-    arrTm.push(new Array(n).fill(Infinity));
+    arrDh.push(new Array<number>(n).fill(0.0));
+    arrDs.push(new Array<number>(n).fill(0.0));
+    arrTm.push(new Array<number>(n).fill(Infinity));
   }
 
   // fill in the diagonal
@@ -135,7 +165,7 @@ export function tmCache(seq1, seq2 = "", pcr = true) {
     }
 
     const pair = `${seq1[i]}${seq1[i + 1]}/${seq2[i]}${seq2[i + 1]}`;
-    let dhVal, dsVal;
+    let dhVal: number, dsVal: number;
     if (pair in energies.NN) {
       [dhVal, dsVal] = energies.NN[pair];
     } else if (energies.INTERNAL_MM && pair in energies.INTERNAL_MM) {
@@ -164,15 +194,15 @@ export function tmCache(seq1, seq2 = "", pcr = true) {
 /**
  * Return the GC ratio of each range, between i and j, in the sequence
  *
- * @param {string} seq - The sequence whose GC ratio we're querying
- * @returns {number[][]} A cache for GC ratio lookup
+ * @param seq - The sequence whose GC ratio we're querying
+ * @returns A cache for GC ratio lookup
  */
-export function gcCache(seq) {
+export function gcCache(seq: string): number[][] {
   const n = seq.length;
-  const arrGc = [];
+  const arrGc: number[][] = [];
 
   for (let i = 0; i < n; i++) {
-    arrGc.push(new Array(n).fill(Infinity));
+    arrGc.push(new Array<number>(n).fill(Infinity));
   }
 
   // fill in the diagonal
@@ -211,11 +241,11 @@ export function gcCache(seq) {
 /**
  * Parse and prepare the input sequences. Throw if there's an issue.
  *
- * @param {string} seq1 - The main sequence whose tm is being calculated
- * @param {string} seq2 - The second sequence that seq1 is annealing to
- * @returns {[string, string]} The sequences to use for tm calculation
+ * @param seq1 - The main sequence whose tm is being calculated
+ * @param seq2 - The second sequence that seq1 is annealing to
+ * @returns The sequences to use for tm calculation
  */
-function parseInput(seq1, seq2 = "") {
+function parseInput(seq1: string, seq2: string = ""): [string, string] {
   seq1 = seq1.toUpperCase();
   if (!seq2) {
     const complement = getComplement();
@@ -243,16 +273,16 @@ function parseInput(seq1, seq2 = "") {
 /**
  * Apply the correction formula to estimate Tm
  *
- * @param {number} dh - Accumulated enthalpy
- * @param {number} ds - Accumulated entropy
- * @param {boolean} pcr - Whether this is for PCR or not
- * @param {number} gc - The GC% of the sequence
- * @param {number} seqLen - The length of the sequence
- * @returns {number} The estimated tm
+ * @param dh - Accumulated enthalpy
+ * @param ds - Accumulated entropy
+ * @param pcr - Whether this is for PCR or not
+ * @param gc - The GC% of the sequence
+ * @param seqLen - The length of the sequence
+ * @returns The estimated tm
  */
-function calcTm(dh, ds, pcr, gc, seqLen) {
+function calcTm(dh: number, ds: number, pcr: boolean, gc: number, seqLen: number): number {
   // adjust salt based on mode
-  let seq1Conc, seq2Conc, Na, K, Tris, Mg, dNTPs;
+  let seq1Conc: number, seq2Conc: number, Na: number, K: number, Tris: number, Mg: number, dNTPs: number;
   if (pcr) {
     seq1Conc = 250.0;
     seq2Conc = 0.0;
@@ -299,7 +329,7 @@ function calcTm(dh, ds, pcr, gc, seqLen) {
       (2.0 * ka);
   }
 
-  let corr;
+  let corr: number;
   if (Mon > 0) {
     const R = Math.sqrt(mg) / mon;
     if (R < 0.22) {
@@ -340,10 +370,10 @@ function calcTm(dh, ds, pcr, gc, seqLen) {
 /**
  * Return the GC ratio of a sequence.
  *
- * @param {string} seq - The sequence
- * @returns {number} The GC ratio
+ * @param seq - The sequence
+ * @returns The GC ratio
  */
-function getGc(seq) {
+function getGc(seq: string): number {
   const gcCount =
     (seq.match(/G/g) || []).length + (seq.match(/C/g) || []).length;
   return gcCount / seq.length;

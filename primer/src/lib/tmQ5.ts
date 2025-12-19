@@ -25,14 +25,216 @@ export const Q5_DEFAULTS = {
   mgConc: 2.0,         // mM
   annealOffset: 1,     // °C
   maxAnneal: 72,       // °C
-};
+} as const;
+
+/**
+ * Options for Q5 Tm calculation
+ */
+export interface Q5Options {
+  primerConc?: number;  // nM
+  mgConc?: number;      // mM
+}
+
+/**
+ * Options for annealing temperature calculation
+ */
+export interface AnnealingOptions extends Q5Options {
+  offset?: number;   // °C
+  maxTemp?: number;  // °C
+}
+
+/**
+ * Result of annealing temperature calculation
+ */
+export interface AnnealingResult {
+  tm1: number;
+  tm2: number;
+  tmLower: number;
+  tmHigher: number;
+  tmDifference: number;
+  annealingTemp: number;
+  isCapped: boolean;
+}
+
+/**
+ * Dinucleotide contribution detail
+ */
+export interface DinucleotideDetail {
+  position: number;
+  dinucleotide: string;
+  dH: number;
+  dS: number;
+}
+
+/**
+ * Terminal penalty detail
+ */
+export interface TerminalPenalty {
+  position: string;
+  base: string;
+  dH: number;
+  dS: number;
+}
+
+/**
+ * Detailed Tm calculation result
+ */
+export interface DetailedTmResult {
+  sequence: string;
+  length: number;
+  gcContent: number;
+  gcPercent: string;
+  step1_nearestNeighbor: {
+    dinucleotides: DinucleotideDetail[];
+    terminalPenalties: TerminalPenalty[];
+    initiation: { dH: number; dS: number };
+    totalDH: number;
+    totalDS: number;
+    primerConc: string;
+    Tm_1M: string;
+  };
+  step2_mgCorrection: {
+    mgConc: string;
+    lnMg: string;
+    correction: string;
+    Tm_Mg: string;
+  };
+  step3_q5Correction: {
+    formula: string;
+    components: {
+      constant: number;
+      tmMgTerm: string;
+      gcTerm: string;
+      lnNTerm: string;
+      nTerm: string;
+      invNTerm: string;
+    };
+    Tm_raw: string;
+  };
+  finalTm: number;
+}
+
+/**
+ * Batch Tm calculation result
+ */
+export interface TmBatchResult {
+  sequence: string;
+  length: number;
+  gcPercent?: string;
+  tm?: number;
+  valid: boolean;
+  error?: string;
+}
+
+/**
+ * Validation test case
+ */
+export interface ValidationCase {
+  primer1: string;
+  primer2: string;
+  expected: {
+    tm1: number;
+    tm2: number;
+    ta: number;
+  };
+}
+
+/**
+ * Options for finding optimal primer length
+ */
+export interface OptimalLengthOptions {
+  minLength?: number;
+  maxLength?: number;
+  primerConc?: number;
+  mgConc?: number;
+}
+
+/**
+ * Result of optimal length search
+ */
+export interface OptimalLengthResult {
+  length: number;
+  tm: number;
+  sequence: string;
+  meetsMinTm: boolean;
+  meetsMinLength: boolean;
+  gcContent: number;
+}
+
+/**
+ * Options for getting valid primer candidates
+ */
+export interface ValidCandidatesOptions extends Q5Options {
+  minTm?: number;
+  maxTm?: number;
+  absoluteMaxTm?: number;
+  minLength?: number;
+  maxLength?: number;
+  rescueMode?: boolean;
+}
+
+/**
+ * Primer candidate from valid range search
+ */
+export interface PrimerCandidate {
+  length: number;
+  tm: number;
+  sequence: string;
+  gc: number;
+  gcPercent: string;
+  hasGCClamp: boolean;
+  isRescue: boolean;
+}
+
+/**
+ * Options for finding best Tm-matched pair
+ */
+export interface PrimerPairOptions {
+  tmDiffWeight?: number;
+  lengthWeight?: number;
+  gcClampBonus?: number;
+  minLength?: number;
+  preferShorter?: boolean;
+}
+
+/**
+ * Result of best primer pair search
+ */
+export interface PrimerPairResult {
+  forward: PrimerCandidate;
+  reverse: PrimerCandidate;
+  tmDiff: number;
+  score: number;
+}
+
+/**
+ * Result of Tm-targeted length range calculation
+ */
+export interface LengthRangeResult {
+  minLength: number;
+  maxLength: number;
+  optimalLength: number;
+  tmAtOptimal: number;
+  achievable: boolean;
+}
+
+/**
+ * Result of 3' terminal ΔG calculation
+ */
+export interface TerminalDGResult {
+  dG: number;
+  classification: 'invalid' | 'loose' | 'ideal' | 'strong' | 'sticky';
+  isIdeal: boolean;
+  terminalSequence?: string;
+  message: string;
+}
 
 /**
  * Calculate GC fraction of a sequence
- * @param {string} seq - DNA sequence
- * @returns {number} GC fraction (0 to 1), or 0 if sequence is empty/invalid
+ * @param seq - DNA sequence
+ * @returns GC fraction (0 to 1), or 0 if sequence is empty/invalid
  */
-export function calculateGC(seq) {
+export function calculateGC(seq: string): number {
   if (!seq || typeof seq !== 'string' || seq.length === 0) {
     return 0;  // Return 0 instead of NaN for invalid input
   }
@@ -58,13 +260,11 @@ export function calculateGC(seq) {
 /**
  * Calculate Tm using NEB Q5 algorithm
  *
- * @param {string} sequence - DNA primer sequence
- * @param {Object} options - Calculation options
- * @param {number} options.primerConc - Primer concentration in nM (default: 500)
- * @param {number} options.mgConc - Mg²⁺ concentration in mM (default: 2.0)
- * @returns {number} Melting temperature in °C (rounded to integer)
+ * @param sequence - DNA primer sequence
+ * @param options - Calculation options
+ * @returns Melting temperature in °C (rounded to integer)
  */
-export function calculateTmQ5(sequence, options = {}) {
+export function calculateTmQ5(sequence: string, options: Q5Options = {}): number {
   const {
     primerConc = Q5_DEFAULTS.primerConc,
     mgConc = Q5_DEFAULTS.mgConc,
@@ -133,16 +333,16 @@ export function calculateTmQ5(sequence, options = {}) {
 /**
  * Calculate annealing temperature for a primer pair
  *
- * @param {string} primer1 - Forward primer sequence
- * @param {string} primer2 - Reverse primer sequence
- * @param {Object} options - Calculation options
- * @param {number} options.primerConc - Primer concentration in nM (default: 500)
- * @param {number} options.mgConc - Mg²⁺ concentration in mM (default: 2.0)
- * @param {number} options.offset - Temperature offset in °C (default: 1)
- * @param {number} options.maxTemp - Maximum annealing temperature (default: 72)
- * @returns {Object} Annealing temperature result
+ * @param primer1 - Forward primer sequence
+ * @param primer2 - Reverse primer sequence
+ * @param options - Calculation options
+ * @returns Annealing temperature result
  */
-export function calculateAnnealingQ5(primer1, primer2, options = {}) {
+export function calculateAnnealingQ5(
+  primer1: string,
+  primer2: string,
+  options: AnnealingOptions = {}
+): AnnealingResult {
   const {
     primerConc = Q5_DEFAULTS.primerConc,
     mgConc = Q5_DEFAULTS.mgConc,
@@ -171,11 +371,14 @@ export function calculateAnnealingQ5(primer1, primer2, options = {}) {
  * Get detailed Tm calculation breakdown
  * Useful for debugging and educational purposes
  *
- * @param {string} sequence - DNA primer sequence
- * @param {Object} options - Calculation options
- * @returns {Object} Detailed calculation steps
+ * @param sequence - DNA primer sequence
+ * @param options - Calculation options
+ * @returns Detailed calculation steps
  */
-export function calculateTmQ5Detailed(sequence, options = {}) {
+export function calculateTmQ5Detailed(
+  sequence: string,
+  options: Q5Options = {}
+): DetailedTmResult {
   const {
     primerConc = Q5_DEFAULTS.primerConc,
     mgConc = Q5_DEFAULTS.mgConc,
@@ -191,7 +394,7 @@ export function calculateTmQ5Detailed(sequence, options = {}) {
   let dH = 0.2;
   let dS = -5.7;
 
-  const dinucleotides = [];
+  const dinucleotides: DinucleotideDetail[] = [];
   for (let i = 0; i < seq.length - 1; i++) {
     const dinuc = seq[i] + seq[i + 1];
     const params = NN_PARAMS[dinuc];
@@ -208,7 +411,7 @@ export function calculateTmQ5Detailed(sequence, options = {}) {
   }
 
   // Terminal penalties
-  const terminalPenalties = [];
+  const terminalPenalties: TerminalPenalty[] = [];
   if (seq[0] === 'A' || seq[0] === 'T') {
     terminalPenalties.push({ position: '5\'', base: seq[0], dH: 2.2, dS: 6.9 });
     dH += 2.2;
@@ -287,11 +490,14 @@ export function calculateTmQ5Detailed(sequence, options = {}) {
 /**
  * Batch calculate Tm for multiple primers
  *
- * @param {string[]} sequences - Array of primer sequences
- * @param {Object} options - Calculation options
- * @returns {Object[]} Array of Tm results
+ * @param sequences - Array of primer sequences
+ * @param options - Calculation options
+ * @returns Array of Tm results
  */
-export function batchCalculateTmQ5(sequences, options = {}) {
+export function batchCalculateTmQ5(
+  sequences: string[],
+  options: Q5Options = {}
+): TmBatchResult[] {
   return sequences.map(seq => {
     try {
       const tm = calculateTmQ5(seq, options);
@@ -307,7 +513,7 @@ export function batchCalculateTmQ5(sequences, options = {}) {
       return {
         sequence: seq,
         length: seq.length,
-        error: error.message,
+        error: (error as Error).message,
         valid: false,
       };
     }
@@ -315,7 +521,7 @@ export function batchCalculateTmQ5(sequences, options = {}) {
 }
 
 // Export validation test cases for reference
-export const VALIDATION_CASES = [
+export const VALIDATION_CASES: ValidationCase[] = [
   { primer1: 'ACGTACGTACGTACGTACGT', primer2: 'TGCATGCATGCATGCATGCA', expected: { tm1: 63, tm2: 68, ta: 64 } },
   { primer1: 'ATCGATCGATCGATCGATCGATCG', primer2: 'GCTAGCTAGCTAGCTAG', expected: { tm1: 66, tm2: 62, ta: 63 } },
   { primer1: 'ATGATGATGATGACG', primer2: 'CGATCGATCGATCGA', expected: { tm1: 57, tm2: 56, ta: 57 } },
@@ -332,14 +538,16 @@ export const VALIDATION_CASES = [
  * - For GC-rich: meets min length first, Tm will be higher
  * - For AT-rich: needs to extend beyond min length to reach min Tm
  *
- * @param {string} sequence - Template sequence (primer will be extracted from start)
- * @param {number} minTm - Minimum Tm threshold (default: 55°C, NEB default)
- * @param {Object} options - Options
- * @param {number} options.minLength - Minimum length for specificity (default: 15, NEB default)
- * @param {number} options.maxLength - Maximum primer length (default: 35)
- * @returns {Object} { length, tm, sequence, meetsMinTm, meetsMinLength }
+ * @param sequence - Template sequence (primer will be extracted from start)
+ * @param minTm - Minimum Tm threshold (default: 55°C, NEB default)
+ * @param options - Options
+ * @returns Optimal length result or null if sequence too short
  */
-export function findOptimalLengthForTm(sequence, minTm = 55, options = {}) {
+export function findOptimalLengthForTm(
+  sequence: string,
+  minTm: number = 55,
+  options: OptimalLengthOptions = {}
+): OptimalLengthResult | null {
   const {
     minLength = 15,  // NEB minimum for specificity
     maxLength = 35,
@@ -396,15 +604,14 @@ export function findOptimalLengthForTm(sequence, minTm = 55, options = {}) {
  * this returns ALL valid lengths so we can jointly optimize primer pairs
  * to minimize Tm difference.
  *
- * @param {string} sequence - Template sequence (primer extracted from start)
- * @param {Object} options - Options
- * @param {number} options.minTm - Minimum Tm threshold (default: 55°C)
- * @param {number} options.maxTm - Maximum Tm threshold (default: 72°C)
- * @param {number} options.minLength - Minimum length (default: 15)
- * @param {number} options.maxLength - Maximum length (default: 35)
- * @returns {Array} Array of valid candidates: [{ length, tm, sequence, gc }, ...]
+ * @param sequence - Template sequence (primer extracted from start)
+ * @param options - Options
+ * @returns Array of valid candidates
  */
-export function getValidPrimerCandidates(sequence, options = {}) {
+export function getValidPrimerCandidates(
+  sequence: string,
+  options: ValidCandidatesOptions = {}
+): PrimerCandidate[] {
   const {
     minTm = 55,
     maxTm = 72,           // Soft cap - prefer candidates below this
@@ -415,7 +622,7 @@ export function getValidPrimerCandidates(sequence, options = {}) {
   } = options;
 
   const seq = sequence.toUpperCase();
-  const candidates = [];
+  const candidates: PrimerCandidate[] = [];
 
   if (seq.length < minLength) {
     return candidates;
@@ -457,12 +664,16 @@ export function getValidPrimerCandidates(sequence, options = {}) {
  * This solves the "greedy stop" problem by considering ALL valid combinations
  * and selecting the pair with the best combined score (minimal Tm difference).
  *
- * @param {Array} fwdCandidates - Forward primer candidates from getValidPrimerCandidates
- * @param {Array} revCandidates - Reverse primer candidates from getValidPrimerCandidates
- * @param {Object} options - Scoring options
- * @returns {Object|null} Best pair: { forward, reverse, tmDiff, score }
+ * @param fwdCandidates - Forward primer candidates from getValidPrimerCandidates
+ * @param revCandidates - Reverse primer candidates from getValidPrimerCandidates
+ * @param options - Scoring options
+ * @returns Best pair or null if no valid combinations
  */
-export function findBestTmMatchedPair(fwdCandidates, revCandidates, options = {}) {
+export function findBestTmMatchedPair(
+  fwdCandidates: PrimerCandidate[],
+  revCandidates: PrimerCandidate[],
+  options: PrimerPairOptions = {}
+): PrimerPairResult | null {
   const {
     tmDiffWeight = 5.0,      // High weight for Tm matching
     lengthWeight = 0.5,      // Mild penalty for excess length
@@ -475,7 +686,7 @@ export function findBestTmMatchedPair(fwdCandidates, revCandidates, options = {}
     return null;
   }
 
-  let bestPair = null;
+  let bestPair: PrimerPairResult | null = null;
   let bestScore = Infinity;
 
   for (const fwd of fwdCandidates) {
@@ -499,7 +710,7 @@ export function findBestTmMatchedPair(fwdCandidates, revCandidates, options = {}
       // Update best if this is better
       // When scores are equal and preferShorter, pick shorter total length
       if (pairScore < bestScore ||
-          (pairScore === bestScore && preferShorter &&
+          (pairScore === bestScore && preferShorter && bestPair &&
            (fwd.length + rev.length) < (bestPair.forward.length + bestPair.reverse.length))) {
         bestScore = pairScore;
         bestPair = {
@@ -519,14 +730,18 @@ export function findBestTmMatchedPair(fwdCandidates, revCandidates, options = {}
  * Calculate the optimal primer length range for a target Tm
  * Returns the lengths that would give Tm within tolerance of target
  *
- * @param {string} sequence - Template sequence
- * @param {number} targetTm - Target Tm (default: 62)
- * @param {number} tolerance - Acceptable deviation from target (default: 3)
- * @returns {Object} { minLength, maxLength, optimalLength, tmAtOptimal }
+ * @param sequence - Template sequence
+ * @param targetTm - Target Tm (default: 62)
+ * @param tolerance - Acceptable deviation from target (default: 3)
+ * @returns Length range result
  */
-export function getTmTargetedLengthRange(sequence, targetTm = 62, tolerance = 3) {
+export function getTmTargetedLengthRange(
+  sequence: string,
+  targetTm: number = 62,
+  tolerance: number = 3
+): LengthRangeResult {
   const seq = sequence.toUpperCase();
-  const results = [];
+  const results: Array<{ length: number; tm: number; diff: number }> = [];
 
   // Test lengths from 15 to 40
   for (let len = 15; len <= Math.min(40, seq.length); len++) {
@@ -577,10 +792,10 @@ export function getTmTargetedLengthRange(sequence, targetTm = 62, tolerance = 3)
  *
  * Reference: SantaLucia (1998), Primer3 PRIMER_MAX_END_STABILITY
  *
- * @param {string} sequence - DNA primer sequence
- * @returns {Object} { dG, classification, isIdeal }
+ * @param sequence - DNA primer sequence
+ * @returns Terminal dG result
  */
-export function calculate3primeTerminalDG(sequence) {
+export function calculate3primeTerminalDG(sequence: string): TerminalDGResult {
   const seq = sequence.toUpperCase();
 
   // Handle edge case: sequence too short
@@ -617,7 +832,8 @@ export function calculate3primeTerminalDG(sequence) {
   dG = Math.round(dG * 100) / 100;
 
   // Classify the terminal stability
-  let classification, isIdeal;
+  let classification: 'loose' | 'ideal' | 'strong' | 'sticky';
+  let isIdeal: boolean;
   if (dG > -6.0) {
     classification = 'loose';
     isIdeal = false;

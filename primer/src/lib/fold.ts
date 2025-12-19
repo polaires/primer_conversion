@@ -6,34 +6,56 @@
  * which provide improved accuracy for hairpins and mismatches.
  */
 
-import { DNA_ENERGIES } from "./dna.js";
+import { DNA_ENERGIES } from "./dna";
 import { DNA24_ENERGIES } from "./dna24.js";
+
+// Structure representing a folding structure with energy, description, and base pairs
+export interface FoldStructure {
+  e: number;          // Energy value
+  desc: string;       // Description of the structure type
+  ij: number[][];     // Array of [i, j] base pair indices
+}
+
+// Energy parameter set containing thermodynamic parameters
+export interface EnergyParameters {
+  COMPLEMENT: Record<string, string>;
+  NN: Record<string, [number, number]>;
+  DE: Record<string, [number, number]>;
+  TERMINAL_MM?: Record<string, [number, number]>;
+  HAIRPIN_MM?: Record<string, [number, number]>;
+  INTERNAL_MM?: Record<string, [number, number]>;
+  TRI_TETRA_LOOPS?: Record<string, [number, number]>;
+  HAIRPIN_LOOPS: Record<number, [number, number]>;
+  BULGE_LOOPS: Record<number, [number, number]>;
+  INTERNAL_LOOPS: Record<number, [number, number]>;
+  MULTIBRANCH: [number, number, number, number];
+}
 
 // Default to DNA24 parameters for better accuracy
 let USE_DNA24 = true;
 
 /**
  * Set which parameter set to use for folding
- * @param {boolean} useDna24 - true for DNA24 (recommended), false for SantaLucia 1998
+ * @param useDna24 - true for DNA24 (recommended), false for SantaLucia 1998
  */
-export function setFoldParameterSet(useDna24) {
+export function setFoldParameterSet(useDna24: boolean): void {
   USE_DNA24 = useDna24;
 }
 
 /**
  * Get the current energy parameters based on selected parameter set
  */
-function getEnergyParams() {
+function getEnergyParams(): EnergyParameters {
   return USE_DNA24 ? DNA24_ENERGIES : DNA_ENERGIES;
 }
 
 /**
  * Convert a pair string to DNA24 terminal mismatch format
  * "AA/TT" -> "AATT" or "AC/TG" -> "ACTG"
- * @param {string} pair - Pair in "XX/YY" format
- * @returns {string} 4-character code for DNA24 lookup
+ * @param pair - Pair in "XX/YY" format
+ * @returns 4-character code for DNA24 lookup
  */
-function pairToTerminalCode(pair) {
+function pairToTerminalCode(pair: string): string {
   // pair format: "XY/ZW" -> "XYZW" (removing the slash)
   return pair.replace("/", "");
 }
@@ -42,12 +64,12 @@ function pairToTerminalCode(pair) {
  * Get 6-character context code for DNA24 internal mismatch lookup
  * The context is: seq[i], seq[i+1], seq[i+2], seq[j-1], seq[j], seq[j+1]
  * where i,j are the outer closing base pair positions
- * @param {string} seq - The full sequence
- * @param {number} i - 5' position of closing pair
- * @param {number} j - 3' position of closing pair
- * @returns {string|null} 6-character context code or null if invalid
+ * @param seq - The full sequence
+ * @param i - 5' position of closing pair
+ * @param j - 3' position of closing pair
+ * @returns 6-character context code or null if invalid
  */
-function getInternalMismatchContext(seq, i, j) {
+function getInternalMismatchContext(seq: string, i: number, j: number): string | null {
   // For internal mismatches, we need context around the mismatch
   // DNA24 uses: pos i, i+1, i+2 and j-1, j, j+1 (relative to the closing pair)
   if (i + 2 >= seq.length || j - 1 < 0) {
@@ -58,11 +80,11 @@ function getInternalMismatchContext(seq, i, j) {
 
 /**
  * Look up terminal mismatch energy with format handling for DNA24 vs legacy
- * @param {string} pair - Pair in "XX/YY" format
- * @param {Object} emap - Energy parameters
- * @returns {number[]|null} [dH, dS] or null if not found
+ * @param pair - Pair in "XX/YY" format
+ * @param emap - Energy parameters
+ * @returns [dH, dS] or null if not found
  */
-function lookupTerminalMM(pair, emap) {
+function lookupTerminalMM(pair: string, emap: EnergyParameters): [number, number] | null {
   if (USE_DNA24) {
     // DNA24 uses 4-character codes without slash
     const code = pairToTerminalCode(pair);
@@ -80,11 +102,11 @@ function lookupTerminalMM(pair, emap) {
 
 /**
  * Look up hairpin mismatch energy (DNA24 has separate HAIRPIN_MM)
- * @param {string} pair - Pair in "XX/YY" format
- * @param {Object} emap - Energy parameters
- * @returns {number[]|null} [dH, dS] or null if not found
+ * @param pair - Pair in "XX/YY" format
+ * @param emap - Energy parameters
+ * @returns [dH, dS] or null if not found
  */
-function lookupHairpinMM(pair, emap) {
+function lookupHairpinMM(pair: string, emap: EnergyParameters): [number, number] | null {
   if (USE_DNA24) {
     // DNA24 has dedicated hairpin mismatch parameters
     const code = pairToTerminalCode(pair);
@@ -106,14 +128,20 @@ function lookupHairpinMM(pair, emap) {
 
 /**
  * Look up internal mismatch energy with format handling for DNA24 vs legacy
- * @param {string} pair - Pair in "XX/YY" format
- * @param {Object} emap - Energy parameters
- * @param {string} seq - Full sequence (needed for DNA24 context)
- * @param {number} i - Position i (for context lookup)
- * @param {number} j - Position j (for context lookup)
- * @returns {number[]|null} [dH, dS] or null if not found
+ * @param pair - Pair in "XX/YY" format
+ * @param emap - Energy parameters
+ * @param seq - Full sequence (needed for DNA24 context)
+ * @param i - Position i (for context lookup)
+ * @param j - Position j (for context lookup)
+ * @returns [dH, dS] or null if not found
  */
-function lookupInternalMM(pair, emap, seq = null, i = -1, j = -1) {
+function lookupInternalMM(
+  pair: string,
+  emap: EnergyParameters,
+  seq: string | null = null,
+  i: number = -1,
+  j: number = -1
+): [number, number] | null {
   if (USE_DNA24 && seq !== null && i >= 0 && j >= 0) {
     // DNA24 uses 6-character context codes
     const context = getInternalMismatchContext(seq, i, j);
@@ -134,17 +162,17 @@ function lookupInternalMM(pair, emap, seq = null, i = -1, j = -1) {
   return null;
 }
 
-const STRUCT_DEFAULT = { e: -Infinity, desc: "", ij: [] };
-const STRUCT_NULL = { e: Infinity, desc: "", ij: [] };
+const STRUCT_DEFAULT: FoldStructure = { e: -Infinity, desc: "", ij: [] };
+const STRUCT_NULL: FoldStructure = { e: Infinity, desc: "", ij: [] };
 
 /**
  * Create a structure object
- * @param {number} e - Energy
- * @param {string} desc - Description
- * @param {Array} ij - Array of [i, j] pairs
- * @returns {Object} Structure object
+ * @param e - Energy
+ * @param desc - Description
+ * @param ij - Array of [i, j] pairs
+ * @returns Structure object
  */
-function createStruct(e = -Infinity, desc = "", ij = []) {
+function createStruct(e: number = -Infinity, desc: string = "", ij: number[][] = []): FoldStructure {
   return { e, desc, ij: ij.slice() };
 }
 
@@ -152,11 +180,11 @@ function createStruct(e = -Infinity, desc = "", ij = []) {
  * Fold the DNA sequence and return the lowest free energy score.
  * Based on Zuker and Stiegler, 1981
  *
- * @param {string} seq - The sequence to fold
- * @param {number} temp - The temperature in Celsius
- * @returns {Object[]} A list of structures
+ * @param seq - The sequence to fold
+ * @param temp - The temperature in Celsius
+ * @returns A list of structures
  */
-export function fold(seq, temp = 37.0) {
+export function fold(seq: string, temp: number = 37.0): FoldStructure[] {
   const [vCache, wCache] = createCache(seq, temp);
   const n = seq.length;
 
@@ -167,11 +195,11 @@ export function fold(seq, temp = 37.0) {
 /**
  * Fold the sequence and return just the delta G of the structure
  *
- * @param {string} seq - The sequence to fold
- * @param {number} temp - The temperature to fold at
- * @returns {number} The minimum free energy of the folded sequence
+ * @param seq - The sequence to fold
+ * @param temp - The temperature to fold at
+ * @returns The minimum free energy of the folded sequence
  */
-export function dg(seq, temp = 37.0) {
+export function dg(seq: string, temp: number = 37.0): number {
   const structs = fold(seq, temp);
   const dgSum = structs.reduce((sum, s) => sum + s.e, 0);
   // Handle Infinity (no valid structure found) - return 0 (no secondary structure)
@@ -184,14 +212,14 @@ export function dg(seq, temp = 37.0) {
 /**
  * Fold a nucleic acid sequence and return the estimated dg of each (i,j) pairing.
  *
- * @param {string} seq - The nucleic acid sequence to fold
- * @param {number} temp - The temperature to fold at
- * @returns {number[][]} A 2D matrix where each (i, j) pairing corresponds to the MFE
+ * @param seq - The nucleic acid sequence to fold
+ * @param temp - The temperature to fold at
+ * @returns A 2D matrix where each (i, j) pairing corresponds to the MFE
  */
-export function dgCache(seq, temp = 37.0) {
+export function dgCache(seq: string, temp: number = 37.0): number[][] {
   const [, wCache] = createCache(seq, temp);
 
-  const cache = [];
+  const cache: number[][] = [];
   for (const row of wCache) {
     cache.push(row.map((s) => s.e));
   }
@@ -202,19 +230,19 @@ export function dgCache(seq, temp = 37.0) {
 /**
  * Create caches for the w_cache and v_cache
  *
- * @param {string} seq - The sequence to fold
- * @param {number} temp - The temperature to fold at
- * @returns {[Object[][], Object[][]]} The v_cache and the w_cache
+ * @param seq - The sequence to fold
+ * @param temp - The temperature to fold at
+ * @returns The v_cache and the w_cache
  */
-function createCache(seq, temp = 37.0) {
+function createCache(seq: string, temp: number = 37.0): [FoldStructure[][], FoldStructure[][]] {
   seq = seq.toUpperCase();
   temp = temp + 273.15; // kelvin
 
   const emap = getEnergyParams();
 
   const n = seq.length;
-  const vCache = [];
-  const wCache = [];
+  const vCache: FoldStructure[][] = [];
+  const wCache: FoldStructure[][] = [];
 
   for (let i = 0; i < n; i++) {
     vCache.push(new Array(n).fill(null).map(() => ({ ...STRUCT_DEFAULT })));
@@ -231,16 +259,24 @@ function createCache(seq, temp = 37.0) {
  * Find and return the lowest free energy structure in Sij subsequence
  * Figure 2B in Zuker and Stiegler, 1981
  *
- * @param {string} seq - The sequence being folded
- * @param {number} i - The start index
- * @param {number} j - The end index (inclusive)
- * @param {number} temp - The temperature in Kelvin
- * @param {Object[][]} vCache - Free energy cache for if i and j bp
- * @param {Object[][]} wCache - Free energy cache for lowest energy structure
- * @param {Object} emap - Energy map
- * @returns {Object} The free energy for the subsequence
+ * @param seq - The sequence being folded
+ * @param i - The start index
+ * @param j - The end index (inclusive)
+ * @param temp - The temperature in Kelvin
+ * @param vCache - Free energy cache for if i and j bp
+ * @param wCache - Free energy cache for lowest energy structure
+ * @param emap - Energy map
+ * @returns The free energy for the subsequence
  */
-function computeW(seq, i, j, temp, vCache, wCache, emap) {
+function computeW(
+  seq: string,
+  i: number,
+  j: number,
+  temp: number,
+  vCache: FoldStructure[][],
+  wCache: FoldStructure[][],
+  emap: EnergyParameters
+): FoldStructure {
   if (wCache[i][j].e !== -Infinity) {
     return wCache[i][j];
   }
@@ -254,7 +290,7 @@ function computeW(seq, i, j, temp, vCache, wCache, emap) {
   const w2 = computeW(seq, i, j - 1, temp, vCache, wCache, emap);
   const w3 = computeV(seq, i, j, temp, vCache, wCache, emap);
 
-  let w4 = { ...STRUCT_NULL };
+  let w4: FoldStructure = { ...STRUCT_NULL };
   for (let k = i + 1; k < j - 1; k++) {
     const w4Test = multiBranch(seq, i, k, j, temp, vCache, wCache, emap, false);
 
@@ -271,16 +307,24 @@ function computeW(seq, i, j, temp, vCache, wCache, emap) {
 /**
  * Find, store and return the minimum free energy of the structure between i and j
  *
- * @param {string} seq - The sequence being folded
- * @param {number} i - The start index
- * @param {number} j - The end index (inclusive)
- * @param {number} temp - The temperature in Kelvin
- * @param {Object[][]} vCache - Free energy cache for if i and j bp
- * @param {Object[][]} wCache - Free energy cache for lowest energy structure
- * @param {Object} emap - Energy map
- * @returns {Object} The minimum energy folding structure
+ * @param seq - The sequence being folded
+ * @param i - The start index
+ * @param j - The end index (inclusive)
+ * @param temp - The temperature in Kelvin
+ * @param vCache - Free energy cache for if i and j bp
+ * @param wCache - Free energy cache for lowest energy structure
+ * @param emap - Energy map
+ * @returns The minimum energy folding structure
  */
-function computeV(seq, i, j, temp, vCache, wCache, emap) {
+function computeV(
+  seq: string,
+  i: number,
+  j: number,
+  temp: number,
+  vCache: FoldStructure[][],
+  wCache: FoldStructure[][],
+  emap: EnergyParameters
+): FoldStructure {
   if (vCache[i][j].e !== -Infinity) {
     return vCache[i][j];
   }
@@ -380,7 +424,7 @@ function computeV(seq, i, j, temp, vCache, wCache, emap) {
   }
 
   // E3 = min{W(i+1,i') + W(i'+1,j-1)}, i+1<i'<j-2
-  let e3 = { ...STRUCT_NULL };
+  let e3: FoldStructure = { ...STRUCT_NULL };
   if (!isolatedOuter || !i || j === seq.length - 1) {
     for (let k = i + 1; k < j - 1; k++) {
       const e3Test = multiBranch(seq, i, k, j, temp, vCache, wCache, emap, true);
@@ -399,7 +443,7 @@ function computeV(seq, i, j, temp, vCache, wCache, emap) {
 /**
  * Return a stack representation, a key for the NN maps
  */
-function getPair(s, i, i1, j, j1) {
+function getPair(s: string, i: number, i1: number, j: number, j1: number): string {
   return (
     (i >= 0 ? s[i] : ".") +
     (i1 >= 0 ? s[i1] : ".") +
@@ -412,8 +456,8 @@ function getPair(s, i, i1, j, j1) {
 /**
  * Return the struct with the lowest free energy that isn't -inf (undef)
  */
-function minStruct(...structs) {
-  let s = { ...STRUCT_NULL };
+function minStruct(...structs: FoldStructure[]): FoldStructure {
+  let s: FoldStructure = { ...STRUCT_NULL };
   for (const struct of structs) {
     if (struct.e !== -Infinity && struct.e < s.e) {
       s = struct;
@@ -425,14 +469,14 @@ function minStruct(...structs) {
 /**
  * Find the free energy given delta h, s and temp
  */
-function calcDG(dH, dS, temp) {
+function calcDG(dH: number, dS: number, temp: number): number {
   return dH - temp * (dS / 1000.0);
 }
 
 /**
  * Jacobson-Stockmayer extrapolation formula
  */
-function jsExtrapolation(queryLen, knownLen, dgX, temp) {
+function jsExtrapolation(queryLen: number, knownLen: number, dgX: number, temp: number): number {
   const gasConstant = 1.9872e-3;
   return dgX + 2.44 * gasConstant * temp * Math.log(queryLen / knownLen);
 }
@@ -440,7 +484,15 @@ function jsExtrapolation(queryLen, knownLen, dgX, temp) {
 /**
  * Get the free energy for a stack
  */
-function stackEnergy(seq, i, i1, j, j1, temp, emap) {
+function stackEnergy(
+  seq: string,
+  i: number,
+  i1: number,
+  j: number,
+  j1: number,
+  temp: number,
+  emap: EnergyParameters
+): number {
   if ([i, i1, j, j1].some((x) => x >= seq.length)) {
     return 0.0;
   }
@@ -524,7 +576,7 @@ function stackEnergy(seq, i, i1, j, j1, temp, emap) {
 /**
  * Calculate the free energy of a hairpin
  */
-function hairpin(seq, i, j, temp, emap) {
+function hairpin(seq: string, i: number, j: number, temp: number, emap: EnergyParameters): number {
   if (j - i < 4) {
     return Infinity;
   }
@@ -578,13 +630,21 @@ function hairpin(seq, i, j, temp, emap) {
 /**
  * Calculate the free energy associated with a bulge
  */
-function bulge(seq, i, i1, j, j1, temp, emap) {
+function bulge(
+  seq: string,
+  i: number,
+  i1: number,
+  j: number,
+  j1: number,
+  temp: number,
+  emap: EnergyParameters
+): number {
   const loopLen = Math.max(i1 - i - 1, j - j1 - 1);
   if (loopLen <= 0) {
     throw new Error("Invalid bulge");
   }
 
-  let dgVal;
+  let dgVal: number;
 
   // add penalty based on size
   if (loopLen in emap.BULGE_LOOPS) {
@@ -613,7 +673,15 @@ function bulge(seq, i, i1, j, j1, temp, emap) {
 /**
  * Calculate the free energy of an internal loop
  */
-function internalLoop(seq, i, i1, j, j1, temp, emap) {
+function internalLoop(
+  seq: string,
+  i: number,
+  i1: number,
+  j: number,
+  j1: number,
+  temp: number,
+  emap: EnergyParameters
+): number {
   const loopLeft = i1 - i - 1;
   const loopRight = j - j1 - 1;
   const loopLen = loopLeft + loopRight;
@@ -629,7 +697,7 @@ function internalLoop(seq, i, i1, j, j1, temp, emap) {
     return mmLeft + mmRight;
   }
 
-  let dgVal;
+  let dgVal: number;
 
   // apply a penalty based on loop size
   if (loopLen in emap.INTERNAL_LOOPS) {
@@ -667,8 +735,18 @@ function internalLoop(seq, i, i1, j, j1, temp, emap) {
 /**
  * Calculate a multi-branch energy penalty using a linear formula
  */
-function multiBranch(seq, i, k, j, temp, vCache, wCache, emap, helix = false) {
-  let left, right;
+function multiBranch(
+  seq: string,
+  i: number,
+  k: number,
+  j: number,
+  temp: number,
+  vCache: FoldStructure[][],
+  wCache: FoldStructure[][],
+  emap: EnergyParameters,
+  helix: boolean = false
+): FoldStructure {
+  let left: FoldStructure, right: FoldStructure;
 
   if (helix) {
     left = computeW(seq, i + 1, k, temp, vCache, wCache, emap);
@@ -683,9 +761,9 @@ function multiBranch(seq, i, k, j, temp, vCache, wCache, emap, helix = false) {
   }
 
   // gather all branches of this multi-branch structure
-  const branches = [];
+  const branches: number[][] = [];
 
-  function addBranch(s) {
+  function addBranch(s: FoldStructure): void {
     if (!s || s.e === Infinity || !s.ij || s.ij.length === 0) {
       return;
     }
@@ -798,7 +876,7 @@ function multiBranch(seq, i, k, j, temp, vCache, wCache, emap, helix = false) {
 /**
  * Traceback through the V(i,j) and W(i,j) caches to find the structure
  */
-function traceback(i, j, vCache, wCache) {
+function traceback(i: number, j: number, vCache: FoldStructure[][], wCache: FoldStructure[][]): FoldStructure[] {
   // move i,j down-left to start coordinates
   let sW = wCache[i][j];
   if (!sW.desc.includes("HAIRPIN")) {
@@ -818,7 +896,7 @@ function traceback(i, j, vCache, wCache) {
     }
   }
 
-  const structs = [];
+  const structs: FoldStructure[] = [];
 
   while (true) {
     let sV = vCache[i][j];
@@ -834,7 +912,7 @@ function traceback(i, j, vCache, wCache) {
     if (sV.ij.length > 1) {
       let eSum = 0.0;
       let resultStructs = trackbackEnergy(structs);
-      const branchStructs = [];
+      const branchStructs: FoldStructure[] = [];
 
       for (const [i1, j1] of sV.ij) {
         const tb = traceback(i1, j1, vCache, wCache);
@@ -871,8 +949,8 @@ function traceback(i, j, vCache, wCache) {
 /**
  * Add energy to each structure, based on how W(i,j) differs from the one after
  */
-function trackbackEnergy(structs) {
-  const structsE = [];
+function trackbackEnergy(structs: FoldStructure[]): FoldStructure[] {
+  const structsE: FoldStructure[] = [];
   for (let index = 0; index < structs.length; index++) {
     const struct = structs[index];
     const eNext = index === structs.length - 1 ? 0.0 : structs[index + 1].e;
@@ -887,11 +965,11 @@ function trackbackEnergy(structs) {
  * This is an alias/wrapper for fold() that returns a single structure object
  * with consolidated energy, base pairs, and description.
  *
- * @param {string} seq - The sequence to fold
- * @param {number} temp - The temperature in Celsius
- * @returns {Object} Consolidated structure: { e: number, ij: [[i,j],...], desc: string }
+ * @param seq - The sequence to fold
+ * @param temp - The temperature in Celsius
+ * @returns Consolidated structure: { e: number, ij: [[i,j],...], desc: string }
  */
-export function foldSequence(seq, temp = 37.0) {
+export function foldSequence(seq: string, temp: number = 37.0): FoldStructure {
   if (!seq || seq.length < 6) {
     return { e: 0, ij: [], desc: '' };
   }
@@ -904,8 +982,8 @@ export function foldSequence(seq, temp = 37.0) {
 
     // Consolidate all structures into one result
     let totalEnergy = 0;
-    const allPairs = [];
-    const descriptions = [];
+    const allPairs: number[][] = [];
+    const descriptions: string[] = [];
 
     for (const struct of structures) {
       totalEnergy += struct.e;
@@ -941,11 +1019,11 @@ export function foldSequence(seq, temp = 37.0) {
 
 /**
  * Convert base pair indices to dot-bracket notation for fornac visualization
- * @param {string} seq - The nucleotide sequence
- * @param {Array<[number, number]>} basePairs - Array of [i, j] base pair indices
- * @returns {string} Dot-bracket notation string (e.g., "((.......))")
+ * @param seq - The nucleotide sequence
+ * @param basePairs - Array of [i, j] base pair indices
+ * @returns Dot-bracket notation string (e.g., "((.......))")
  */
-export function basePairsToDotBracket(seq, basePairs) {
+export function basePairsToDotBracket(seq: string, basePairs: number[][]): string {
   if (!seq) return '';
 
   const structure = Array(seq.length).fill('.');

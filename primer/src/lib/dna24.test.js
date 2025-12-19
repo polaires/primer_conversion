@@ -28,7 +28,7 @@ import {
   DNA24_TRILOOPS,
   DNA24_COMPLEMENT,
 } from './dna24.js';
-import { DNA_ENERGIES } from './dna.js';
+import { DNA_ENERGIES } from './dna';
 
 // Published experimental Tm data for validation
 // Source: Allawi & SantaLucia (1997), Owczarzy et al. (2004)

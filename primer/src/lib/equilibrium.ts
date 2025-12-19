@@ -37,27 +37,132 @@ const DEFAULT_TEMPLATE_CONC = 1e-9;  // 1 nM (late-stage PCR assumption)
 // are often scored multiple times during exhaustive search.
 // Cache key format: "seq:temp" for single-seq, "seq1:seq2:temp" for pairs
 // ============================================================================
-const hairpinDGCache = new Map();
-const homodimerDGCache = new Map();
-const heterodimerDGCache = new Map();
+const hairpinDGCache = new Map<string, number>();
+const homodimerDGCache = new Map<string, number>();
+const heterodimerDGCache = new Map<string, number>();
+
+// TypeScript Interfaces
+
+export interface Primer {
+  seq?: string;
+  sequence?: string;
+  bindingSite?: string;
+}
+
+export interface EquilibriumOptions {
+  temperature?: number;
+  primerConc?: number;
+  templateConc?: number;
+  includeOffTarget?: boolean;
+}
+
+export interface CacheStats {
+  hairpinHits: number;
+  hairpinMisses: number;
+  homodimerHits: number;
+  homodimerMisses: number;
+  heterodimerHits: number;
+  heterodimerMisses: number;
+}
+
+export interface DGCacheStats extends CacheStats {
+  hairpinCacheSize: number;
+  homodimerCacheSize: number;
+  heterodimerCacheSize: number;
+  totalCacheSize: number;
+}
+
+export interface SpeciesDG {
+  fwdHairpin: number;
+  revHairpin: number;
+  fwdHomodimer: number;
+  revHomodimer: number;
+  fwdTarget: number;
+  revTarget: number;
+  fwdOffTarget: number;
+  revOffTarget: number;
+  heterodimer: number;
+}
+
+export interface EquilibriumConstants {
+  [key: string]: number;
+}
+
+export interface Concentrations {
+  fwdFree: number;
+  fwdHairpin: number;
+  fwdHomodimer: number;
+  fwdBoundTarget: number;
+  fwdOffTarget: number;
+  revFree: number;
+  revHairpin: number;
+  revHomodimer: number;
+  revBoundTarget: number;
+  revOffTarget: number;
+  heterodimer: number;
+  templateFree: number;
+}
+
+export interface LossBreakdown {
+  hairpin: number;
+  homodimer: number;
+  heterodimer: number;
+  offTarget: number;
+  free: number;
+}
+
+export interface EquilibriumResult {
+  efficiency: number;
+  efficiencyFwd: number;
+  efficiencyRev: number;
+  bottleneck: 'forward' | 'reverse';
+  species: SpeciesDG;
+  equilibriumConstants: EquilibriumConstants;
+  concentrations: Concentrations;
+  losses: {
+    fwd: LossBreakdown;
+    rev: LossBreakdown;
+  };
+  quality: 'excellent' | 'good' | 'acceptable' | 'marginal' | 'poor';
+}
+
+export interface EfficiencyScoreOptions {
+  optimal?: number;
+  acceptable?: number;
+  steepness?: number;
+}
 
 // Cache statistics for debugging
-let cacheStats = { hairpinHits: 0, hairpinMisses: 0, homodimerHits: 0, homodimerMisses: 0, heterodimerHits: 0, heterodimerMisses: 0 };
+let cacheStats: CacheStats = {
+  hairpinHits: 0,
+  hairpinMisses: 0,
+  homodimerHits: 0,
+  homodimerMisses: 0,
+  heterodimerHits: 0,
+  heterodimerMisses: 0
+};
 
 /**
  * Clear all DG caches (call between design sessions)
  */
-export function clearDGCache() {
+export function clearDGCache(): void {
   hairpinDGCache.clear();
   homodimerDGCache.clear();
   heterodimerDGCache.clear();
-  cacheStats = { hairpinHits: 0, hairpinMisses: 0, homodimerHits: 0, homodimerMisses: 0, heterodimerHits: 0, heterodimerMisses: 0 };
+  cacheStats = {
+    hairpinHits: 0,
+    hairpinMisses: 0,
+    homodimerHits: 0,
+    homodimerMisses: 0,
+    heterodimerHits: 0,
+    heterodimerMisses: 0
+  };
 }
 
 /**
  * Get cache statistics for debugging
  */
-export function getDGCacheStats() {
+export function getDGCacheStats(): DGCacheStats {
   return {
     ...cacheStats,
     hairpinCacheSize: hairpinDGCache.size,
@@ -70,13 +175,18 @@ export function getDGCacheStats() {
 /**
  * Calculate the equilibrium efficiency for a primer pair
  *
- * @param {Object} fwd - Forward primer object with sequence and binding info
- * @param {Object} rev - Reverse primer object with sequence and binding info
- * @param {string} template - Full template sequence
- * @param {Object} options - Configuration options
- * @returns {Object} Equilibrium efficiency results
+ * @param fwd - Forward primer object with sequence and binding info
+ * @param rev - Reverse primer object with sequence and binding info
+ * @param template - Full template sequence
+ * @param options - Configuration options
+ * @returns Equilibrium efficiency results
  */
-export function calculateEquilibriumEfficiency(fwd, rev, template, options = {}) {
+export function calculateEquilibriumEfficiency(
+  fwd: Primer | string,
+  rev: Primer | string,
+  template: string,
+  options: EquilibriumOptions = {}
+): EquilibriumResult {
   const {
     temperature = 55,           // Annealing temperature (°C)
     primerConc = DEFAULT_PRIMER_CONC,
@@ -90,7 +200,7 @@ export function calculateEquilibriumEfficiency(fwd, rev, template, options = {})
   const species = calculateAllSpeciesDG(fwd, rev, template, temperature, includeOffTarget);
 
   // Convert ΔG to equilibrium constants
-  const K = {};
+  const K: EquilibriumConstants = {};
   for (const [key, value] of Object.entries(species)) {
     if (typeof value === 'number' && !isNaN(value)) {
       // K = exp(-ΔG / RT)
@@ -107,10 +217,10 @@ export function calculateEquilibriumEfficiency(fwd, rev, template, options = {})
   const equilibriumEfficiency = Math.min(η_fwd, η_rev);
 
   // Identify the bottleneck
-  const bottleneck = η_fwd < η_rev ? 'forward' : 'reverse';
+  const bottleneck: 'forward' | 'reverse' = η_fwd < η_rev ? 'forward' : 'reverse';
 
   // Calculate loss breakdown
-  const fwdLosses = {
+  const fwdLosses: LossBreakdown = {
     hairpin: concentrations.fwdHairpin / primerConc,
     homodimer: concentrations.fwdHomodimer / primerConc,
     heterodimer: concentrations.heterodimer / primerConc / 2,
@@ -118,7 +228,7 @@ export function calculateEquilibriumEfficiency(fwd, rev, template, options = {})
     free: concentrations.fwdFree / primerConc,
   };
 
-  const revLosses = {
+  const revLosses: LossBreakdown = {
     hairpin: concentrations.revHairpin / primerConc,
     homodimer: concentrations.revHomodimer / primerConc,
     heterodimer: concentrations.heterodimer / primerConc / 2,
@@ -146,20 +256,29 @@ export function calculateEquilibriumEfficiency(fwd, rev, template, options = {})
 /**
  * Calculate ΔG for all chemical species
  *
- * @param {Object} fwd - Forward primer
- * @param {Object} rev - Reverse primer
- * @param {string} template - Template sequence
- * @param {number} temperature - Temperature in Celsius
- * @param {boolean} includeOffTarget - Whether to include off-target analysis
- * @returns {Object} ΔG values for all species
+ * @param fwd - Forward primer
+ * @param rev - Reverse primer
+ * @param template - Template sequence
+ * @param temperature - Temperature in Celsius
+ * @param includeOffTarget - Whether to include off-target analysis
+ * @returns ΔG values for all species
  */
-export function calculateAllSpeciesDG(fwd, rev, template, temperature = 55, includeOffTarget = true) {
-  const fwdSeq = typeof fwd === 'string' ? fwd : fwd.seq || fwd.sequence;
-  const revSeq = typeof rev === 'string' ? rev : rev.seq || rev.sequence;
+export function calculateAllSpeciesDG(
+  fwd: Primer | string,
+  rev: Primer | string,
+  template: string,
+  temperature: number = 55,
+  includeOffTarget: boolean = true
+): SpeciesDG {
+  const fwdSeq = typeof fwd === 'string' ? fwd : fwd.seq || fwd.sequence || '';
+  const revSeq = typeof rev === 'string' ? rev : rev.seq || rev.sequence || '';
 
   // Get binding site sequences from template
-  const fwdBindingSite = fwd.bindingSite || template.slice(0, fwdSeq.length);
-  const revBindingSite = rev.bindingSite || reverseComplement(template.slice(-revSeq.length));
+  const fwdObj = typeof fwd === 'string' ? null : fwd;
+  const revObj = typeof rev === 'string' ? null : rev;
+
+  const fwdBindingSite = fwdObj?.bindingSite || template.slice(0, fwdSeq.length);
+  const revBindingSite = revObj?.bindingSite || reverseComplement(template.slice(-revSeq.length));
 
   return {
     // Hairpin formation (self-folding)
@@ -191,14 +310,14 @@ export function calculateAllSpeciesDG(fwd, rev, template, temperature = 55, incl
 /**
  * Calculate hairpin ΔG using Zuker fold algorithm (with caching)
  */
-export function calculateHairpinDG(seq, temperature = 55) {
+export function calculateHairpinDG(seq: string, temperature: number = 55): number {
   if (!seq || seq.length < 6) return 0;
 
   // Check cache first
   const cacheKey = `${seq}:${temperature}`;
   if (hairpinDGCache.has(cacheKey)) {
     cacheStats.hairpinHits++;
-    return hairpinDGCache.get(cacheKey);
+    return hairpinDGCache.get(cacheKey)!;
   }
   cacheStats.hairpinMisses++;
 
@@ -220,7 +339,7 @@ export function calculateHairpinDG(seq, temperature = 55) {
 /**
  * Simple hairpin estimation when full fold is not available
  */
-function estimateHairpinDG(seq, temperature = 55) {
+function estimateHairpinDG(seq: string, temperature: number = 55): number {
   const tempK = temperature + 273.15;
   let minDG = 0;
 
@@ -282,7 +401,7 @@ function estimateHairpinDG(seq, temperature = 55) {
  *
  * For binding: seq[i] must be complementary to seq[len-1-j] at aligned positions.
  */
-export function calculateHomodimerDG(seq, temperature = 55) {
+export function calculateHomodimerDG(seq: string, temperature: number = 55): number {
   if (!seq || seq.length < 6) return 0;
 
   seq = seq.toUpperCase();
@@ -291,7 +410,7 @@ export function calculateHomodimerDG(seq, temperature = 55) {
   const cacheKey = `${seq}:${temperature}`;
   if (homodimerDGCache.has(cacheKey)) {
     cacheStats.homodimerHits++;
-    return homodimerDGCache.get(cacheKey);
+    return homodimerDGCache.get(cacheKey)!;
   }
   cacheStats.homodimerMisses++;
 
@@ -372,7 +491,7 @@ export function calculateHomodimerDG(seq, temperature = 55) {
  *
  * For binding: seq1[i] must be complementary to seq2[len2-1-j] at aligned positions.
  */
-export function calculateHeterodimerDG(seq1, seq2, temperature = 55) {
+export function calculateHeterodimerDG(seq1: string, seq2: string, temperature: number = 55): number {
   if (!seq1 || !seq2 || seq1.length < 4 || seq2.length < 4) return 0;
 
   seq1 = seq1.toUpperCase();
@@ -383,7 +502,7 @@ export function calculateHeterodimerDG(seq1, seq2, temperature = 55) {
   const cacheKey = `${sortedSeqs[0]}:${sortedSeqs[1]}:${temperature}`;
   if (heterodimerDGCache.has(cacheKey)) {
     cacheStats.heterodimerHits++;
-    return heterodimerDGCache.get(cacheKey);
+    return heterodimerDGCache.get(cacheKey)!;
   }
   cacheStats.heterodimerMisses++;
 
@@ -466,7 +585,7 @@ export function calculateHeterodimerDG(seq1, seq2, temperature = 55) {
  * - XY is the primer dinucleotide 5'->3' (positions i, i+1)
  * - WZ is the target strand 3'->5' (target reversed, positions i, i+1)
  */
-export function calculateDuplexDG(primer, target, temperature = 55) {
+export function calculateDuplexDG(primer: string, target: string, temperature: number = 55): number {
   if (!primer || !target) return 0;
 
   primer = primer.toUpperCase();
@@ -520,13 +639,18 @@ export function calculateDuplexDG(primer, target, temperature = 55) {
 /**
  * Calculate the most stable off-target binding ΔG
  *
- * @param {string} primer - Primer sequence
- * @param {string} template - Full template sequence
- * @param {number} excludeStart - Start position to exclude (intended binding site)
- * @param {number} temperature - Temperature in Celsius
- * @returns {number} Most stable off-target ΔG (most negative)
+ * @param primer - Primer sequence
+ * @param template - Full template sequence
+ * @param excludeStart - Start position to exclude (intended binding site)
+ * @param temperature - Temperature in Celsius
+ * @returns Most stable off-target ΔG (most negative)
  */
-export function calculateOffTargetDG(primer, template, excludeStart, temperature = 55) {
+export function calculateOffTargetDG(
+  primer: string,
+  template: string,
+  excludeStart: number,
+  temperature: number = 55
+): number {
   if (!primer || !template || primer.length < 8) return 0;
 
   primer = primer.toUpperCase();
@@ -600,7 +724,11 @@ export function calculateOffTargetDG(primer, template, excludeStart, temperature
  * The partition is based on the relative Boltzmann weights (exp(-ΔG/RT))
  * of each state.
  */
-export function solveEquilibrium(K, primerConc, templateConc) {
+export function solveEquilibrium(
+  K: EquilibriumConstants,
+  primerConc: number,
+  templateConc: number
+): Concentrations {
   // Compute effective concentrations for bimolecular reactions
   // For bimolecular: effective_K = K * [partner]
   // For unimolecular: effective_K = K
@@ -677,7 +805,7 @@ export function solveEquilibrium(K, primerConc, templateConc) {
 /**
  * Classify efficiency into quality tiers
  */
-function classifyEfficiency(efficiency) {
+function classifyEfficiency(efficiency: number): 'excellent' | 'good' | 'acceptable' | 'marginal' | 'poor' {
   if (efficiency >= 0.95) return 'excellent';
   if (efficiency >= 0.85) return 'good';
   if (efficiency >= 0.70) return 'acceptable';
@@ -688,11 +816,11 @@ function classifyEfficiency(efficiency) {
 /**
  * Convert efficiency to a 0-100 score using piecewise logistic
  *
- * @param {number} efficiency - Equilibrium efficiency (0-1)
- * @param {Object} options - Scoring options
- * @returns {number} Score from 0-100
+ * @param efficiency - Equilibrium efficiency (0-1)
+ * @param options - Scoring options
+ * @returns Score from 0-100
  */
-export function efficiencyToScore(efficiency, options = {}) {
+export function efficiencyToScore(efficiency: number, options: EfficiencyScoreOptions = {}): number {
   const {
     optimal = 0.95,
     acceptable = 0.70,
@@ -715,11 +843,11 @@ export function efficiencyToScore(efficiency, options = {}) {
 
 // Helper functions
 
-function isComplement(base1, base2) {
+function isComplement(base1: string, base2: string): boolean {
   return DNA24_COMPLEMENT[base1] === base2;
 }
 
-function complement(base) {
+function complement(base: string): string {
   return DNA24_COMPLEMENT[base] || base;
 }
 

@@ -6,10 +6,115 @@
  */
 
 // =============================================================================
+// Types and Interfaces
+// =============================================================================
+
+export interface Vector {
+  name: string;
+  length: number;
+  description: string;
+  sequence: string | null;
+}
+
+export interface VectorDatabase {
+  [key: string]: Vector;
+}
+
+export interface IupacCodes {
+  [key: string]: string[];
+}
+
+export interface FastaEntry {
+  id: string;
+  description: string;
+  sequence: string;
+}
+
+export interface GenBankFeature {
+  type: string;
+  start: number;
+  end: number;
+  complement: boolean;
+}
+
+export interface GenBankEntry {
+  id: string;
+  description: string;
+  sequence: string;
+  features: GenBankFeature[];
+  length: number;
+}
+
+export type SequenceEntry = FastaEntry | GenBankEntry;
+
+export type SequenceFormat = 'fasta' | 'genbank' | 'raw' | 'unknown';
+
+export interface ParsedSequenceFile {
+  format: SequenceFormat;
+  entries: SequenceEntry[];
+}
+
+export interface FrameTranslation {
+  frame: number;
+  protein: string;
+}
+
+export interface AAMutation {
+  type: 'aa_mutation';
+  oldAA: string;
+  position: number;
+  newAA: string;
+  orfStart: number;
+  original: string;
+}
+
+export interface IndelMutation {
+  type: 'indel';
+  id: string;
+  start: number;
+  end: number;
+  replacement: string;
+  original: string;
+}
+
+export interface ErrorMutation {
+  type: 'error';
+  message: string;
+  original: string;
+}
+
+export type BatchMutation = AAMutation | IndelMutation | ErrorMutation;
+
+export interface Primer {
+  name?: string;
+  sequence: string;
+  note?: string;
+  length?: number;
+  tm?: number;
+  gcPercent?: number;
+  dg?: number | string;
+}
+
+export interface PrimerPair {
+  forward?: Primer;
+  reverse?: Primer;
+  id?: string;
+  description?: string;
+}
+
+export interface ComplementMap {
+  [key: string]: string;
+}
+
+export interface CodonTable {
+  [key: string]: string;
+}
+
+// =============================================================================
 // Common Vectors Database
 // =============================================================================
 
-export const COMMON_VECTORS = {
+export const COMMON_VECTORS: VectorDatabase = {
   'pUC19': {
     name: 'pUC19',
     length: 2686,
@@ -40,7 +145,7 @@ export const COMMON_VECTORS = {
 // Ambiguous Base Codes (IUPAC)
 // =============================================================================
 
-export const IUPAC_CODES = {
+export const IUPAC_CODES: IupacCodes = {
   'A': ['A'],
   'T': ['T'],
   'G': ['G'],
@@ -60,16 +165,16 @@ export const IUPAC_CODES = {
 
 /**
  * Expand ambiguous sequence into all possible combinations
- * @param {string} sequence - Sequence with IUPAC codes
- * @returns {string[]} Array of expanded sequences
+ * @param sequence - Sequence with IUPAC codes
+ * @returns Array of expanded sequences
  */
-export function expandAmbiguousBases(sequence) {
+export function expandAmbiguousBases(sequence: string): string[] {
   const seq = sequence.toUpperCase();
-  let combinations = [''];
+  let combinations: string[] = [''];
 
   for (const base of seq) {
     const expansions = IUPAC_CODES[base] || [base];
-    const newCombinations = [];
+    const newCombinations: string[] = [];
 
     for (const combo of combinations) {
       for (const exp of expansions) {
@@ -90,14 +195,14 @@ export function expandAmbiguousBases(sequence) {
 /**
  * Check if sequence contains ambiguous bases
  */
-export function hasAmbiguousBases(sequence) {
+export function hasAmbiguousBases(sequence: string): boolean {
   return /[RYSWKMBDHVN]/i.test(sequence);
 }
 
 /**
  * Count expected combinations from ambiguous sequence
  */
-export function countCombinations(sequence) {
+export function countCombinations(sequence: string): number {
   let count = 1;
   for (const base of sequence.toUpperCase()) {
     const expansions = IUPAC_CODES[base];
@@ -115,7 +220,7 @@ export function countCombinations(sequence) {
 /**
  * Detect file format from content
  */
-export function detectFormat(content) {
+export function detectFormat(content: string): SequenceFormat {
   const trimmed = content.trim();
 
   if (trimmed.startsWith('>')) {
@@ -134,10 +239,10 @@ export function detectFormat(content) {
  * Parse FASTA format
  * Returns { id, description, sequence }
  */
-export function parseFasta(content) {
+export function parseFasta(content: string): FastaEntry[] {
   const lines = content.trim().split(/[\r\n]+/);
-  const results = [];
-  let currentEntry = null;
+  const results: FastaEntry[] = [];
+  let currentEntry: FastaEntry | null = null;
 
   for (const line of lines) {
     if (line.startsWith('>')) {
@@ -167,12 +272,12 @@ export function parseFasta(content) {
  * Parse GenBank format (simplified)
  * Returns { id, description, sequence, features }
  */
-export function parseGenBank(content) {
-  const results = [];
+export function parseGenBank(content: string): GenBankEntry[] {
+  const results: GenBankEntry[] = [];
   const entries = content.split(/\/\/\s*[\r\n]+/).filter(e => e.trim());
 
   for (const entry of entries) {
-    const result = {
+    const result: GenBankEntry = {
       id: '',
       description: '',
       sequence: '',
@@ -200,7 +305,7 @@ export function parseGenBank(content) {
 
       // Find CDS features
       const cdsRegex = /CDS\s+(?:complement\()?(\d+)\.\.(\d+)\)?/g;
-      let match;
+      let match: RegExpExecArray | null;
       while ((match = cdsRegex.exec(featuresText)) !== null) {
         result.features.push({
           type: 'CDS',
@@ -241,7 +346,7 @@ export function parseGenBank(content) {
 /**
  * Parse raw sequence (just nucleotides)
  */
-export function parseRaw(content) {
+export function parseRaw(content: string): FastaEntry[] {
   const sequence = content
     .replace(/[\d\s\r\n]+/g, '')
     .toUpperCase();
@@ -256,7 +361,7 @@ export function parseRaw(content) {
 /**
  * Auto-detect and parse sequence file
  */
-export function parseSequenceFile(content) {
+export function parseSequenceFile(content: string): ParsedSequenceFile {
   const format = detectFormat(content);
 
   switch (format) {
@@ -278,8 +383,8 @@ export function parseSequenceFile(content) {
 /**
  * Get reverse complement of sequence
  */
-export function reverseComplement(sequence) {
-  const complement = {
+export function reverseComplement(sequence: string): string {
+  const complement: ComplementMap = {
     'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G',
     'R': 'Y', 'Y': 'R', 'S': 'S', 'W': 'W',
     'K': 'M', 'M': 'K', 'B': 'V', 'V': 'B',
@@ -297,8 +402,8 @@ export function reverseComplement(sequence) {
 /**
  * Translate DNA to protein (single reading frame)
  */
-export function translateDNA(sequence, frame = 0) {
-  const codonTable = {
+export function translateDNA(sequence: string, frame: number = 0): string {
+  const codonTable: CodonTable = {
     'TTT': 'F', 'TTC': 'F', 'TTA': 'L', 'TTG': 'L',
     'TCT': 'S', 'TCC': 'S', 'TCA': 'S', 'TCG': 'S',
     'TAT': 'Y', 'TAC': 'Y', 'TAA': '*', 'TAG': '*',
@@ -331,7 +436,7 @@ export function translateDNA(sequence, frame = 0) {
 /**
  * Get 3-frame translation
  */
-export function get3FrameTranslation(sequence) {
+export function get3FrameTranslation(sequence: string): FrameTranslation[] {
   return [
     { frame: 1, protein: translateDNA(sequence, 0) },
     { frame: 2, protein: translateDNA(sequence, 1) },
@@ -350,9 +455,9 @@ export function get3FrameTranslation(sequence) {
  * - [oldAA][codon#][newAA] - AA mutation (e.g., M1Y, A42S)
  * - [ID] [start] [end] [replacement] - Indel operation
  */
-export function parseBatchCommands(text, defaultOrfStart = 1) {
+export function parseBatchCommands(text: string, defaultOrfStart: number = 1): BatchMutation[] {
   const lines = text.trim().split(/[\r\n]+/).filter(l => l.trim() && !l.trim().startsWith('#'));
-  const mutations = [];
+  const mutations: BatchMutation[] = [];
   let currentOrfStart = defaultOrfStart;
 
   for (const line of lines) {
@@ -413,7 +518,7 @@ export function parseBatchCommands(text, defaultOrfStart = 1) {
 /**
  * Generate tab-delimited primer list for ordering
  */
-export function generatePrimerOrderList(primers, projectName = 'Primers') {
+export function generatePrimerOrderList(primers: Primer[], projectName: string = 'Primers'): string {
   const lines = ['Name\tSequence\tNote'];
 
   primers.forEach((primer, index) => {
@@ -427,7 +532,7 @@ export function generatePrimerOrderList(primers, projectName = 'Primers') {
 /**
  * Generate FASTA format
  */
-export function generateFasta(sequences) {
+export function generateFasta(sequences: FastaEntry[]): string {
   return sequences
     .map(seq => `>${seq.id}${seq.description ? ' ' + seq.description : ''}\n${seq.sequence}`)
     .join('\n\n');
@@ -436,7 +541,7 @@ export function generateFasta(sequences) {
 /**
  * Generate CSV summary
  */
-export function generateCSVSummary(results) {
+export function generateCSVSummary(results: PrimerPair[]): string {
   const headers = ['Primer Name', 'Sequence', 'Length', 'Tm (°C)', 'GC%', 'ΔG', 'Note'];
   const lines = [headers.join(',')];
 
@@ -471,7 +576,7 @@ export function generateCSVSummary(results) {
 /**
  * Trigger file download in browser
  */
-export function downloadFile(content, filename, mimeType = 'text/plain') {
+export function downloadFile(content: string, filename: string, mimeType: string = 'text/plain'): void {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

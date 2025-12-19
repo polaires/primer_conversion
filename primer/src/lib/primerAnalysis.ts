@@ -34,6 +34,9 @@ import {
   classifyQuality,
   buildCompositeInput,
   DEFAULT_WEIGHTS,
+  type GQuadruplexAnalysis,
+  type CompositeScoreResult,
+  type ScoreBreakdownItem,
 } from './scoring.js';
 
 import {
@@ -50,6 +53,313 @@ import { reverseComplement } from './sequenceUtils.js';
 
 // Re-export for backward compatibility
 export { ANALYSIS_PRESETS };
+
+// =============================================================================
+// Type Definitions
+// =============================================================================
+
+export type AnalysisMode = 'amplification' | 'mutagenesis' | 'sequencing' | 'assembly' | 'goldengate';
+export type WarningSeverity = 'ok' | 'info' | 'caution' | 'warning' | 'critical';
+export type WarningType =
+  | 'templateMismatch'
+  | 'annealingTm'
+  | 'mismatch'
+  | 'hairpin'
+  | 'homodimer'
+  | 'heterodimer'
+  | 'gQuadruplex'
+  | 'terminal3DG'
+  | '3primeEnd'
+  | 'length'
+  | 'homopolymer'
+  | 'tmDiff'
+  | 'goldenGateDetected';
+
+export type Strand = 'forward' | 'reverse';
+export type QualityTier = 'excellent' | 'good' | 'acceptable' | 'marginal' | 'poor';
+
+export interface GoldenGateEnzyme {
+  recognition: string;
+  name: string;
+  alias: string | null;
+}
+
+export interface GoldenGateSite {
+  enzyme: string;
+  recognition: string;
+  position: number;
+  orientation: 'forward' | 'reverse';
+  alias: string | null;
+}
+
+export interface GoldenGateDetectionResult {
+  hasGoldenGateSite: boolean;
+  detectedSites: GoldenGateSite[];
+  primaryEnzyme: string | null;
+  isLikelyGoldenGatePrimer: boolean;
+  recommendation: string | null;
+}
+
+export interface AnnealingRegion {
+  sequence: string;
+  length: number;
+  position: number;
+  strand: Strand;
+  tailLength: number;
+  tailSequence: string;
+  mismatches: number;
+  identity: number;
+  tm: number | null;
+  gc: number | null;
+  gcPercent: string;
+  withinOptimalTm: boolean;
+  terminal3DG?: number;
+}
+
+export interface FuzzyMatch {
+  position: number;
+  strand: Strand;
+  mismatches: number;
+}
+
+export interface TemplateBinding {
+  found: boolean;
+  warnings: string[];
+}
+
+export interface PrimerWarning {
+  type: WarningType;
+  severity: WarningSeverity;
+  message: string;
+  primer?: 'forward' | 'reverse' | 'pair';
+  value?: number;
+  dG?: number;
+  issues?: string[];
+  enzyme?: string;
+  sites?: GoldenGateSite[];
+}
+
+export interface PrimerScores {
+  tm: number;
+  gc: number;
+  length: number;
+  gcClamp: number;
+  homopolymer: number;
+  hairpin: number;
+  homodimer: number;
+  terminal3DG: number;
+  offTarget: number;
+  gQuadruplex: number;
+  threePrimeComp: number;
+}
+
+export interface AssemblyPrimerScores {
+  annealingTm: number;
+  annealingGc: number;
+  annealingLength: number;
+  annealingTerminal3DG: number;
+  annealingGcClamp: number;
+  fullPrimerHairpin: number;
+  fullPrimerHomodimer: number;
+  homopolymer: number;
+  gQuadruplex?: number;
+}
+
+export interface Thermodynamics {
+  hairpinDG: number;
+  homodimerDG: number;
+  terminal3DG: number;
+}
+
+export interface ThreePrimeAnalysis {
+  quality: QualityTier;
+  issues: string[];
+  gcClamp: number;
+  terminalDG: number;
+  hasProblematicPattern: boolean;
+}
+
+export interface AnnealingRegionInfo {
+  sequence: string;
+  length: number;
+  tm: number;
+  gc: number;
+  gcPercent: string;
+  position: number;
+  strand: Strand;
+  terminal3DG: number;
+}
+
+export interface TailRegionInfo {
+  sequence: string;
+  length: number;
+}
+
+export interface FullPrimerInfo {
+  sequence: string;
+  length: number;
+  tm: number;
+  gc: number;
+  gcPercent: string;
+  hairpinDG: number;
+  homodimerDG: number;
+}
+
+export interface AssemblyPrimerAnalysis {
+  fullPrimer: FullPrimerInfo;
+  annealingRegion: AnnealingRegion | null;
+  templateBinding: TemplateBinding;
+  isAssemblyPrimer: boolean;
+  scores: Partial<AssemblyPrimerScores>;
+  warnings: PrimerWarning[];
+  gQuadruplex?: GQuadruplexAnalysis;
+}
+
+export interface SinglePrimerAnalysis {
+  sequence: string;
+  length: number;
+  tm: number;
+  fullPrimerTm?: number;
+  gc: number;
+  gcPercent: string;
+  thermodynamics: Thermodynamics;
+  scores: PrimerScores;
+  gQuadruplex: GQuadruplexAnalysis | null;
+  analysis3Prime: ThreePrimeAnalysis | null;
+  warnings: PrimerWarning[];
+  goldenGateDetection?: GoldenGateDetectionResult | null;
+  isAssemblyPrimer?: boolean;
+  annealingRegion?: AnnealingRegionInfo;
+  tailRegion?: TailRegionInfo | null;
+  templateBinding?: TemplateBinding;
+}
+
+export interface PairScores {
+  tmDiff: number;
+  heterodimer: number;
+}
+
+export interface PairInfo {
+  tmDiff: number;
+  heterodimerDG: number;
+  ampliconLength: number | null;
+  scores: PairScores;
+}
+
+export interface QualityClassification {
+  tier: QualityTier;
+  description: string;
+  color: string;
+}
+
+export interface PrimerPairAnalysis {
+  mode: AnalysisMode;
+  preset: string;
+  forward: SinglePrimerAnalysis;
+  reverse: SinglePrimerAnalysis | null;
+  pair: PairInfo | null;
+  composite: CompositeScoreResult;
+  quality: QualityClassification;
+  effectiveScore?: number;
+  criticalWarnings?: number;
+  warnings: PrimerWarning[];
+  recommendations: string[];
+  isAcceptable?: boolean;
+}
+
+export interface QuickCheckResult {
+  sequence: string;
+  length: number;
+  gc: number;
+  gcClamp: number;
+  quality: QualityTier;
+  issues: string[];
+  passesQuickCheck: boolean;
+}
+
+export interface PrimerInput {
+  seq: string;
+  tm?: number;
+  gc?: number;
+  offTargetCount?: number;
+}
+
+export interface FindAnnealingRegionOptions {
+  minLength?: number;
+  maxLength?: number;
+  allowMismatch?: boolean;
+  maxMismatches?: number;
+}
+
+export interface AnalyzeAssemblyPrimerOptions {
+  targetTm?: number;
+  temperature?: number;
+  minLength?: number;
+  maxLength?: number;
+  allowMismatch?: boolean;
+  maxMismatches?: number;
+}
+
+export interface AnalyzeSinglePrimerOptions {
+  mode?: AnalysisMode;
+  template?: string | null;
+  temperature?: number;
+  include3PrimeAnalysis?: boolean;
+  includeGQuadruplex?: boolean;
+}
+
+export interface AnalyzePrimersOptions {
+  mode?: AnalysisMode;
+  template?: string | null;
+  temperature?: number;
+  ampliconLength?: number | null;
+  include3PrimeAnalysis?: boolean;
+  includeGQuadruplex?: boolean;
+  includeRecommendations?: boolean;
+  heterodimerDG?: number | null;
+  structureWarnings?: PrimerWarning[] | null;
+}
+
+export interface QuickPrimerCheckOptions {
+  mode?: AnalysisMode;
+}
+
+export interface MutagenesisAnalysisResult {
+  forward: {
+    sequence: string;
+    length: number;
+    tm: number;
+    gc: number;
+    gcPercent: string;
+    hairpinDG: number;
+    selfDimerDG: number;
+    foldDG: number;
+  };
+  reverse: {
+    sequence: string;
+    length: number;
+    tm: number;
+    gc: number;
+    gcPercent: string;
+    hairpinDG: number;
+    selfDimerDG: number;
+    foldDG: number;
+  };
+  pair: {
+    tmDifference: number;
+    annealingTemp: number;
+    heterodimerDG: number;
+  };
+  offTargets: null;
+  warnings: PrimerWarning[];
+  quality: QualityTier;
+  isAcceptable: boolean;
+  compositeScore: number;
+  gQuadruplex: {
+    forward: GQuadruplexAnalysis | null;
+    reverse: GQuadruplexAnalysis | null;
+  };
+}
 
 // =============================================================================
 // Assembly Primer Annealing Region Detection
@@ -97,7 +407,7 @@ const ASSEMBLY_CONSTANTS = {
  * Golden Gate enzyme recognition sites for auto-detection
  * These are Type IIS restriction enzymes commonly used in Golden Gate assembly
  */
-const GOLDEN_GATE_ENZYMES = {
+const GOLDEN_GATE_ENZYMES: Record<string, GoldenGateEnzyme> = {
   BsaI:  { recognition: 'GGTCTC', name: 'BsaI',  alias: null },
   BsmBI: { recognition: 'CGTCTC', name: 'BsmBI', alias: 'Esp3I' },
   BbsI:  { recognition: 'GAAGAC', name: 'BbsI',  alias: null },
@@ -110,12 +420,12 @@ const GOLDEN_GATE_ENZYMES = {
  * This function scans a primer for common Type IIS restriction enzyme sites
  * used in Golden Gate assembly (BsaI, BsmBI, BbsI, SapI, etc.).
  *
- * @param {string} primerSeq - Primer sequence to analyze
- * @returns {Object} Detection result with found sites and recommendations
+ * @param primerSeq - Primer sequence to analyze
+ * @returns Detection result with found sites and recommendations
  */
-export function detectGoldenGateSites(primerSeq) {
+export function detectGoldenGateSites(primerSeq: string): GoldenGateDetectionResult {
   const primer = primerSeq.toUpperCase();
-  const detectedSites = [];
+  const detectedSites: GoldenGateSite[] = [];
 
   for (const [enzymeName, enzyme] of Object.entries(GOLDEN_GATE_ENZYMES)) {
     const recognition = enzyme.recognition;
@@ -169,12 +479,16 @@ export function detectGoldenGateSites(primerSeq) {
  * Only the 3' annealing region actually binds to the template during PCR.
  * This function identifies that region by finding where the primer matches the template.
  *
- * @param {string} primerSeq - Full primer sequence
- * @param {string} templateSeq - Template sequence to search
- * @param {Object} options - Search options
- * @returns {Object|null} Annealing region info or null if not found
+ * @param primerSeq - Full primer sequence
+ * @param templateSeq - Template sequence to search
+ * @param options - Search options
+ * @returns Annealing region info or null if not found
  */
-export function findAnnealingRegion(primerSeq, templateSeq, options = {}) {
+export function findAnnealingRegion(
+  primerSeq: string,
+  templateSeq: string,
+  options: FindAnnealingRegionOptions = {}
+): AnnealingRegion | null {
   const {
     minLength = ASSEMBLY_CONSTANTS.MIN_ANNEALING_LENGTH,
     maxLength = ASSEMBLY_CONSTANTS.MAX_ANNEALING_LENGTH,
@@ -189,7 +503,7 @@ export function findAnnealingRegion(primerSeq, templateSeq, options = {}) {
   // Strategy: Search from 3' end of primer (longest to shortest)
   // The 3' end is what actually anneals to the template
 
-  let bestMatch = null;
+  let bestMatch: AnnealingRegion | null = null;
 
   for (let len = Math.min(maxLength, primer.length); len >= minLength; len--) {
     const annealingCandidate = primer.slice(-len);
@@ -206,6 +520,10 @@ export function findAnnealingRegion(primerSeq, templateSeq, options = {}) {
         tailSequence: primer.slice(0, primer.length - len),
         mismatches: 0,
         identity: 1.0,
+        tm: null,
+        gc: null,
+        gcPercent: '',
+        withinOptimalTm: false,
       };
       break;
     }
@@ -222,6 +540,10 @@ export function findAnnealingRegion(primerSeq, templateSeq, options = {}) {
         tailSequence: primer.slice(0, primer.length - len),
         mismatches: 0,
         identity: 1.0,
+        tm: null,
+        gc: null,
+        gcPercent: '',
+        withinOptimalTm: false,
       };
       break;
     }
@@ -239,6 +561,10 @@ export function findAnnealingRegion(primerSeq, templateSeq, options = {}) {
           tailSequence: primer.slice(0, primer.length - len),
           mismatches: fuzzyMatch.mismatches,
           identity: 1 - (fuzzyMatch.mismatches / len),
+          tm: null,
+          gc: null,
+          gcPercent: '',
+          withinOptimalTm: false,
         };
         break;
       }
@@ -255,7 +581,7 @@ export function findAnnealingRegion(primerSeq, templateSeq, options = {}) {
     bestMatch.gc = calculateGC(bestMatch.sequence);
     bestMatch.gcPercent = `${Math.round(bestMatch.gc * 100)}%`;
     bestMatch.withinOptimalTm = bestMatch.tm >= ASSEMBLY_CONSTANTS.MIN_ANNEALING_TM &&
-                                 bestMatch.tm <= ASSEMBLY_CONSTANTS.MAX_ANNEALING_TM;
+                                bestMatch.tm <= ASSEMBLY_CONSTANTS.MAX_ANNEALING_TM;
   } catch (e) {
     bestMatch.tm = null;
     bestMatch.gc = null;
@@ -269,7 +595,12 @@ export function findAnnealingRegion(primerSeq, templateSeq, options = {}) {
  * Find a fuzzy match allowing some mismatches
  * @private
  */
-function findFuzzyMatch(query, template, templateRC, maxMismatches) {
+function findFuzzyMatch(
+  query: string,
+  template: string,
+  templateRC: string,
+  maxMismatches: number
+): FuzzyMatch | null {
   const queryLen = query.length;
 
   // Search forward strand
@@ -301,7 +632,7 @@ function findFuzzyMatch(query, template, templateRC, maxMismatches) {
  * Count mismatches between two sequences
  * @private
  */
-function countMismatches(seq1, seq2) {
+function countMismatches(seq1: string, seq2: string): number {
   let mismatches = 0;
   for (let i = 0; i < seq1.length; i++) {
     if (seq1[i] !== seq2[i]) mismatches++;
@@ -319,12 +650,16 @@ function countMismatches(seq1, seq2) {
  * 3. Checks the full primer for secondary structure issues
  * 4. Validates template binding
  *
- * @param {string} primerSeq - Full primer sequence
- * @param {string} templateSeq - Template sequence
- * @param {Object} options - Analysis options
- * @returns {Object} Comprehensive assembly primer analysis
+ * @param primerSeq - Full primer sequence
+ * @param templateSeq - Template sequence
+ * @param options - Analysis options
+ * @returns Comprehensive assembly primer analysis
  */
-export function analyzeAssemblyPrimer(primerSeq, templateSeq, options = {}) {
+export function analyzeAssemblyPrimer(
+  primerSeq: string,
+  templateSeq: string,
+  options: AnalyzeAssemblyPrimerOptions = {}
+): AssemblyPrimerAnalysis {
   const {
     targetTm = ASSEMBLY_CONSTANTS.TARGET_ANNEALING_TM,
     temperature = 55,
@@ -343,7 +678,7 @@ export function analyzeAssemblyPrimer(primerSeq, templateSeq, options = {}) {
   const fullHomodimerDG = calculateHomodimerDG(primer, temperature);
 
   // Build analysis result
-  const analysis = {
+  const analysis: AssemblyPrimerAnalysis = {
     fullPrimer: {
       sequence: primer,
       length: primer.length,
@@ -392,11 +727,11 @@ export function analyzeAssemblyPrimer(primerSeq, templateSeq, options = {}) {
 
   analysis.scores = {
     // Score annealing region properties (these determine PCR success)
-    annealingTm: scoreTm(annealingRegion.tm, {
+    annealingTm: scoreTm(annealingRegion.tm!, {
       optimalLow: preset.optimalTmRange[0],
       optimalHigh: preset.optimalTmRange[1],
     }),
-    annealingGc: scoreGc(annealingRegion.gc, {
+    annealingGc: scoreGc(annealingRegion.gc!, {
       optimalLow: preset.optimalGcRange[0],
       optimalHigh: preset.optimalGcRange[1],
     }),
@@ -422,12 +757,12 @@ export function analyzeAssemblyPrimer(primerSeq, templateSeq, options = {}) {
 
   // Generate warnings
   if (!annealingRegion.withinOptimalTm) {
-    const severity = annealingRegion.tm < ASSEMBLY_CONSTANTS.MIN_ANNEALING_TM ? 'warning' : 'info';
+    const severity: WarningSeverity = annealingRegion.tm! < ASSEMBLY_CONSTANTS.MIN_ANNEALING_TM ? 'warning' : 'info';
     analysis.warnings.push({
       type: 'annealingTm',
       severity,
-      value: annealingRegion.tm,
-      message: `Annealing region Tm (${annealingRegion.tm.toFixed(1)}°C) outside optimal range (${ASSEMBLY_CONSTANTS.MIN_ANNEALING_TM}-${ASSEMBLY_CONSTANTS.MAX_ANNEALING_TM}°C)`,
+      value: annealingRegion.tm!,
+      message: `Annealing region Tm (${annealingRegion.tm!.toFixed(1)}°C) outside optimal range (${ASSEMBLY_CONSTANTS.MIN_ANNEALING_TM}-${ASSEMBLY_CONSTANTS.MAX_ANNEALING_TM}°C)`,
     });
   }
 
@@ -466,7 +801,7 @@ export function analyzeAssemblyPrimer(primerSeq, templateSeq, options = {}) {
     });
   }
 
-  if (analysis.scores.annealingTerminal3DG < 0.5) {
+  if (analysis.scores.annealingTerminal3DG! < 0.5) {
     analysis.warnings.push({
       type: 'terminal3DG',
       severity: 'warning',
@@ -483,11 +818,11 @@ export function analyzeAssemblyPrimer(primerSeq, templateSeq, options = {}) {
 /**
  * Calculate Tm using the appropriate method
  *
- * @param {string} seq - Primer sequence
- * @param {string} method - 'santaLucia' | 'q5' | 'auto'
- * @returns {number} Melting temperature in °C
+ * @param seq - Primer sequence
+ * @param method - 'santaLucia' | 'q5' | 'auto'
+ * @returns Melting temperature in °C
  */
-export function calculateTm(seq, method = 'auto') {
+export function calculateTm(seq: string, method: 'santaLucia' | 'q5' | 'auto' = 'auto'): number {
   if (method === 'q5') {
     return calculateTmQ5(seq);
   }
@@ -505,11 +840,14 @@ export function calculateTm(seq, method = 'auto') {
  * this function identifies the annealing region and scores based on that portion,
  * while still checking the full primer for secondary structure issues.
  *
- * @param {Object|string} primer - Primer object or sequence string
- * @param {Object} options - Analysis options
- * @returns {Object} Comprehensive single primer analysis
+ * @param primer - Primer object or sequence string
+ * @param options - Analysis options
+ * @returns Comprehensive single primer analysis
  */
-export function analyzeSinglePrimer(primer, options = {}) {
+export function analyzeSinglePrimer(
+  primer: PrimerInput | string,
+  options: AnalyzeSinglePrimerOptions = {}
+): SinglePrimerAnalysis {
   const {
     mode = 'amplification',
     template = null,
@@ -521,7 +859,7 @@ export function analyzeSinglePrimer(primer, options = {}) {
   const preset = ANALYSIS_PRESETS[mode] || ANALYSIS_PRESETS.amplification;
   const seq = typeof primer === 'string' ? primer : primer.seq;
   const seqUpper = seq.toUpperCase();
-  const offTargetCount = primer.offTargetCount ?? 0;
+  const offTargetCount = typeof primer === 'object' ? (primer.offTargetCount ?? 0) : 0;
 
   // Check if we're in an assembly-related mode (for annealing region detection)
   const isAssemblyMode = mode === 'assembly' || mode === 'goldengate';
@@ -540,9 +878,9 @@ export function analyzeSinglePrimer(primer, options = {}) {
       const annealingRegion = assemblyAnalysis.annealingRegion;
 
       // Use annealing region properties for scoring (what matters for PCR)
-      const annealingTm = annealingRegion.tm;
-      const annealingGc = annealingRegion.gc;
-      const annealingTerminalDG = annealingRegion.terminal3DG;
+      const annealingTm = annealingRegion.tm!;
+      const annealingGc = annealingRegion.gc!;
+      const annealingTerminalDG = annealingRegion.terminal3DG!;
 
       // Full primer properties (for secondary structure)
       const fullPrimer = assemblyAnalysis.fullPrimer;
@@ -551,7 +889,7 @@ export function analyzeSinglePrimer(primer, options = {}) {
       const analysis3Prime = include3PrimeAnalysis ? analyze3PrimeEnd(annealingRegion.sequence) : null;
 
       // Calculate scores using annealing region for Tm/GC/length, full primer for structure
-      const scores = {
+      const scores: PrimerScores = {
         // Annealing region scores (determine PCR success)
         tm: scoreTm(annealingTm, {
           optimalLow: preset.optimalTmRange[0],
@@ -570,10 +908,10 @@ export function analyzeSinglePrimer(primer, options = {}) {
         threePrimeComp: score3PrimeComposition(annealingRegion.sequence, annealingTerminalDG),
 
         // Full primer scores (secondary structure affects entire primer)
-        hairpin: assemblyAnalysis.scores.fullPrimerHairpin,
-        homodimer: assemblyAnalysis.scores.fullPrimerHomodimer,
-        homopolymer: assemblyAnalysis.scores.homopolymer,
-        gQuadruplex: assemblyAnalysis.scores.gQuadruplex,
+        hairpin: assemblyAnalysis.scores.fullPrimerHairpin!,
+        homodimer: assemblyAnalysis.scores.fullPrimerHomodimer!,
+        homopolymer: assemblyAnalysis.scores.homopolymer!,
+        gQuadruplex: assemblyAnalysis.scores.gQuadruplex ?? 1.0,
         offTarget: scoreOffTarget(offTargetCount),
       };
 
@@ -604,7 +942,7 @@ export function analyzeSinglePrimer(primer, options = {}) {
           terminal3DG: annealingTerminalDG,
         },
         scores,
-        gQuadruplex: assemblyAnalysis.gQuadruplex,
+        gQuadruplex: assemblyAnalysis.gQuadruplex ?? null,
         analysis3Prime,
         warnings,
         // Assembly-specific fields
@@ -635,8 +973,12 @@ export function analyzeSinglePrimer(primer, options = {}) {
   // ==========================================================================
 
   // Calculate basic properties if not provided
-  const primerTm = primer.tm ?? calculateTm(seqUpper, preset.tmMethod);
-  const primerGc = primer.gc ?? calculateGC(seqUpper);
+  const primerTm = typeof primer === 'object' && primer.tm !== undefined
+    ? primer.tm
+    : calculateTm(seqUpper, preset.tmMethod);
+  const primerGc = typeof primer === 'object' && primer.gc !== undefined
+    ? primer.gc
+    : calculateGC(seqUpper);
 
   // Calculate thermodynamic values
   const hairpinDG = calculateHairpinDG(seqUpper, temperature);
@@ -652,7 +994,7 @@ export function analyzeSinglePrimer(primer, options = {}) {
   const gQuadruplexAnalysis = includeGQuadruplex ? analyzeGQuadruplex(seqUpper) : null;
 
   // Calculate individual scores
-  const scores = {
+  const scores: PrimerScores = {
     tm: scoreTm(primerTm, {
       optimalLow: preset.optimalTmRange[0],
       optimalHigh: preset.optimalTmRange[1],
@@ -677,7 +1019,7 @@ export function analyzeSinglePrimer(primer, options = {}) {
   };
 
   // Collect warnings
-  const warnings = [];
+  const warnings: PrimerWarning[] = [];
 
   if (gQuadruplexAnalysis?.severity === 'critical') {
     warnings.push({
@@ -694,7 +1036,7 @@ export function analyzeSinglePrimer(primer, options = {}) {
   }
 
   if (hairpinDG < preset.thresholds.hairpin) {
-    const severity = hairpinDG < (preset.thresholds.hairpinCritical ?? -6.0) ? 'critical' : 'warning';
+    const severity: WarningSeverity = hairpinDG < (preset.thresholds.hairpinCritical ?? -6.0) ? 'critical' : 'warning';
     warnings.push({
       type: 'hairpin',
       severity,
@@ -704,7 +1046,7 @@ export function analyzeSinglePrimer(primer, options = {}) {
   }
 
   if (homodimerDG < preset.thresholds.homodimer) {
-    const severity = homodimerDG < (preset.thresholds.homodimerCritical ?? -9.0) ? 'critical' : 'warning';
+    const severity: WarningSeverity = homodimerDG < (preset.thresholds.homodimerCritical ?? -9.0) ? 'critical' : 'warning';
     warnings.push({
       type: 'homodimer',
       severity,
@@ -787,7 +1129,7 @@ export function analyzeSinglePrimer(primer, options = {}) {
       warnings.push({
         type: 'goldenGateDetected',
         severity: 'warning',
-        enzyme: ggDetection.primaryEnzyme,
+        enzyme: ggDetection.primaryEnzyme!,
         sites: ggDetection.detectedSites,
         message: `${ggDetection.primaryEnzyme} site detected but using ${mode} mode. Switch to Golden Gate mode for accurate scoring.`,
       });
@@ -796,7 +1138,7 @@ export function analyzeSinglePrimer(primer, options = {}) {
       warnings.push({
         type: 'goldenGateDetected',
         severity: 'info',
-        enzyme: ggDetection.primaryEnzyme,
+        enzyme: ggDetection.primaryEnzyme!,
         sites: ggDetection.detectedSites,
         message: `${ggDetection.primaryEnzyme} site detected. Add a template sequence for accurate annealing region Tm analysis.`,
       });
@@ -830,12 +1172,16 @@ export function analyzeSinglePrimer(primer, options = {}) {
  * It provides consistent analysis across all design modes while allowing
  * domain-specific customization through presets.
  *
- * @param {Object|string} fwd - Forward primer (object with seq/tm/gc/dg or sequence string)
- * @param {Object|string} rev - Reverse primer (optional)
- * @param {Object} options - Analysis options
- * @returns {Object} Comprehensive primer pair analysis
+ * @param fwd - Forward primer (object with seq/tm/gc/dg or sequence string)
+ * @param rev - Reverse primer (optional)
+ * @param options - Analysis options
+ * @returns Comprehensive primer pair analysis
  */
-export function analyzePrimers(fwd, rev = null, options = {}) {
+export function analyzePrimers(
+  fwd: PrimerInput | string,
+  rev: PrimerInput | string | null = null,
+  options: AnalyzePrimersOptions = {}
+): PrimerPairAnalysis {
   const {
     mode = 'amplification',
     template = null,
@@ -911,15 +1257,15 @@ export function analyzePrimers(fwd, rev = null, options = {}) {
 
   // Pair-level scores
   const tmDiff = Math.abs(fwdAnalysis.tm - revAnalysis.tm);
-  const pairScores = {
+  const pairScores: PairScores = {
     tmDiff: scoreTmDiff(fwdAnalysis.tm, revAnalysis.tm),
     heterodimer: scoreHeterodimer(calculatedHeterodimerDG, { threshold: preset.thresholds.heterodimer }),
   };
 
   // Collect all warnings
-  const allWarnings = [
-    ...fwdAnalysis.warnings.map(w => ({ ...w, primer: 'forward' })),
-    ...revAnalysis.warnings.map(w => ({ ...w, primer: 'reverse' })),
+  const allWarnings: PrimerWarning[] = [
+    ...fwdAnalysis.warnings.map(w => ({ ...w, primer: 'forward' as const })),
+    ...revAnalysis.warnings.map(w => ({ ...w, primer: 'reverse' as const })),
   ];
 
   // Add pair-level warnings
@@ -934,7 +1280,7 @@ export function analyzePrimers(fwd, rev = null, options = {}) {
   }
 
   if (calculatedHeterodimerDG < preset.thresholds.heterodimer) {
-    const severity = calculatedHeterodimerDG < (preset.thresholds.heterodimerCritical ?? -9.0) ? 'critical' : 'warning';
+    const severity: WarningSeverity = calculatedHeterodimerDG < (preset.thresholds.heterodimerCritical ?? -9.0) ? 'critical' : 'warning';
     allWarnings.push({
       type: 'heterodimer',
       primer: 'pair',
@@ -989,13 +1335,17 @@ export function analyzePrimers(fwd, rev = null, options = {}) {
 /**
  * Generate recommendations based on analysis results
  *
- * @param {Object} fwdAnalysis - Forward primer analysis
- * @param {Object} revAnalysis - Reverse primer analysis (optional)
- * @param {Object} preset - Analysis preset
- * @returns {Array} Array of recommendation strings
+ * @param fwdAnalysis - Forward primer analysis
+ * @param revAnalysis - Reverse primer analysis (optional)
+ * @param preset - Analysis preset
+ * @returns Array of recommendation strings
  */
-function generateRecommendations(fwdAnalysis, revAnalysis, preset) {
-  const recommendations = [];
+function generateRecommendations(
+  fwdAnalysis: SinglePrimerAnalysis,
+  revAnalysis: SinglePrimerAnalysis | null,
+  preset: any
+): string[] {
+  const recommendations: string[] = [];
 
   // Forward primer recommendations
   if (fwdAnalysis.scores.gQuadruplex < 0.5) {
@@ -1036,13 +1386,18 @@ function generateRecommendations(fwdAnalysis, revAnalysis, preset) {
  * Transforms the unified analysis output to match the existing mutagenesis
  * analyzePrimerPair() return format for backward compatibility.
  *
- * @param {string} fwdPrimer - Forward primer sequence
- * @param {string} revPrimer - Reverse primer sequence
- * @param {string} template - Template sequence (optional)
- * @param {Object} options - Analysis options
- * @returns {Object} Analysis in mutagenesis format
+ * @param fwdPrimer - Forward primer sequence
+ * @param revPrimer - Reverse primer sequence
+ * @param template - Template sequence (optional)
+ * @param options - Analysis options
+ * @returns Analysis in mutagenesis format
  */
-export function analyzePrimerPairForMutagenesis(fwdPrimer, revPrimer, template = null, options = {}) {
+export function analyzePrimerPairForMutagenesis(
+  fwdPrimer: string,
+  revPrimer: string,
+  template: string | null = null,
+  options: Partial<AnalyzePrimersOptions> = {}
+): MutagenesisAnalysisResult {
   const result = analyzePrimers(
     { seq: fwdPrimer },
     { seq: revPrimer },
@@ -1066,29 +1421,29 @@ export function analyzePrimerPairForMutagenesis(fwdPrimer, revPrimer, template =
       foldDG: result.forward.thermodynamics.hairpinDG,  // Backward compatibility
     },
     reverse: {
-      sequence: result.reverse.sequence,
-      length: result.reverse.length,
-      tm: result.reverse.tm,
-      gc: result.reverse.gc,
-      gcPercent: result.reverse.gcPercent,
-      hairpinDG: result.reverse.thermodynamics.hairpinDG,
-      selfDimerDG: result.reverse.thermodynamics.homodimerDG,
-      foldDG: result.reverse.thermodynamics.hairpinDG,  // Backward compatibility
+      sequence: result.reverse!.sequence,
+      length: result.reverse!.length,
+      tm: result.reverse!.tm,
+      gc: result.reverse!.gc,
+      gcPercent: result.reverse!.gcPercent,
+      hairpinDG: result.reverse!.thermodynamics.hairpinDG,
+      selfDimerDG: result.reverse!.thermodynamics.homodimerDG,
+      foldDG: result.reverse!.thermodynamics.hairpinDG,  // Backward compatibility
     },
     pair: {
-      tmDifference: result.pair.tmDiff,
-      annealingTemp: Math.min(result.forward.tm, result.reverse.tm) - 5,
-      heterodimerDG: result.pair.heterodimerDG,
+      tmDifference: result.pair!.tmDiff,
+      annealingTemp: Math.min(result.forward.tm, result.reverse!.tm) - 5,
+      heterodimerDG: result.pair!.heterodimerDG,
     },
     offTargets: null,  // Calculated separately in mutagenesis
     warnings: result.warnings,
     quality: result.quality.tier,
-    isAcceptable: result.isAcceptable,
+    isAcceptable: result.isAcceptable!,
     // Extended analysis (new)
     compositeScore: result.composite.score,
     gQuadruplex: {
       forward: result.forward.gQuadruplex,
-      reverse: result.reverse.gQuadruplex,
+      reverse: result.reverse!.gQuadruplex,
     },
   };
 }
@@ -1099,18 +1454,18 @@ export function analyzePrimerPairForMutagenesis(fwdPrimer, revPrimer, template =
  * Performs a fast quality assessment without full thermodynamic calculations.
  * Useful for filtering candidates before detailed analysis.
  *
- * @param {string} seq - Primer sequence
- * @param {Object} options - Quick check options
- * @returns {Object} Quick quality assessment
+ * @param seq - Primer sequence
+ * @param options - Quick check options
+ * @returns Quick quality assessment
  */
-export function quickPrimerCheck(seq, options = {}) {
+export function quickPrimerCheck(seq: string, options: QuickPrimerCheckOptions = {}): QuickCheckResult {
   const {
     mode = 'amplification',
   } = options;
 
   const preset = ANALYSIS_PRESETS[mode] || ANALYSIS_PRESETS.amplification;
   const seqUpper = seq.toUpperCase();
-  const issues = [];
+  const issues: string[] = [];
 
   // Length check
   if (seqUpper.length < preset.optimalLengthRange[0]) {
@@ -1144,7 +1499,7 @@ export function quickPrimerCheck(seq, options = {}) {
     issues.push('GGGG run detected - G-quadruplex risk');
   }
 
-  const qualityLevel =
+  const qualityLevel: QualityTier =
     issues.length === 0 ? 'excellent' :
     issues.length === 1 ? 'good' :
     issues.length === 2 ? 'acceptable' :

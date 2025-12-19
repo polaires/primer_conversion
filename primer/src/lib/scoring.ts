@@ -21,6 +21,312 @@ import { calculate3primeTerminalDG } from './tmQ5.js';
 // Re-export for backward compatibility
 export { SCORING_PRESETS };
 
+// ============================================================================
+// Type Definitions
+// ============================================================================
+
+export interface PiecewiseLogisticOptions {
+  optimalLow?: number;
+  optimalHigh?: number;
+  acceptableLow?: number;
+  acceptableHigh?: number;
+  steepness?: number;
+  floorScore?: number;
+}
+
+export interface TmScoringOptions {
+  optimalLow?: number;
+  optimalHigh?: number;
+  acceptableLow?: number;
+  acceptableHigh?: number;
+  steepness?: number;
+}
+
+export interface GcScoringOptions {
+  optimalLow?: number;
+  optimalHigh?: number;
+  acceptableLow?: number;
+  acceptableHigh?: number;
+  steepness?: number;
+}
+
+export interface Terminal3DGOptions {
+  optimalLow?: number;
+  optimalHigh?: number;
+  tooLooseDecay?: number;
+  tooTightDecay?: number;
+}
+
+export interface TmDiffOptions {
+  freeZone?: number;
+  mildZone?: number;
+  moderateZone?: number;
+  steepDecay?: number;
+}
+
+export interface HairpinOptions {
+  threshold?: number;
+  steepness?: number;
+}
+
+export interface HomodimerOptions {
+  threshold?: number;
+  steepness?: number;
+}
+
+export interface HeterodimerOptions {
+  threshold?: number;
+  steepness?: number;
+}
+
+export interface OffTargetOptions {
+  singlePenalty?: number;
+  multiplier?: number;
+  critical?: number;
+}
+
+export interface OffTargetClassification {
+  counts: {
+    highRisk: number;
+    mediumRisk: number;
+    lowRisk: number;
+  };
+}
+
+export interface LengthOptions {
+  optimalLow?: number;
+  optimalHigh?: number;
+  acceptableLow?: number;
+  acceptableHigh?: number;
+  steepness?: number;
+}
+
+export interface GcClampOptions {
+  idealCount?: number;
+}
+
+export interface ThreePrimeCompositionOptions {
+  idealGcClamp?: number;
+  optimalDGLow?: number;
+  optimalDGHigh?: number;
+  gcClampWeight?: number;
+  terminalDGWeight?: number;
+  patternWeight?: number;
+}
+
+export interface HomopolymerOptions {
+  maxRun?: number;
+  penaltyPerBase?: number;
+}
+
+export interface GQuadruplexOptions {
+  g4MotifScore?: number;
+  ggggScore?: number;
+  multiGggScore?: number;
+}
+
+export interface GQuadruplexAnalysis {
+  score: number;
+  hasG4Motif: boolean;
+  hasGGGG: boolean;
+  gggCount: number;
+  gggRuns: string[];
+  severity: 'ok' | 'caution' | 'warning' | 'critical';
+  message: string;
+}
+
+export interface AmpliconLengthOptions {
+  optimalLow?: number;
+  optimalHigh?: number;
+  acceptableLow?: number;
+  acceptableHigh?: number;
+  steepness?: number;
+}
+
+export interface DistanceToROIOptions {
+  optimalLow?: number;
+  optimalHigh?: number;
+  acceptableLow?: number;
+  acceptableHigh?: number;
+  steepness?: number;
+}
+
+export interface AmpliconStructureOptions {
+  gcThreshold?: number;
+  windowSize?: number;
+  maxGcStretches?: number;
+  homopolymerThreshold?: number;
+}
+
+export interface PrimerScores {
+  tm: number;
+  gc: number;
+  length: number;
+  terminal3DG: number;
+  gcClamp: number;
+  homopolymer: number;
+  hairpin: number;
+  homodimer: number;
+  offTarget: number;
+  gQuadruplex: number;
+  threePrimeComp: number;
+}
+
+export interface PairScores {
+  tmDiff: number;
+  heterodimer: number;
+  ampliconLength?: number;
+  ampliconStructure?: number;
+}
+
+export interface CompositeScoreInput {
+  tmFwd?: number;
+  tmRev?: number;
+  gcFwd?: number;
+  gcRev?: number;
+  lengthFwd?: number;
+  lengthRev?: number;
+  hairpinFwd?: number;
+  hairpinRev?: number;
+  selfDimerFwd?: number;
+  selfDimerRev?: number;
+  heterodimer?: number;
+  tmDiff?: number;
+  terminal3DG?: number;
+  gcClampFwd?: number;
+  gcClampRev?: number;
+  threePrimeCompFwd?: number;
+  threePrimeCompRev?: number;
+  offTarget?: number;
+  gQuadruplexFwd?: number;
+  gQuadruplexRev?: number;
+  homopolymerFwd?: number;
+  homopolymerRev?: number;
+  ampliconLength?: number;
+  ampliconStructure?: number;
+}
+
+export interface ScoreBreakdownItem {
+  score: number;
+  weight: number;
+  contribution: number;
+}
+
+export interface CompositeScoreResult {
+  score: number;
+  rawScore: number;
+  breakdown: Record<string, ScoreBreakdownItem>;
+  totalWeight: number;
+}
+
+export interface QualityTier {
+  tier: 'excellent' | 'good' | 'acceptable' | 'marginal' | 'poor';
+  label: string;
+  description: string;
+  color: string;
+}
+
+export interface Primer {
+  seq: string;
+  tm: number;
+  gc: number;
+  dg?: number;
+  offTargetCount?: number;
+}
+
+export interface PrimerAnalysisResult {
+  sequence: string;
+  length: number;
+  tm: number;
+  gc: number;
+  dg?: number;
+  scores: PrimerScores;
+  gQuadruplex: GQuadruplexAnalysis;
+}
+
+export interface PairAnalysisResult {
+  tmDiff: number;
+  heterodimerDG: number | null;
+  ampliconLength: number | null;
+  scores: PairScores;
+}
+
+export interface AnalyzePrimerPairOptions {
+  heterodimerDG?: number | null;
+  hairpinDGFwd?: number | null;
+  hairpinDGRev?: number | null;
+  homodimerDGFwd?: number | null;
+  homodimerDGRev?: number | null;
+  ampliconLength?: number | null;
+  includeRecommendations?: boolean;
+  mode?: string;
+  weights?: Record<string, number> | null;
+  externalWarnings?: string[] | null;
+}
+
+export interface PrimerPairAnalysis {
+  forward: PrimerAnalysisResult;
+  reverse: PrimerAnalysisResult | null;
+  pair: PairAnalysisResult | null;
+  composite: CompositeScoreResult | null;
+  quality: QualityTier | null;
+  warnings: string[];
+  recommendations: string[];
+  mode?: string;
+  presetName?: string;
+  criticalWarnings?: number;
+  effectiveScore?: number;
+}
+
+export interface BatchDatasetEntry {
+  scores: CompositeScoreInput;
+  success?: boolean;
+  actual?: boolean;
+}
+
+export interface FeatureDiscrimination {
+  successMean: number;
+  failureMean: number;
+  diff: number;
+}
+
+export interface GQuadruplexStats {
+  count: number;
+  successCount: number;
+  successRate: number | null;
+}
+
+export interface BatchAnalysisStats {
+  total: number;
+  success: number;
+  failure: number;
+  successRate: number;
+  scoreDistribution: {
+    success: {
+      scores: number[];
+      mean: number;
+      std: number;
+    };
+    failure: {
+      scores: number[];
+      mean: number;
+      std: number;
+    };
+  };
+  featureDiscrimination: Record<string, FeatureDiscrimination>;
+  topDiscriminativeFeatures: Array<{ feature: string } & FeatureDiscrimination>;
+  gQuadruplex: {
+    g4Motif: GQuadruplexStats;
+    ggggRun: GQuadruplexStats;
+    multiGgg: GQuadruplexStats;
+    noRisk: GQuadruplexStats;
+  };
+}
+
+// ============================================================================
+// Core Scoring Functions
+// ============================================================================
+
 /**
  * Generic piecewise logistic function
  *
@@ -29,18 +335,31 @@ export { SCORING_PRESETS };
  * - Linear decay in acceptable range
  * - Logistic decay outside acceptable range
  *
- * @param {number} value - The value to score
- * @param {Object} options - Scoring parameters
- * @returns {number} Score from 0 to 1
+ * @param value - The value to score
+ * @param options - Scoring parameters
+ * @returns Score from 0 to 1
  */
-export function piecewiseLogistic(value, {
-  optimalLow,
-  optimalHigh,
-  acceptableLow,
-  acceptableHigh,
-  steepness = 0.5,
-  floorScore = 0.0,
-} = {}) {
+export function piecewiseLogistic(
+  value: number,
+  {
+    optimalLow,
+    optimalHigh,
+    acceptableLow,
+    acceptableHigh,
+    steepness = 0.5,
+    floorScore = 0.0,
+  }: PiecewiseLogisticOptions = {}
+): number {
+  // Require all range parameters
+  if (
+    optimalLow === undefined ||
+    optimalHigh === undefined ||
+    acceptableLow === undefined ||
+    acceptableHigh === undefined
+  ) {
+    throw new Error('piecewiseLogistic requires all range parameters');
+  }
+
   // In optimal range - perfect score
   if (value >= optimalLow && value <= optimalHigh) {
     return 1.0;
@@ -82,11 +401,11 @@ export function piecewiseLogistic(value, {
  * Acceptable: 50-65°C
  * Problematic: <50°C (won't anneal) or >65°C (secondary structure risk)
  *
- * @param {number} tm - Melting temperature in °C
- * @param {Object} options - Scoring parameters (can override defaults)
- * @returns {number} Score from 0 to 1
+ * @param tm - Melting temperature in °C
+ * @param options - Scoring parameters (can override defaults)
+ * @returns Score from 0 to 1
  */
-export function scoreTm(tm, options = {}) {
+export function scoreTm(tm: number, options: TmScoringOptions = {}): number {
   // Guard against invalid input
   if (tm === null || tm === undefined || Number.isNaN(tm)) {
     return 0.5;  // Return neutral score for invalid input
@@ -116,11 +435,11 @@ export function scoreTm(tm, options = {}) {
  * Acceptable: 30-70%
  * Problematic: <30% (low stability) or >70% (secondary structure, mispriming)
  *
- * @param {number} gc - GC content as fraction (0 to 1) or percentage (0 to 100)
- * @param {Object} options - Scoring parameters
- * @returns {number} Score from 0 to 1
+ * @param gc - GC content as fraction (0 to 1) or percentage (0 to 100)
+ * @param options - Scoring parameters
+ * @returns Score from 0 to 1
  */
-export function scoreGc(gc, options = {}) {
+export function scoreGc(gc: number, options: GcScoringOptions = {}): number {
   // Guard against invalid input
   if (gc === null || gc === undefined || Number.isNaN(gc)) {
     return 0.5;  // Return neutral score for invalid input
@@ -159,11 +478,11 @@ export function scoreGc(gc, options = {}) {
  *
  * Note: More negative ΔG = stronger binding
  *
- * @param {number} dG - 3' terminal ΔG in kcal/mol (negative values)
- * @param {Object} options - Scoring parameters
- * @returns {number} Score from 0 to 1
+ * @param dG - 3' terminal ΔG in kcal/mol (negative values)
+ * @param options - Scoring parameters
+ * @returns Score from 0 to 1
  */
-export function scoreTerminal3DG(dG, options = {}) {
+export function scoreTerminal3DG(dG: number, options: Terminal3DGOptions = {}): number {
   const {
     optimalLow = -11,   // Most stable acceptable (more negative)
     optimalHigh = -6,   // Least stable acceptable (less negative)
@@ -199,12 +518,12 @@ export function scoreTerminal3DG(dG, options = {}) {
  * Key finding from PrimerScore2: "little effect" on amplification
  * We use a generous free zone and mild penalties
  *
- * @param {number} tmFwd - Forward primer Tm in °C
- * @param {number} tmRev - Reverse primer Tm in °C
- * @param {Object} options - Scoring parameters
- * @returns {number} Score from 0 to 1
+ * @param tmFwd - Forward primer Tm in °C
+ * @param tmRev - Reverse primer Tm in °C
+ * @param options - Scoring parameters
+ * @returns Score from 0 to 1
  */
-export function scoreTmDiff(tmFwd, tmRev, options = {}) {
+export function scoreTmDiff(tmFwd: number, tmRev: number, options: TmDiffOptions = {}): number {
   const {
     freeZone = 3,      // 0-3°C: No penalty (expanded from typical 1-2°C)
     mildZone = 5,      // 3-5°C: Mild penalty
@@ -239,11 +558,11 @@ export function scoreTmDiff(tmFwd, tmRev, options = {}) {
  * Hairpin formation competes with target binding.
  * Threshold: -3 kcal/mol (more negative = more stable hairpin = worse)
  *
- * @param {number} dG - Hairpin ΔG in kcal/mol
- * @param {Object} options - Scoring parameters
- * @returns {number} Score from 0 to 1
+ * @param dG - Hairpin ΔG in kcal/mol
+ * @param options - Scoring parameters
+ * @returns Score from 0 to 1
  */
-export function scoreHairpin(dG, options = {}) {
+export function scoreHairpin(dG: number, options: HairpinOptions = {}): number {
   const {
     threshold = -3,    // ΔG threshold for significant hairpin
     steepness = 0.8,   // Decay rate
@@ -265,11 +584,11 @@ export function scoreHairpin(dG, options = {}) {
  * Self-dimer formation competes with target binding.
  * Threshold: -6 kcal/mol (more negative = more stable dimer = worse)
  *
- * @param {number} dG - Homodimer ΔG in kcal/mol
- * @param {Object} options - Scoring parameters
- * @returns {number} Score from 0 to 1
+ * @param dG - Homodimer ΔG in kcal/mol
+ * @param options - Scoring parameters
+ * @returns Score from 0 to 1
  */
-export function scoreHomodimer(dG, options = {}) {
+export function scoreHomodimer(dG: number, options: HomodimerOptions = {}): number {
   const {
     threshold = -6,    // ΔG threshold for significant homodimer
     steepness = 0.5,   // Decay rate
@@ -291,11 +610,11 @@ export function scoreHomodimer(dG, options = {}) {
  * Cross-dimer between fwd and rev primers competes with target binding.
  * Threshold: -6 kcal/mol
  *
- * @param {number} dG - Heterodimer ΔG in kcal/mol
- * @param {Object} options - Scoring parameters
- * @returns {number} Score from 0 to 1
+ * @param dG - Heterodimer ΔG in kcal/mol
+ * @param options - Scoring parameters
+ * @returns Score from 0 to 1
  */
-export function scoreHeterodimer(dG, options = {}) {
+export function scoreHeterodimer(dG: number, options: HeterodimerOptions = {}): number {
   const {
     threshold = -6,
     steepness = 0.5,
@@ -315,11 +634,11 @@ export function scoreHeterodimer(dG, options = {}) {
  * Based on GM1 finding that off-target is the "dominant failure factor"
  * Exponential penalty scaling for multiple off-targets
  *
- * @param {number} count - Number of off-target binding sites
- * @param {Object} options - Scoring parameters
- * @returns {number} Score from 0 to 1
+ * @param count - Number of off-target binding sites
+ * @param options - Scoring parameters
+ * @returns Score from 0 to 1
  */
-export function scoreOffTarget(count, options = {}) {
+export function scoreOffTarget(count: number, options: OffTargetOptions = {}): number {
   const {
     singlePenalty = 0.3,   // Penalty for first off-target (score = 0.7)
     multiplier = 3,        // Each additional off-target multiplies penalty
@@ -350,10 +669,10 @@ export function scoreOffTarget(count, options = {}) {
  * Type C (partial 3' homology): MEDIUM RISK - mispriming potential
  * Type D (internal homology): LOW RISK - usually tolerable
  *
- * @param {Object} classification - Result from classifyOffTargets()
- * @returns {number} Score from 0 to 1
+ * @param classification - Result from classifyOffTargets()
+ * @returns Score from 0 to 1
  */
-export function scoreOffTargetClassification(classification) {
+export function scoreOffTargetClassification(classification: OffTargetClassification): number {
   const { counts } = classification;
 
   // High risk sites are critical - each one severely impacts score
@@ -377,11 +696,11 @@ export function scoreOffTargetClassification(classification) {
  * Optimal: 18-24bp (standard recommendation)
  * Acceptable: 15-30bp
  *
- * @param {number} length - Primer length in bp
- * @param {Object} options - Scoring parameters
- * @returns {number} Score from 0 to 1
+ * @param length - Primer length in bp
+ * @param options - Scoring parameters
+ * @returns Score from 0 to 1
  */
-export function scoreLength(length, options = {}) {
+export function scoreLength(length: number, options: LengthOptions = {}): number {
   const {
     optimalLow = 18,
     optimalHigh = 24,
@@ -407,11 +726,11 @@ export function scoreLength(length, options = {}) {
  * Good: 2 G/C in last 2 bases (slightly less ideal due to mispriming risk)
  * Poor: 0 G/C in last 2 bases (weak 3' end)
  *
- * @param {string} seq - Primer sequence
- * @param {Object} options - Scoring parameters
- * @returns {number} Score from 0 to 1
+ * @param seq - Primer sequence
+ * @param options - Scoring parameters
+ * @returns Score from 0 to 1
  */
-export function scoreGcClamp(seq, options = {}) {
+export function scoreGcClamp(seq: string, options: GcClampOptions = {}): number {
   const {
     idealCount = 1,    // Ideal is 1 G/C in last 2 bases
   } = options;
@@ -442,12 +761,16 @@ export function scoreGcClamp(seq, options = {}) {
  *
  * This is the key feature for iterative design optimization.
  *
- * @param {string} seq - Primer sequence
- * @param {number} terminalDG - 3' terminal ΔG (optional, will calculate if not provided)
- * @param {Object} options - Scoring parameters
- * @returns {number} Score from 0 to 1
+ * @param seq - Primer sequence
+ * @param terminalDG - 3' terminal ΔG (optional, will calculate if not provided)
+ * @param options - Scoring parameters
+ * @returns Score from 0 to 1
  */
-export function score3PrimeComposition(seq, terminalDG = null, options = {}) {
+export function score3PrimeComposition(
+  seq: string,
+  terminalDG: number | null = null,
+  options: ThreePrimeCompositionOptions = {}
+): number {
   const {
     // GC clamp ideal is 1 G/C in last 2 bases
     idealGcClamp = 1,
@@ -531,11 +854,11 @@ export function score3PrimeComposition(seq, terminalDG = null, options = {}) {
  *
  * Penalizes runs of 4+ identical bases (polymerase slippage risk)
  *
- * @param {string} seq - Primer sequence
- * @param {Object} options - Scoring parameters
- * @returns {number} Score from 0 to 1
+ * @param seq - Primer sequence
+ * @param options - Scoring parameters
+ * @returns Score from 0 to 1
  */
-export function scoreHomopolymer(seq, options = {}) {
+export function scoreHomopolymer(seq: string, options: HomopolymerOptions = {}): number {
   const {
     maxRun = 3,        // Runs of 4+ are penalized
     penaltyPerBase = 0.15,  // Penalty per extra base in run
@@ -575,11 +898,11 @@ export function scoreHomopolymer(seq, options = {}) {
  * - GGGG runs (severe - high failure risk)
  * - Multiple GGG runs (moderate - potential inter-strand G4)
  *
- * @param {string} seq - Primer sequence
- * @param {Object} options - Scoring parameters
- * @returns {number} Score from 0 to 1
+ * @param seq - Primer sequence
+ * @param options - Scoring parameters
+ * @returns Score from 0 to 1
  */
-export function scoreGQuadruplex(seq, options = {}) {
+export function scoreGQuadruplex(seq: string, options: GQuadruplexOptions = {}): number {
   const {
     g4MotifScore = 0.0,      // Canonical G4 motif = complete failure
     ggggScore = 0.2,         // GGGG run = severe penalty
@@ -617,10 +940,10 @@ export function scoreGQuadruplex(seq, options = {}) {
  *
  * Returns both the score and diagnostic information for UI display.
  *
- * @param {string} seq - Primer sequence
- * @returns {Object} { score, hasG4Motif, hasGGGG, gggCount, severity, message }
+ * @param seq - Primer sequence
+ * @returns G-Quadruplex analysis results
  */
-export function analyzeGQuadruplex(seq) {
+export function analyzeGQuadruplex(seq: string): GQuadruplexAnalysis {
   const sequence = seq.toUpperCase();
 
   // Canonical G4 motif
@@ -635,7 +958,10 @@ export function analyzeGQuadruplex(seq) {
   const gggCount = gggMatches.length;
 
   // Determine severity and message
-  let severity, message, score;
+  let severity: 'ok' | 'caution' | 'warning' | 'critical';
+  let message: string;
+  let score: number;
+
   if (hasG4Motif) {
     severity = 'critical';
     message = 'G-Quadruplex motif detected - primer will likely fail';
@@ -676,11 +1002,11 @@ export function analyzeGQuadruplex(seq) {
  * Acceptable: 200-1200bp
  * Problematic: <200bp (limited coverage) or >1200bp (may need two reads)
  *
- * @param {number} length - Amplicon length in bp
- * @param {Object} options - Scoring parameters
- * @returns {number} Score from 0 to 1
+ * @param length - Amplicon length in bp
+ * @param options - Scoring parameters
+ * @returns Score from 0 to 1
  */
-export function scoreAmpliconLength(length, options = {}) {
+export function scoreAmpliconLength(length: number, options: AmpliconLengthOptions = {}): number {
   const {
     optimalLow = 400,
     optimalHigh = 800,
@@ -710,11 +1036,11 @@ export function scoreAmpliconLength(length, options = {}) {
  * - 700-1000bp: Declining quality
  * - >1000bp: Unreliable
  *
- * @param {number} distance - Distance from primer binding site to ROI start (bp)
- * @param {Object} options - Scoring parameters
- * @returns {number} Score from 0 to 1
+ * @param distance - Distance from primer binding site to ROI start (bp)
+ * @param options - Scoring parameters
+ * @returns Score from 0 to 1
  */
-export function scoreDistanceToROI(distance, options = {}) {
+export function scoreDistanceToROI(distance: number, options: DistanceToROIOptions = {}): number {
   const {
     optimalLow = 100,     // Start of high-quality zone
     optimalHigh = 500,    // Sweet spot for clear reads
@@ -749,11 +1075,11 @@ export function scoreDistanceToROI(distance, options = {}) {
  * - Presence of GC-rich stretches (>70% GC in 20bp window)
  * - Potential hairpin-forming sequences
  *
- * @param {string} sequence - Amplicon sequence
- * @param {Object} options - Scoring parameters
- * @returns {number} Score from 0 to 1
+ * @param sequence - Amplicon sequence
+ * @param options - Scoring parameters
+ * @returns Score from 0 to 1
  */
-export function scoreAmpliconStructure(sequence, options = {}) {
+export function scoreAmpliconStructure(sequence: string, options: AmpliconStructureOptions = {}): number {
   const {
     gcThreshold = 70,        // GC% above which structure is concerning
     windowSize = 20,         // Window for GC-rich stretch detection
@@ -816,11 +1142,14 @@ export function scoreAmpliconStructure(sequence, options = {}) {
  *
  * Uses empirically-derived weights from meta-analysis
  *
- * @param {Object} scores - Object with individual feature scores (0-1)
- * @param {Object} weights - Optional custom weights
- * @returns {Object} Composite score and breakdown
+ * @param scores - Object with individual feature scores (0-1)
+ * @param weights - Optional custom weights
+ * @returns Composite score and breakdown
  */
-export function calculateCompositeScore(scores, weights = null) {
+export function calculateCompositeScore(
+  scores: CompositeScoreInput,
+  weights: Record<string, number> | null = null
+): CompositeScoreResult {
   // Use calibrated weights from weightCalibration.js
   // Optimized via grid search on Döring dataset (829 pairs)
   // Performance: F1=81.9%, AUC=0.848
@@ -833,7 +1162,7 @@ export function calculateCompositeScore(scores, weights = null) {
 
   let totalScore = 0;
   let totalWeight = 0;
-  const breakdown = {};
+  const breakdown: Record<string, ScoreBreakdownItem> = {};
 
   for (const [key, score] of Object.entries(scores)) {
     const weight = w[key] || 0;
@@ -862,10 +1191,10 @@ export function calculateCompositeScore(scores, weights = null) {
 /**
  * Classify quality tier based on score
  *
- * @param {number} score - Score from 0-100
- * @returns {Object} Quality tier information
+ * @param score - Score from 0-100
+ * @returns Quality tier information
  */
-export function classifyQuality(score) {
+export function classifyQuality(score: number): QualityTier {
   if (score >= 90) {
     return {
       tier: 'excellent',
@@ -917,12 +1246,16 @@ export function classifyQuality(score) {
  * - scoring.js (analyzePrimerPair)
  * - primers.js (calculatePairCompositeScore)
  *
- * @param {Object} fwdScores - Forward primer scores object
- * @param {Object} revScores - Reverse primer scores object (optional, null for single primer)
- * @param {Object} pairScores - Pair-level scores (optional)
- * @returns {Object} Composite input object matching DEFAULT_WEIGHTS keys
+ * @param fwdScores - Forward primer scores object
+ * @param revScores - Reverse primer scores object (optional, null for single primer)
+ * @param pairScores - Pair-level scores (optional)
+ * @returns Composite input object matching DEFAULT_WEIGHTS keys
  */
-export function buildCompositeInput(fwdScores, revScores = null, pairScores = null) {
+export function buildCompositeInput(
+  fwdScores: PrimerScores,
+  revScores: PrimerScores | null = null,
+  pairScores: PairScores | null = null
+): CompositeScoreInput {
   // Single primer case
   if (!revScores) {
     return {
@@ -1007,12 +1340,16 @@ export function buildCompositeInput(fwdScores, revScores = null, pairScores = nu
  * - Mutagenesis module
  * - Calibration scripts
  *
- * @param {Object} fwd - Forward primer { seq, tm, gc, dg, offTargetCount }
- * @param {Object} rev - Reverse primer (optional) { seq, tm, gc, dg, offTargetCount }
- * @param {Object} options - Analysis options
- * @returns {Object} Comprehensive primer pair analysis
+ * @param fwd - Forward primer { seq, tm, gc, dg, offTargetCount }
+ * @param rev - Reverse primer (optional) { seq, tm, gc, dg, offTargetCount }
+ * @param options - Analysis options
+ * @returns Comprehensive primer pair analysis
  */
-export function analyzePrimerPair(fwd, rev = null, options = {}) {
+export function analyzePrimerPair(
+  fwd: Primer,
+  rev: Primer | null = null,
+  options: AnalyzePrimerPairOptions = {}
+): PrimerPairAnalysis {
   const {
     heterodimerDG = null,  // Pre-calculated if available
     hairpinDGFwd = null,   // Pre-calculated if available
@@ -1033,13 +1370,13 @@ export function analyzePrimerPair(fwd, rev = null, options = {}) {
   const preset = SCORING_PRESETS[mode] || SCORING_PRESETS.amplification;
   const effectiveWeights = weights || DEFAULT_WEIGHTS;
 
-  const warnings = [];
-  const recommendations = [];
+  const warnings: string[] = [];
+  const recommendations: string[] = [];
 
   // Forward primer analysis
   const fwdG4 = analyzeGQuadruplex(fwd.seq);
   const fwdTerminalDG = calculate3primeTerminalDG(fwd.seq).dG;
-  const fwdScores = {
+  const fwdScores: PrimerScores = {
     tm: scoreTm(fwd.tm, preset.tmOptions),
     gc: scoreGc(fwd.gc, preset.gcOptions),
     length: scoreLength(fwd.seq.length, preset.lengthOptions),
@@ -1093,7 +1430,7 @@ export function analyzePrimerPair(fwd, rev = null, options = {}) {
     warnings.push(`CRITICAL Forward: Severe homopolymer run (${fwdMaxHomopolymer} identical bases)`);
   }
 
-  const analysis = {
+  const analysis: PrimerPairAnalysis = {
     forward: {
       sequence: fwd.seq,
       length: fwd.seq.length,
@@ -1126,7 +1463,7 @@ export function analyzePrimerPair(fwd, rev = null, options = {}) {
   // Reverse primer analysis
   const revG4 = analyzeGQuadruplex(rev.seq);
   const revTerminalDG = calculate3primeTerminalDG(rev.seq).dG;
-  const revScores = {
+  const revScores: PrimerScores = {
     tm: scoreTm(rev.tm, preset.tmOptions),
     gc: scoreGc(rev.gc, preset.gcOptions),
     length: scoreLength(rev.seq.length, preset.lengthOptions),
@@ -1192,7 +1529,7 @@ export function analyzePrimerPair(fwd, rev = null, options = {}) {
 
   // Pair-level analysis
   const tmDiff = Math.abs(fwd.tm - rev.tm);
-  const pairScores = {
+  const pairScores: PairScores = {
     tmDiff: scoreTmDiff(fwd.tm, rev.tm),
     heterodimer: heterodimerDG !== null ? scoreHeterodimer(heterodimerDG, { threshold: preset.heterodimerThreshold }) : 0.8,
     ampliconLength: ampliconLength !== null ? scoreAmpliconLength(ampliconLength) : 0.9,
@@ -1247,12 +1584,15 @@ export function analyzePrimerPair(fwd, rev = null, options = {}) {
  * - G-Quadruplex prevalence and impact
  * - Score distributions
  *
- * @param {Array} dataset - Array of { scores, success } entries
- * @param {Object} weights - Weight configuration for scoring
- * @returns {Object} Batch analysis statistics
+ * @param dataset - Array of { scores, success } entries
+ * @param weights - Weight configuration for scoring
+ * @returns Batch analysis statistics
  */
-export function analyzePrimerBatch(dataset, weights = DEFAULT_WEIGHTS) {
-  const stats = {
+export function analyzePrimerBatch(
+  dataset: BatchDatasetEntry[],
+  weights: Record<string, number> = DEFAULT_WEIGHTS
+): BatchAnalysisStats {
+  const stats: BatchAnalysisStats = {
     total: dataset.length,
     success: 0,
     failure: 0,
@@ -1262,6 +1602,7 @@ export function analyzePrimerBatch(dataset, weights = DEFAULT_WEIGHTS) {
       failure: { scores: [], mean: 0, std: 0 },
     },
     featureDiscrimination: {},
+    topDiscriminativeFeatures: [],
     gQuadruplex: {
       g4Motif: { count: 0, successCount: 0, successRate: 0 },
       ggggRun: { count: 0, successCount: 0, successRate: 0 },
@@ -1270,10 +1611,10 @@ export function analyzePrimerBatch(dataset, weights = DEFAULT_WEIGHTS) {
     },
   };
 
-  const featureValues = {};
+  const featureValues: Record<string, { success: number[]; failure: number[] }> = {};
 
   for (const entry of dataset) {
-    const success = entry.success || entry.actual;
+    const success = entry.success || entry.actual || false;
 
     if (success) {
       stats.success++;
@@ -1311,7 +1652,7 @@ export function analyzePrimerBatch(dataset, weights = DEFAULT_WEIGHTS) {
     }
 
     // G-Quadruplex analysis
-    const g4Score = entry.scores.gQuadruplexFwd || entry.scores.gQuadruplex || 1.0;
+    const g4Score = (entry.scores.gQuadruplexFwd ?? entry.scores.gQuadruplexRev) ?? 1.0;
     if (g4Score === 0.0) {
       stats.gQuadruplex.g4Motif.count++;
       if (success) stats.gQuadruplex.g4Motif.successCount++;
@@ -1331,7 +1672,7 @@ export function analyzePrimerBatch(dataset, weights = DEFAULT_WEIGHTS) {
   stats.successRate = stats.total > 0 ? stats.success / stats.total : 0;
 
   // Calculate score distribution statistics
-  const calcStats = (arr) => {
+  const calcStats = (arr: number[]): { mean: number; std: number } => {
     if (arr.length === 0) return { mean: 0, std: 0 };
     const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
     const std = Math.sqrt(arr.reduce((sum, x) => sum + Math.pow(x - mean, 2), 0) / arr.length);
@@ -1371,7 +1712,7 @@ export function analyzePrimerBatch(dataset, weights = DEFAULT_WEIGHTS) {
     .map(([key, data]) => ({ feature: key, ...data }));
 
   // Calculate G-Quadruplex success rates
-  for (const category of Object.keys(stats.gQuadruplex)) {
+  for (const category of Object.keys(stats.gQuadruplex) as Array<keyof typeof stats.gQuadruplex>) {
     const cat = stats.gQuadruplex[category];
     cat.successRate = cat.count > 0
       ? Math.round((cat.successCount / cat.count) * 1000) / 1000
