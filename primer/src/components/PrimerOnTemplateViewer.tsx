@@ -1,7 +1,7 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import { useMemo, useState, FC, CSSProperties } from 'react';
 import { SeqViz } from 'seqviz';
-import HairpinDiagram, { HairpinBadge } from './HairpinDiagram.jsx';
-import PrimerStructureViewer from './PrimerStructureViewer.jsx';
+import HairpinDiagram from './HairpinDiagram';
+import PrimerStructureViewer from './PrimerStructureViewer';
 import { foldSequence } from '../lib/fold.js';
 import { classify3PrimeStructureSeverity } from '../lib/smartPrimers.js';
 
@@ -10,8 +10,152 @@ import { classify3PrimeStructureSeverity } from '../lib/smartPrimers.js';
  * Light theme version with improved UI
  */
 
+// Type definitions
+interface Theme {
+  bg: string;
+  bgSecondary: string;
+  bgTertiary: string;
+  border: string;
+  borderStrong: string;
+  text: string;
+  textSecondary: string;
+  textMuted: string;
+  success: string;
+  successBg: string;
+  warning: string;
+  warningBg: string;
+  danger: string;
+  dangerBg: string;
+  info: string;
+  infoBg: string;
+  forward: string;
+  reverse: string;
+  amplicon: string;
+  mutation: string;
+}
+
+interface BindingResult {
+  start: number;
+  end: number;
+  matchLength: number;
+  score: number;
+  method: string;
+  offset?: number;
+}
+
+interface BindingOptions {
+  positionHint?: { start: number; end: number };
+  mutationPosition?: number | null;
+  isMutagenesis?: boolean;
+}
+
+interface PrimerData {
+  sequence: string;
+  tm?: number;
+  gc?: number;
+  gcPercent?: string;
+  dg?: number;
+  start?: number;
+  end?: number;
+}
+
+interface Annotation {
+  name: string;
+  start: number;
+  end: number;
+  direction: number;
+  color: string;
+  type: string;
+}
+
+interface FoldResult {
+  e: number;
+  ij?: Array<[number, number]>;
+  [key: string]: unknown;
+}
+
+interface SeverityResult {
+  level: string;
+  shouldWarn: boolean;
+  tooltip?: string;
+}
+
+interface RegionData {
+  sequence: string;
+  primerStart: number;
+  primerEnd: number;
+  absoluteStart: number;
+  bindingOffset: number;
+}
+
+interface PrimerInfo {
+  size: number;
+  fwd: Annotation;
+  rev: Annotation;
+}
+
+interface PrimerLabelProps {
+  x: number;
+  y: number;
+  label: string;
+  sublabel: string;
+  color: string;
+  anchor?: string;
+  position?: 'above' | 'below';
+}
+
+interface PrimerBlockProps {
+  x: number;
+  width: number;
+  y: number;
+  color: string;
+  direction: 'forward' | 'reverse';
+  onHover?: () => void;
+  onLeave?: () => void;
+}
+
+interface TemplateVisualizationProps {
+  template: string;
+  forward: PrimerData | null;
+  reverse: PrimerData | null;
+  mutationPosition?: number | null;
+  mutationLength?: number;
+  width?: number;
+  showSequence?: boolean;
+  compact?: boolean;
+  isMutagenesis?: boolean;
+}
+
+interface SequenceDetailViewProps {
+  template: string;
+  forward: PrimerData | null;
+  reverse: PrimerData | null;
+  mutationPosition?: number | null;
+  isMutagenesis?: boolean;
+}
+
+interface PrimerOnTemplateViewerProps {
+  template: string;
+  forward: PrimerData | null;
+  reverse: PrimerData | null;
+  mutationPosition?: number | null;
+  mutationLength?: number;
+  showHairpinDiagrams?: boolean;
+  showSequenceDetails?: boolean;
+  width?: number;
+  compact?: boolean;
+  isSDMMode?: boolean;
+}
+
+interface PrimerBindingBadgeProps {
+  template: string;
+  primer: PrimerData | null;
+  direction?: 'forward' | 'reverse';
+  mutationPosition?: number | null;
+}
+
 // Light theme colors
-const theme = {
+const theme: Theme = {
   bg: '#ffffff',
   bgSecondary: '#f8fafc',
   bgTertiary: '#f1f5f9',
@@ -35,21 +179,20 @@ const theme = {
 };
 
 // Reverse complement helper
-function reverseComplement(seq) {
-  const comp = { A: 'T', T: 'A', G: 'C', C: 'G', a: 't', t: 'a', g: 'c', c: 'g' };
+function reverseComplement(seq: string): string {
+  const comp: Record<string, string> = { A: 'T', T: 'A', G: 'C', C: 'G', a: 't', t: 'a', g: 'c', c: 'g' };
   return seq.split('').reverse().map(c => comp[c] || c).join('');
 }
 
 /**
  * IMPROVED: Better primer binding with dual-anchor strategy
- *
- * For mutagenesis primers:
- * - Check BOTH 5' and 3' ends (not just 3')
- * - Use position hints when available
- * - Use mutation position as anchor
- * - Score based on combined anchor matches with 3' weighting
  */
-function findPrimerBinding(template, primerSeq, isReverse = false, options = {}) {
+function findPrimerBinding(
+  template: string,
+  primerSeq: string,
+  isReverse: boolean = false,
+  options: BindingOptions = {}
+): BindingResult | null {
   if (!template || !primerSeq) return null;
 
   const { positionHint, mutationPosition, isMutagenesis = false } = options;
@@ -83,22 +226,12 @@ function findPrimerBinding(template, primerSeq, isReverse = false, options = {})
 
   // Priority 3: For mutagenesis - use mutation position as anchor
   if (isMutagenesis && mutationPosition !== undefined && mutationPosition !== null) {
-    // For back-to-back (Q5 SDM) design:
-    // - Forward primer: contains mutation, starts ~10bp before mutation, extends downstream
-    // - Reverse primer: does NOT contain mutation, ends just before forward starts
-    //
-    // For overlapping (QuikChange) design:
-    // - Both primers contain the mutation in the middle
-
-    let estimatedStart;
+    let estimatedStart: number;
     if (isReverse) {
-      // Reverse primer should END before the mutation site
-      // Assuming forward primer starts ~10bp before mutation, reverse ends there
-      const forwardFlankBefore = 10; // typical 5' flank on forward primer
+      const forwardFlankBefore = 10;
       const estimatedEnd = mutationPosition - forwardFlankBefore;
       estimatedStart = estimatedEnd - searchSeq.length;
     } else {
-      // Forward primer: mutation is typically ~10bp from 5' end (30-40% into primer)
       estimatedStart = mutationPosition - Math.floor(searchSeq.length * 0.4);
     }
 
@@ -114,37 +247,32 @@ function findPrimerBinding(template, primerSeq, isReverse = false, options = {})
   }
 
   // Priority 4: Dual-anchor fuzzy matching
-  // Check both 5' and 3' ends simultaneously
   const minAnchorLen = Math.min(8, Math.floor(primer.length * 0.4));
 
   for (let anchorLen = Math.floor(primer.length * 0.5); anchorLen >= minAnchorLen; anchorLen--) {
     const anchor5 = searchSeq.slice(0, anchorLen);
     const anchor3 = searchSeq.slice(-anchorLen);
 
-    // Find 5' anchor positions
-    const positions5 = [];
+    const positions5: number[] = [];
     let idx = tmpl.indexOf(anchor5);
     while (idx !== -1) {
       positions5.push(idx);
       idx = tmpl.indexOf(anchor5, idx + 1);
     }
 
-    // Find 3' anchor positions
-    const positions3 = [];
+    const positions3: number[] = [];
     idx = tmpl.indexOf(anchor3);
     while (idx !== -1) {
       positions3.push(idx);
       idx = tmpl.indexOf(anchor3, idx + 1);
     }
 
-    // Look for consistent pairs (5' and 3' at expected distance)
     const expectedDistance = searchSeq.length - anchorLen;
 
     for (const pos5 of positions5) {
       for (const pos3 of positions3) {
         const actualDistance = pos3 - pos5;
 
-        // Allow some tolerance for indels
         if (Math.abs(actualDistance - expectedDistance) <= 2) {
           return {
             start: pos5,
@@ -158,7 +286,7 @@ function findPrimerBinding(template, primerSeq, isReverse = false, options = {})
     }
   }
 
-  // Priority 5: Single 3' anchor (most critical for PCR)
+  // Priority 5: Single 3' anchor
   for (let anchorLen = primer.length - 1; anchorLen >= minAnchorLen; anchorLen--) {
     const anchor3 = searchSeq.slice(-anchorLen);
     const idx3 = tmpl.indexOf(anchor3);
@@ -178,7 +306,7 @@ function findPrimerBinding(template, primerSeq, isReverse = false, options = {})
   }
 
   // Priority 6: Scoring-based alignment with 3' weighting
-  let bestMatch = null;
+  let bestMatch: BindingResult | null = null;
   let bestScore = 0;
 
   for (let i = 0; i <= tmpl.length - searchSeq.length; i++) {
@@ -187,21 +315,19 @@ function findPrimerBinding(template, primerSeq, isReverse = false, options = {})
 
     for (let j = 0; j < searchSeq.length; j++) {
       if (tmpl[i + j] === searchSeq[j]) {
-        // Weight 3' end higher (last 10 bases critical for extension)
         const is3Prime = j >= searchSeq.length - 10;
         score += is3Prime ? 2 : 1;
         if (is3Prime) matches3Prime++;
       }
     }
 
-    // Require good 3' match for valid binding
     if (score > bestScore && matches3Prime >= 7) {
       bestScore = score;
       bestMatch = {
         start: i,
         end: i + searchSeq.length,
         matchLength: searchSeq.length,
-        score: score / (searchSeq.length + 10), // Normalize
+        score: score / (searchSeq.length + 10),
         method: 'weighted_alignment'
       };
     }
@@ -213,26 +339,23 @@ function findPrimerBinding(template, primerSeq, isReverse = false, options = {})
 /**
  * Clean label component - simplified design without connector lines
  */
-function PrimerLabel({
+const PrimerLabel: FC<PrimerLabelProps> = ({
   x,
   y,
   label,
   sublabel,
   color,
   anchor = 'middle',
-  position = 'above' // 'above' or 'below'
-}) {
+  position = 'above'
+}) => {
   const isAbove = position === 'above';
   const barHeight = 24;
 
-  // For "above": labels above the bar (negative offset from bar top)
-  // For "below": labels below the bar (positive offset, accounting for bar height)
   const mainLabelY = isAbove ? y - 22 : y + barHeight + 16;
   const sublabelY = isAbove ? y - 8 : y + barHeight + 30;
 
   return (
     <g>
-      {/* Main label */}
       <text
         x={x}
         y={mainLabelY}
@@ -244,8 +367,6 @@ function PrimerLabel({
       >
         {label}
       </text>
-
-      {/* Sublabel */}
       <text
         x={x}
         y={sublabelY}
@@ -259,25 +380,24 @@ function PrimerLabel({
       </text>
     </g>
   );
-}
+};
 
 /**
  * Primer block with integrated direction arrow
  */
-function PrimerBlock({
+const PrimerBlock: FC<PrimerBlockProps> = ({
   x,
   width,
   y,
   color,
-  direction, // 'forward' (→) or 'reverse' (←)
+  direction,
   onHover,
   onLeave
-}) {
+}) => {
   const arrowSize = 12;
   const height = 24;
   const radius = 6;
 
-  // Build path for rounded rect with arrow
   const isForward = direction === 'forward';
 
   const path = isForward
@@ -308,39 +428,35 @@ function PrimerBlock({
       style={{ cursor: 'pointer', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
     />
   );
-}
+};
 
 /**
  * SeqViz-based Template Visualization
- * Uses the battle-tested SeqViz library for proper primer positioning
  */
-function TemplateVisualization({
+const TemplateVisualization: FC<TemplateVisualizationProps> = ({
   template,
   forward,
   reverse,
   mutationPosition = null,
   mutationLength = 1,
   width = 800,
-  showSequence = true,
+  showSequence: _showSequence = true,
   compact = false,
   isMutagenesis = false
-}) {
+}) => {
   const height = compact ? 200 : 250;
 
-  // Build annotations for SeqViz
   const annotations = useMemo(() => {
-    const annots = [];
+    const annots: Annotation[] = [];
 
-    // Get primer positions - use explicit positions if available
-    let fwdStart = null, fwdEnd = null;
-    let revStart = null, revEnd = null;
+    let fwdStart: number | null = null, fwdEnd: number | null = null;
+    let revStart: number | null = null, revEnd: number | null = null;
 
     if (forward?.sequence) {
       if (typeof forward.start === 'number' && typeof forward.end === 'number') {
         fwdStart = forward.start;
         fwdEnd = forward.end;
       } else {
-        // Fallback: search for primer binding
         const binding = findPrimerBinding(template, forward.sequence, false, {
           mutationPosition,
           isMutagenesis
@@ -357,7 +473,6 @@ function TemplateVisualization({
         revStart = reverse.start;
         revEnd = reverse.end;
       } else {
-        // Fallback: search for primer binding
         const binding = findPrimerBinding(template, reverse.sequence, true, {
           mutationPosition,
           isMutagenesis
@@ -369,8 +484,7 @@ function TemplateVisualization({
       }
     }
 
-    // Add forward primer annotation
-    if (fwdStart !== null && fwdEnd !== null) {
+    if (fwdStart !== null && fwdEnd !== null && forward) {
       annots.push({
         name: `Forward (${forward.sequence.length}bp, Tm ${forward.tm || '?'}°C)`,
         start: fwdStart,
@@ -381,8 +495,7 @@ function TemplateVisualization({
       });
     }
 
-    // Add reverse primer annotation
-    if (revStart !== null && revEnd !== null) {
+    if (revStart !== null && revEnd !== null && reverse) {
       annots.push({
         name: `Reverse (${reverse.sequence.length}bp, Tm ${reverse.tm || '?'}°C)`,
         start: revStart,
@@ -393,7 +506,6 @@ function TemplateVisualization({
       });
     }
 
-    // Add mutation marker as annotation
     if (mutationPosition !== null && mutationPosition !== undefined) {
       annots.push({
         name: `Mutation (pos ${mutationPosition + 1})`,
@@ -408,8 +520,7 @@ function TemplateVisualization({
     return annots;
   }, [template, forward, reverse, mutationPosition, mutationLength, isMutagenesis]);
 
-  // Calculate primer region for info display
-  const primerInfo = useMemo(() => {
+  const primerInfo = useMemo((): PrimerInfo | null => {
     const fwdAnnot = annotations.find(a => a.type === 'primer' && a.direction === 1);
     const revAnnot = annotations.find(a => a.type === 'primer' && a.direction === -1);
 
@@ -442,7 +553,6 @@ function TemplateVisualization({
       border: `1px solid ${theme.border}`,
       overflow: 'hidden'
     }}>
-      {/* Header */}
       <div style={{
         padding: '12px 16px',
         borderBottom: `1px solid ${theme.border}`,
@@ -461,12 +571,11 @@ function TemplateVisualization({
         )}
       </div>
 
-      {/* SeqViz Viewer */}
       <div style={{ height: `${height}px` }}>
         <SeqViz
           name="Template"
           seq={template.toUpperCase()}
-          annotations={annotations}
+          annotations={annotations as any}
           viewer="linear"
           showComplement={false}
           showIndex={true}
@@ -476,7 +585,6 @@ function TemplateVisualization({
         />
       </div>
 
-      {/* Primer Info Legend */}
       {primerInfo && (
         <div style={{
           padding: '10px 16px',
@@ -525,17 +633,18 @@ function TemplateVisualization({
       )}
     </div>
   );
-}
+};
 
 /**
  * Sequence detail view - Light Theme with proper double-stranded DNA visualization
- *
- * For forward primer: binds to top strand, extends 5'→3' (left to right)
- * For reverse primer: binds to bottom strand, extends 5'→3' (right to left on diagram)
  */
-function SequenceDetailView({ template, forward, reverse, mutationPosition = null, isMutagenesis = false }) {
-  // For mutagenesis primers, use position data if available (forward primer contains mutation
-  // and won't be found by sequence search on original template)
+const SequenceDetailView: FC<SequenceDetailViewProps> = ({
+  template,
+  forward,
+  reverse,
+  mutationPosition = null,
+  isMutagenesis = false
+}) => {
   const fwdBinding = useMemo(() => {
     if (!forward?.sequence) return null;
     if (forward.start !== undefined && forward.end !== undefined) {
@@ -558,7 +667,12 @@ function SequenceDetailView({ template, forward, reverse, mutationPosition = nul
     });
   }, [reverse, template, mutationPosition, isMutagenesis]);
 
-  const getRegionSequence = (binding, primer, contextBefore = 10, contextAfter = 10) => {
+  const getRegionSequence = (
+    binding: BindingResult | { start: number; end: number; matchLength: number } | null,
+    _primer: PrimerData | null,
+    contextBefore: number = 10,
+    contextAfter: number = 10
+  ): RegionData | null => {
     if (!binding) return null;
 
     const start = Math.max(0, binding.start - contextBefore);
@@ -570,15 +684,14 @@ function SequenceDetailView({ template, forward, reverse, mutationPosition = nul
       primerStart: binding.start - start,
       primerEnd: binding.end - start,
       absoluteStart: start,
-      bindingOffset: binding.offset || 0
+      bindingOffset: (binding as BindingResult).offset || 0
     };
   };
 
   const fwdRegion = getRegionSequence(fwdBinding, forward, 15, 5);
   const revRegion = getRegionSequence(revBinding, reverse, 5, 15);
 
-  // Shared styles for sequence display container
-  const gridContainerStyle = {
+  const gridContainerStyle: CSSProperties = {
     fontFamily: 'monospace',
     fontSize: '12px',
     lineHeight: '1.6',
@@ -589,40 +702,35 @@ function SequenceDetailView({ template, forward, reverse, mutationPosition = nul
     boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)'
   };
 
-  const labelStyle = {
+  const labelStyle: CSSProperties = {
     color: theme.textMuted,
     paddingRight: '8px',
     whiteSpace: 'nowrap',
     fontWeight: '500'
   };
 
-  const directionLabelStyle = {
+  const directionLabelStyle: CSSProperties = {
     color: theme.textMuted,
     paddingRight: '4px',
     whiteSpace: 'nowrap'
   };
 
-  // Template strand color - distinct from primer colors
-  const templateColor = '#059669'; // Emerald green for template strands
+  const templateColor = '#059669';
 
-  // Render forward primer binding to single-stranded template
-  // Forward primer (5'→3') binds complementarily to the bottom strand (3'→5')
-  // The primer sequence is identical to the top strand, so we show bottom strand as template
-  const renderForwardAlignment = (region, primerSeq, primerColor) => {
+  const renderForwardAlignment = (region: RegionData, primerSeq: string, primerColor: string) => {
     const totalLength = region.sequence.length;
     const cellWidth = 10;
 
-    // Bottom strand (3'→5') is the complement of top strand - this is what forward primer binds to
-    const comp = { A: 'T', T: 'A', G: 'C', C: 'G' };
+    const comp: Record<string, string> = { A: 'T', T: 'A', G: 'C', C: 'G' };
     const templateStrand = region.sequence.split('').map(c => comp[c] || c).join('');
 
-    const rowStyle = {
+    const rowStyle: CSSProperties = {
       display: 'grid',
       gridTemplateColumns: `repeat(${totalLength}, ${cellWidth}px)`,
       gap: '0'
     };
 
-    const cellStyle = {
+    const cellStyle: CSSProperties = {
       textAlign: 'center',
       height: '18px',
       lineHeight: '18px'
@@ -630,7 +738,6 @@ function SequenceDetailView({ template, forward, reverse, mutationPosition = nul
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-        {/* Template strand (3'→5') - what the forward primer binds to */}
         <div style={rowStyle}>
           {templateStrand.split('').map((base, i) => {
             const inPrimer = i >= region.primerStart && i < region.primerEnd;
@@ -648,7 +755,6 @@ function SequenceDetailView({ template, forward, reverse, mutationPosition = nul
           })}
         </div>
 
-        {/* Base pairing indicators */}
         <div style={rowStyle}>
           {Array(totalLength).fill(null).map((_, i) => {
             const inPrimerRange = i >= region.primerStart && i < region.primerEnd;
@@ -667,7 +773,6 @@ function SequenceDetailView({ template, forward, reverse, mutationPosition = nul
           })}
         </div>
 
-        {/* Primer row (5'→3') - binds complementarily */}
         <div style={rowStyle}>
           {Array(totalLength).fill(null).map((_, i) => {
             const primerIndex = i - region.primerStart;
@@ -686,7 +791,6 @@ function SequenceDetailView({ template, forward, reverse, mutationPosition = nul
           })}
         </div>
 
-        {/* Direction arrows - pointing right (extension direction) */}
         <div style={rowStyle}>
           {Array(totalLength).fill(null).map((_, i) => {
             const primerIndex = i - region.primerStart;
@@ -709,23 +813,19 @@ function SequenceDetailView({ template, forward, reverse, mutationPosition = nul
     );
   };
 
-  // Render reverse primer binding to single-stranded template
-  // Reverse primer (5'→3') binds complementarily to the top strand (5'→3')
-  // The primer is antiparallel, so its 5' end aligns with template 3' end
-  const renderReverseAlignment = (region, primerSeq, primerColor) => {
+  const renderReverseAlignment = (region: RegionData, primerSeq: string, primerColor: string) => {
     const totalLength = region.sequence.length;
     const cellWidth = 10;
 
-    // Top strand (5'→3') is the template - this is what reverse primer binds to
     const templateStrand = region.sequence;
 
-    const rowStyle = {
+    const rowStyle: CSSProperties = {
       display: 'grid',
       gridTemplateColumns: `repeat(${totalLength}, ${cellWidth}px)`,
       gap: '0'
     };
 
-    const cellStyle = {
+    const cellStyle: CSSProperties = {
       textAlign: 'center',
       height: '18px',
       lineHeight: '18px'
@@ -733,7 +833,6 @@ function SequenceDetailView({ template, forward, reverse, mutationPosition = nul
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-        {/* Template strand (5'→3') - what the reverse primer binds to */}
         <div style={rowStyle}>
           {templateStrand.split('').map((base, i) => {
             const inPrimer = i >= region.primerStart && i < region.primerEnd;
@@ -751,7 +850,6 @@ function SequenceDetailView({ template, forward, reverse, mutationPosition = nul
           })}
         </div>
 
-        {/* Base pairing indicators */}
         <div style={rowStyle}>
           {Array(totalLength).fill(null).map((_, i) => {
             const inPrimerRange = i >= region.primerStart && i < region.primerEnd;
@@ -770,13 +868,10 @@ function SequenceDetailView({ template, forward, reverse, mutationPosition = nul
           })}
         </div>
 
-        {/* Primer row (5'→3' right to left) - binds complementarily */}
-        {/* Primer is antiparallel: 5' on right, 3' on left */}
         <div style={rowStyle}>
           {Array(totalLength).fill(null).map((_, i) => {
             const primerIndex = i - region.primerStart;
             const inPrimerRange = primerIndex >= 0 && primerIndex < primerSeq.length;
-            // Reverse the primer display so 5' end is on the right (antiparallel)
             const displayIndex = inPrimerRange ? (primerSeq.length - 1 - primerIndex) : -1;
             return (
               <div key={`p-${i}`} style={{
@@ -792,7 +887,6 @@ function SequenceDetailView({ template, forward, reverse, mutationPosition = nul
           })}
         </div>
 
-        {/* Direction arrows - pointing left (extension direction) */}
         <div style={rowStyle}>
           {Array(totalLength).fill(null).map((_, i) => {
             const primerIndex = i - region.primerStart;
@@ -822,8 +916,7 @@ function SequenceDetailView({ template, forward, reverse, mutationPosition = nul
       gap: '16px',
       marginTop: '16px'
     }}>
-      {/* Forward Primer Detail */}
-      {fwdRegion && (
+      {fwdRegion && fwdBinding && forward && (
         <div style={{
           background: theme.bg,
           borderRadius: '10px',
@@ -861,18 +954,18 @@ function SequenceDetailView({ template, forward, reverse, mutationPosition = nul
                 <span style={{ height: '14px' }}></span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <span style={{ ...directionLabelStyle, height: '18px', lineHeight: '18px' }}>3'-</span>
+                <span style={{ ...directionLabelStyle, height: '18px', lineHeight: '18px' }}>3&apos;-</span>
                 <span style={{ height: '14px' }}></span>
-                <span style={{ ...directionLabelStyle, height: '18px', lineHeight: '18px' }}>5'-</span>
+                <span style={{ ...directionLabelStyle, height: '18px', lineHeight: '18px' }}>5&apos;-</span>
                 <span style={{ height: '14px' }}></span>
               </div>
               <div style={{ flex: 1 }}>
                 {renderForwardAlignment(fwdRegion, forward.sequence, theme.forward)}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <span style={{ ...directionLabelStyle, height: '18px', lineHeight: '18px', paddingLeft: '4px' }}>-5'</span>
+                <span style={{ ...directionLabelStyle, height: '18px', lineHeight: '18px', paddingLeft: '4px' }}>-5&apos;</span>
                 <span style={{ height: '14px' }}></span>
-                <span style={{ ...directionLabelStyle, height: '18px', lineHeight: '18px', paddingLeft: '4px' }}>-3'</span>
+                <span style={{ ...directionLabelStyle, height: '18px', lineHeight: '18px', paddingLeft: '4px' }}>-3&apos;</span>
                 <span style={{ height: '14px' }}></span>
               </div>
             </div>
@@ -889,17 +982,16 @@ function SequenceDetailView({ template, forward, reverse, mutationPosition = nul
               Tm: <strong style={{ color: theme.text }}>{forward.tm}°C</strong>
             </span>
             <span style={{ color: theme.textMuted, fontSize: '11px' }}>
-              GC: <strong style={{ color: theme.text }}>{forward.gcPercent || `${(forward.gc * 100).toFixed(0)}%`}</strong>
+              GC: <strong style={{ color: theme.text }}>{forward.gcPercent || `${((forward.gc || 0) * 100).toFixed(0)}%`}</strong>
             </span>
             <span style={{ color: theme.textMuted, fontSize: '11px' }}>
-              dG: <strong style={{ color: forward.dg < -3 ? theme.mutation : theme.text }}>{forward.dg?.toFixed(1) || 'N/A'} kcal/mol</strong>
+              dG: <strong style={{ color: (forward.dg || 0) < -3 ? theme.mutation : theme.text }}>{forward.dg?.toFixed(1) || 'N/A'} kcal/mol</strong>
             </span>
           </div>
         </div>
       )}
 
-      {/* Reverse Primer Detail - single-stranded view */}
-      {revRegion && (
+      {revRegion && revBinding && reverse && (
         <div style={{
           background: theme.bg,
           borderRadius: '10px',
@@ -937,18 +1029,18 @@ function SequenceDetailView({ template, forward, reverse, mutationPosition = nul
                 <span style={{ height: '14px' }}></span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <span style={{ ...directionLabelStyle, height: '18px', lineHeight: '18px' }}>5'-</span>
+                <span style={{ ...directionLabelStyle, height: '18px', lineHeight: '18px' }}>5&apos;-</span>
                 <span style={{ height: '14px' }}></span>
-                <span style={{ ...directionLabelStyle, height: '18px', lineHeight: '18px' }}>3'-</span>
+                <span style={{ ...directionLabelStyle, height: '18px', lineHeight: '18px' }}>3&apos;-</span>
                 <span style={{ height: '14px' }}></span>
               </div>
               <div style={{ flex: 1 }}>
                 {renderReverseAlignment(revRegion, reverse.sequence, theme.reverse)}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <span style={{ ...directionLabelStyle, height: '18px', lineHeight: '18px', paddingLeft: '4px' }}>-3'</span>
+                <span style={{ ...directionLabelStyle, height: '18px', lineHeight: '18px', paddingLeft: '4px' }}>-3&apos;</span>
                 <span style={{ height: '14px' }}></span>
-                <span style={{ ...directionLabelStyle, height: '18px', lineHeight: '18px', paddingLeft: '4px' }}>-5'</span>
+                <span style={{ ...directionLabelStyle, height: '18px', lineHeight: '18px', paddingLeft: '4px' }}>-5&apos;</span>
                 <span style={{ height: '14px' }}></span>
               </div>
             </div>
@@ -965,22 +1057,22 @@ function SequenceDetailView({ template, forward, reverse, mutationPosition = nul
               Tm: <strong style={{ color: theme.text }}>{reverse.tm}°C</strong>
             </span>
             <span style={{ color: theme.textMuted, fontSize: '11px' }}>
-              GC: <strong style={{ color: theme.text }}>{reverse.gcPercent || `${(reverse.gc * 100).toFixed(0)}%`}</strong>
+              GC: <strong style={{ color: theme.text }}>{reverse.gcPercent || `${((reverse.gc || 0) * 100).toFixed(0)}%`}</strong>
             </span>
             <span style={{ color: theme.textMuted, fontSize: '11px' }}>
-              dG: <strong style={{ color: reverse.dg < -3 ? theme.mutation : theme.text }}>{reverse.dg?.toFixed(1) || 'N/A'} kcal/mol</strong>
+              dG: <strong style={{ color: (reverse.dg || 0) < -3 ? theme.mutation : theme.text }}>{reverse.dg?.toFixed(1) || 'N/A'} kcal/mol</strong>
             </span>
           </div>
         </div>
       )}
     </div>
   );
-}
+};
 
 /**
  * Main PrimerOnTemplateViewer Component - Light Theme
  */
-export default function PrimerOnTemplateViewer({
+const PrimerOnTemplateViewer: FC<PrimerOnTemplateViewerProps> = ({
   template,
   forward,
   reverse,
@@ -991,50 +1083,47 @@ export default function PrimerOnTemplateViewer({
   width = 800,
   compact = false,
   isSDMMode = false
-}) {
-  const [activeTab, setActiveTab] = useState('overview');
-  const [expandedPrimer, setExpandedPrimer] = useState(null);
+}) => {
+  const [activeTab, setActiveTab] = useState<'overview' | 'structure'>('overview');
+  const [_expandedPrimer, _setExpandedPrimer] = useState<string | null>(null);
 
-  const fwdFold = useMemo(() => {
+  const fwdFold = useMemo((): FoldResult | null => {
     if (!forward?.sequence) return null;
-    return foldSequence(forward.sequence);
+    return (foldSequence as any)(forward.sequence) as FoldResult;
   }, [forward?.sequence]);
 
-  const revFold = useMemo(() => {
+  const revFold = useMemo((): FoldResult | null => {
     if (!reverse?.sequence) return null;
-    return foldSequence(reverse.sequence);
+    return (foldSequence as any)(reverse.sequence) as FoldResult;
   }, [reverse?.sequence]);
 
-  const hasProblematicStructure = (fwdFold?.e < -3) || (revFold?.e < -3);
+  const hasProblematicStructure = (fwdFold?.e ?? 0) < -3 || (revFold?.e ?? 0) < -3;
 
-  // Use severity classification for each primer
-  const fwdSeverity = useMemo(() => {
+  const fwdSeverity = useMemo((): SeverityResult => {
     if (!fwdFold || !forward?.sequence) return { level: 'none', shouldWarn: false };
-    return classify3PrimeStructureSeverity({
+    return (classify3PrimeStructureSeverity as any)({
       energy: fwdFold.e ?? 0,
       basePairs: fwdFold.ij ?? [],
       seqLength: forward.sequence.length,
-    });
+    }) as SeverityResult;
   }, [fwdFold, forward?.sequence]);
 
-  const revSeverity = useMemo(() => {
+  const revSeverity = useMemo((): SeverityResult => {
     if (!revFold || !reverse?.sequence) return { level: 'none', shouldWarn: false };
-    return classify3PrimeStructureSeverity({
+    return (classify3PrimeStructureSeverity as any)({
       energy: revFold.e ?? 0,
       basePairs: revFold.ij ?? [],
       seqLength: reverse.sequence.length,
-    });
+    }) as SeverityResult;
   }, [revFold, reverse?.sequence]);
 
-  // Get the worst severity between the two primers
-  const worstSeverity = useMemo(() => {
+  const worstSeverity = useMemo((): SeverityResult => {
     const severityOrder = ['none', 'info', 'low', 'moderate', 'warning', 'critical'];
     const fwdIdx = severityOrder.indexOf(fwdSeverity.level);
     const revIdx = severityOrder.indexOf(revSeverity.level);
     return fwdIdx > revIdx ? fwdSeverity : revSeverity;
   }, [fwdSeverity, revSeverity]);
 
-  // has3PrimeIssue now means severity is warning or critical
   const has3PrimeIssue = worstSeverity.level === 'critical' || worstSeverity.level === 'warning';
 
   if (!template || (!forward && !reverse)) {
@@ -1067,7 +1156,6 @@ export default function PrimerOnTemplateViewer({
             Primer Visualization
           </span>
 
-          {/* Severity-based structure badge */}
           {(hasProblematicStructure || worstSeverity.shouldWarn) && (
             <span
               style={{
@@ -1087,15 +1175,14 @@ export default function PrimerOnTemplateViewer({
               }}
               title={worstSeverity.tooltip}
             >
-              {worstSeverity.level === 'critical' ? '🔴 3\' End Blocked!'
-                : worstSeverity.level === 'warning' ? '⚠ 3\' Structure Risk'
-                : worstSeverity.level === 'moderate' ? '△ 3\' Structure'
+              {worstSeverity.level === 'critical' ? "🔴 3' End Blocked!"
+                : worstSeverity.level === 'warning' ? "⚠ 3' Structure Risk"
+                : worstSeverity.level === 'moderate' ? "△ 3' Structure"
                 : '⚡ Secondary Structure'}
             </span>
           )}
         </div>
 
-        {/* Tab buttons */}
         <div style={{ display: 'flex', gap: '4px', background: theme.bgTertiary, padding: '3px', borderRadius: '8px' }}>
           <button
             onClick={() => setActiveTab('overview')}
@@ -1171,7 +1258,6 @@ export default function PrimerOnTemplateViewer({
               />
             )}
 
-            {/* Compact structure summary - detailed values in Analysis section */}
             <div style={{
               display: 'flex',
               gap: '16px',
@@ -1220,7 +1306,6 @@ export default function PrimerOnTemplateViewer({
 
         {activeTab === 'structure' && showHairpinDiagrams && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {/* Introduction */}
             <div style={{
               padding: '14px',
               background: theme.infoBg,
@@ -1230,9 +1315,9 @@ export default function PrimerOnTemplateViewer({
               lineHeight: '1.6',
               border: `1px solid ${theme.info}30`
             }}>
-              <strong>"Glass Box" Physics Visualization:</strong> Unlike simple pass/fail scores,
-              these diagrams show the <em>actual physics</em> of your primers - how they fold, where they're stable,
-              and whether they'll bind to each other.
+              <strong>&quot;Glass Box&quot; Physics Visualization:</strong> Unlike simple pass/fail scores,
+              these diagrams show the <em>actual physics</em> of your primers - how they fold, where they&apos;re stable,
+              and whether they&apos;ll bind to each other.
             </div>
 
             <PrimerStructureViewer
@@ -1246,7 +1331,6 @@ export default function PrimerOnTemplateViewer({
               isSDMMode={isSDMMode}
             />
 
-            {/* Legacy diagrams */}
             <details style={{ marginTop: '8px' }}>
               <summary style={{
                 color: theme.textSecondary,
@@ -1264,7 +1348,7 @@ export default function PrimerOnTemplateViewer({
                 {forward?.sequence && (
                   <HairpinDiagram
                     sequence={forward.sequence}
-                    foldResult={fwdFold}
+                    foldResult={fwdFold as any}
                     primerName="Forward Primer"
                     width={Math.min(500, width - 36)}
                     showDetails={true}
@@ -1273,7 +1357,7 @@ export default function PrimerOnTemplateViewer({
                 {reverse?.sequence && (
                   <HairpinDiagram
                     sequence={reverse.sequence}
-                    foldResult={revFold}
+                    foldResult={revFold as any}
                     primerName="Reverse Primer"
                     width={Math.min(500, width - 36)}
                     showDetails={true}
@@ -1282,7 +1366,6 @@ export default function PrimerOnTemplateViewer({
               </div>
             </details>
 
-            {/* Severity-based Recommendations */}
             {worstSeverity.shouldWarn && (
               <div style={{
                 padding: '16px',
@@ -1315,8 +1398,8 @@ export default function PrimerOnTemplateViewer({
                       </span>
                     </div>
                     <ul style={{ color: '#991b1b', fontSize: '12px', margin: 0, paddingLeft: '20px', lineHeight: '1.7' }}>
-                      <li><strong>The 3' end is trapped in a stable structure</strong></li>
-                      <li>DNA polymerase requires a free 3' OH to begin extension</li>
+                      <li><strong>The 3&apos; end is trapped in a stable structure</strong></li>
+                      <li>DNA polymerase requires a free 3&apos; OH to begin extension</li>
                       <li>PCR will likely <strong>fail</strong> or have very low yield</li>
                     </ul>
                     <div style={{
@@ -1328,7 +1411,7 @@ export default function PrimerOnTemplateViewer({
                       color: theme.danger,
                       fontWeight: '500'
                     }}>
-                      ⚠ <strong>Action Required:</strong> Adjust primer length or position to free the 3' end
+                      ⚠ <strong>Action Required:</strong> Adjust primer length or position to free the 3&apos; end
                     </div>
                   </>
                 ) : (
@@ -1356,7 +1439,7 @@ export default function PrimerOnTemplateViewer({
                       </span>
                     </div>
                     <ul style={{ color: '#92400e', fontSize: '12px', margin: 0, paddingLeft: '20px', lineHeight: '1.7' }}>
-                      <li>Structure near 3' end may compete with template binding</li>
+                      <li>Structure near 3&apos; end may compete with template binding</li>
                       <li>PCR may work but with <strong>reduced efficiency</strong></li>
                       <li>Consider optimization if you experience low yields</li>
                     </ul>
@@ -1379,12 +1462,19 @@ export default function PrimerOnTemplateViewer({
       </div>
     </div>
   );
-}
+};
+
+export default PrimerOnTemplateViewer;
 
 /**
  * Compact inline badge - Light Theme
  */
-export function PrimerBindingBadge({ template, primer, direction = 'forward', mutationPosition = null }) {
+export const PrimerBindingBadge: FC<PrimerBindingBadgeProps> = ({
+  template,
+  primer,
+  direction = 'forward',
+  mutationPosition = null
+}) => {
   const isReverse = direction === 'reverse';
   const binding = primer?.sequence ? findPrimerBinding(template, primer.sequence, isReverse, {
     mutationPosition,
@@ -1413,4 +1503,4 @@ export function PrimerBindingBadge({ template, primer, direction = 'forward', mu
       {binding.start + 1}-{binding.end} ({binding.matchLength}bp)
     </span>
   );
-}
+};
