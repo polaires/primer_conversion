@@ -15,7 +15,7 @@
 
 import { useState, useCallback, FC, FormEvent } from 'react';
 import { analyzePrimers } from '../lib/primerAnalysis.js';
-import { checkHeterodimer } from '../lib/mutagenesis.js';
+import { checkHeterodimer, compareTmMethods } from '../lib/mutagenesis.js';
 import { calculateTmQ5, calculateGC } from '../lib/tmQ5.js';
 import { offTargets } from '../lib/offTargets.js';
 import EnhancedAnalysisSection from './primers/EnhancedAnalysisSection';
@@ -233,9 +233,9 @@ const EnhancedScorer: FC = () => {
           heterodimerDetails = checkHeterodimer(fwdSeq, revSeq) as any;
         }
 
-        // Get Tm comparison (function not yet implemented, using empty object)
-        const fwdTmComparison: TmComparison = {} as any;
-        const revTmComparison: TmComparison | null = revSeq ? ({} as any) : null;
+        // Get Tm comparison
+        const fwdTmComparison = compareTmMethods(fwdSeq) as TmComparison;
+        const revTmComparison = revSeq ? (compareTmMethods(revSeq) as TmComparison) : null;
 
         // Check off-targets if template provided
         let offTargetAnalysis: OffTargetAnalysis | null = null;
