@@ -73,6 +73,17 @@ export function CrossLigationHeatmap({ heatmapData, enzyme = 'BsaI', compact = f
   }
 
   const { overhangs, matrix, normalizedMatrix, rowStats, hotspots, stats, visualization } = heatmapData;
+
+  // Ensure overhangs array exists
+  if (!overhangs || !Array.isArray(overhangs) || overhangs.length === 0) {
+    return (
+      <div className="heatmap-error">
+        <span className="error-icon">!</span>
+        <span>No overhang data available for heatmap</span>
+      </div>
+    );
+  }
+
   const n = overhangs.length;
 
   // Get color for a cell based on normalized value and position
@@ -100,10 +111,10 @@ export function CrossLigationHeatmap({ heatmapData, enzyme = 'BsaI', compact = f
         <div className="heatmap-header">
           <h4>{visualization?.title || `Cross-Ligation Heatmap (${enzyme})`}</h4>
           <div className="heatmap-stats">
-            <span className={`fidelity-badge ${stats.overallFidelity >= 0.95 ? 'excellent' : stats.overallFidelity >= 0.90 ? 'good' : 'warning'}`}>
-              Fidelity: {stats.overallFidelityPercent}
+            <span className={`fidelity-badge ${(stats?.overallFidelity ?? 0) >= 0.95 ? 'excellent' : (stats?.overallFidelity ?? 0) >= 0.90 ? 'good' : 'warning'}`}>
+              Fidelity: {stats?.overallFidelityPercent || 'N/A'}
             </span>
-            {hotspots.length > 0 && (
+            {hotspots && hotspots.length > 0 && (
               <span className="hotspot-badge">
                 {hotspots.length} hotspot{hotspots.length > 1 ? 's' : ''}
               </span>
@@ -163,7 +174,7 @@ export function CrossLigationHeatmap({ heatmapData, enzyme = 'BsaI', compact = f
                   const normalized = normalizedMatrix[i][j];
                   const isHovered = hoveredCell?.row === i && hoveredCell?.col === j;
                   const isDiagonal = i === j;
-                  const isHotspot = hotspots.some(h => h.row === i && h.col === j);
+                  const isHotspot = hotspots?.some(h => h.row === i && h.col === j) ?? false;
 
                   return (
                     <div
@@ -257,7 +268,7 @@ export function CrossLigationHeatmap({ heatmapData, enzyme = 'BsaI', compact = f
       )}
 
       {/* Hotspots Warning */}
-      {!compact && hotspots.length > 0 && (
+      {!compact && hotspots && hotspots.length > 0 && (
         <div className="hotspots-section">
           <h5>Cross-Ligation Hotspots</h5>
           <div className="hotspots-list">
