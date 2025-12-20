@@ -2854,8 +2854,9 @@ function designMutagenisPrimerPair(
   // Run expensive calculations on top candidates only
   for (const candidate of topCandidates) {
     // Calculate dg (secondary structure)
-    candidate.forward.dg = dg(candidate.forward.sequence, 37);
-    candidate.reverse.dg = dg(candidate.reverse.sequence, 37);
+    // Use 55°C (PCR annealing temperature) for consistency with analyzePrimers()
+    candidate.forward.dg = dg(candidate.forward.sequence, 55);
+    candidate.reverse.dg = dg(candidate.reverse.sequence, 55);
 
     // Add dg penalties
     if (candidate.forward.dg < opts.minDg) {
