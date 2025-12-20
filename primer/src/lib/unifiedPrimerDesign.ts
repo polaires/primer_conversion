@@ -650,6 +650,7 @@ function designDeletion(
 
   return {
     ...result,
+    type: 'deletion',
     operation: 'delete',
     strategy: options.strategy || 'back-to-back',
   };
@@ -723,6 +724,8 @@ function designSubstitution(
   }
 
   result.strategy = options.strategy || 'back-to-back';
+  // Set type for component display logic
+  result.type = isInsertion ? 'insertion' : 'substitution';
 
   return result;
 }
@@ -764,6 +767,7 @@ function designAAMutation(
 
   return {
     ...result,
+    type: 'codon_change',
     operation: 'aa_mutation',
     strategy: options.strategy || 'back-to-back',
   };
