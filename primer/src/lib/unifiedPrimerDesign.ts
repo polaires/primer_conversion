@@ -41,6 +41,7 @@ import { reverseComplement, expandAmbiguousBases, hasAmbiguousBases, countCombin
 import { calculateTmQ5, calculateGC } from './tmQ5.js';
 import { calculateEquilibriumEfficiency } from './equilibrium.js';
 import { analyzeGQuadruplex } from './scoring.js';
+import { dg as calculateFoldingDG } from './fold.js';
 
 // ============================================================================
 // Types and Interfaces
@@ -427,7 +428,7 @@ function designAmplification(
           length: smartAlt.forward.seq.length,
           tm: smartAlt.forward.tm,
           gc: smartAlt.forward.gc,
-          dg: smartAlt.forward.dg,
+          dg: typeof smartAlt.forward.dg === 'number' ? smartAlt.forward.dg : calculateFoldingDG(smartAlt.forward.seq, 55),
           gcPercent: `${(smartAlt.forward.gc * 100).toFixed(1)}%`,
           hasGCClamp: /[GC]$/.test(smartAlt.forward.seq),
         },
@@ -436,7 +437,7 @@ function designAmplification(
           length: smartAlt.reverse.seq.length,
           tm: smartAlt.reverse.tm,
           gc: smartAlt.reverse.gc,
-          dg: smartAlt.reverse.dg,
+          dg: typeof smartAlt.reverse.dg === 'number' ? smartAlt.reverse.dg : calculateFoldingDG(smartAlt.reverse.seq, 55),
           gcPercent: `${(smartAlt.reverse.gc * 100).toFixed(1)}%`,
           hasGCClamp: /[GC]$/.test(smartAlt.reverse.seq),
         },
@@ -536,14 +537,14 @@ function designAmplification(
     amplifiedRegion: { start, end, length: regionLength, isWrapped },
     description: `PCR amplification of ${regionDescription}`,
 
-    // Primers
+    // Primers - ensure dG is always calculated (fallback to recalculating if undefined)
     forward: {
       sequence: fwd.seq,
       length: fwd.seq.length,
       tm: fwd.tm,
       gc: fwd.gc,
       gcPercent: `${(fwd.gc * 100).toFixed(1)}%`,
-      dg: fwd.dg,
+      dg: typeof fwd.dg === 'number' ? fwd.dg : calculateFoldingDG(fwd.seq, 55),
       hasGCClamp: fwd.seq[fwd.seq.length - 1] === 'G' || fwd.seq[fwd.seq.length - 1] === 'C',
       start: fwdStart,
       end: fwdEnd,
@@ -555,7 +556,7 @@ function designAmplification(
       tm: rev.tm,
       gc: rev.gc,
       gcPercent: `${(rev.gc * 100).toFixed(1)}%`,
-      dg: rev.dg,
+      dg: typeof rev.dg === 'number' ? rev.dg : calculateFoldingDG(rev.seq, 55),
       hasGCClamp: rev.seq[rev.seq.length - 1] === 'G' || rev.seq[rev.seq.length - 1] === 'C',
       start: revStart,
       end: revEnd,
