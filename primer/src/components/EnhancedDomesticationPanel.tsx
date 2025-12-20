@@ -1096,7 +1096,7 @@ function FrameSelectionStep({
                 <code>{opt.proteinPreview}...</code>
               </div>
 
-              {opt.validation.internalStops.length > 0 && (
+              {opt.validation?.internalStops?.length > 0 && (
                 <div className="warning-row">
                   {Icons.warning} {opt.validation.internalStops.length} internal stop codon(s)
                 </div>
@@ -1375,11 +1375,11 @@ function PreviewStep({
             <span className="length">({preview.domesticated.proteinLength} aa)</span>
           </div>
           <div className="alignment-status">
-            {preview.comparison.proteinIdentical ? (
+            {preview.comparison?.proteinIdentical ? (
               <span className="identical">{Icons.check} Proteins are IDENTICAL</span>
             ) : (
               <span className="different">
-                {Icons.close} {preview.comparison.differences.length} difference(s) detected!
+                {Icons.close} {preview.comparison?.differences?.length || 0} difference(s) detected!
               </span>
             )}
           </div>
@@ -1387,7 +1387,7 @@ function PreviewStep({
       </div>
 
       {/* Mutation Summary - show when using silent mutation strategy */}
-      {preview.totalMutations > 0 && (
+      {preview.totalMutations > 0 && preview.mutations && (
         <div className="mutation-summary">
           <h3>Silent Mutations to Apply ({preview.totalMutations})</h3>
           <table className="mutations-table">
@@ -1414,7 +1414,7 @@ function PreviewStep({
       )}
 
       {/* Junction Summary - show when using mutagenic junction strategy */}
-      {preview.totalJunctions > 0 && (
+      {preview.totalJunctions > 0 && preview.junctions && (
         <div className="junction-summary">
           <h3>Mutagenic Junctions ({preview.totalJunctions})</h3>
           <p className="junction-info">
@@ -1452,7 +1452,7 @@ function PreviewStep({
 
       {/* Final Approval */}
       <div className="approval-section">
-        {preview.validation.proteinPreserved && preview.validation.noRemainingSites ? (
+        {preview.validation?.proteinPreserved && preview.validation?.noRemainingSites ? (
           <div className="approval-ready">
             <span className="approval-icon">{Icons.check}</span>
             <span className="approval-text">All checks passed. Ready to apply domestication.</span>
@@ -1472,7 +1472,7 @@ function PreviewStep({
         <button
           className="btn-primary btn-approve"
           onClick={onApprove}
-          disabled={isProcessing || !preview.validation.proteinPreserved}
+          disabled={isProcessing || !preview.validation?.proteinPreserved}
         >
           {isProcessing ? 'Applying...' : <>{Icons.check} Approve & Apply Domestication</>}
         </button>

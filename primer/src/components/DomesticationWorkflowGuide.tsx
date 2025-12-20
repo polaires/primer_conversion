@@ -784,11 +784,11 @@ const StrategyStep: FC<StrategyStepProps> = ({ result, onContinue, onBack }) => 
       {result.validation && (
         <div className="validation-summary">
           <h4>Validation</h4>
-          <div className={`validation-status ${result.validation.isValid ? 'valid' : 'invalid'}`}>
-            <span className="status-icon">{result.validation.isValid ? '✓' : '⚠'}</span>
-            <span>{result.validation.isValid ? 'All checks passed' : 'Issues detected'}</span>
+          <div className={`validation-status ${result.validation?.isValid ? 'valid' : 'invalid'}`}>
+            <span className="status-icon">{result.validation?.isValid ? '✓' : '⚠'}</span>
+            <span>{result.validation?.isValid ? 'All checks passed' : 'Issues detected'}</span>
           </div>
-          {result.validation.warnings && result.validation.warnings.length > 0 && (
+          {result.validation?.warnings && result.validation.warnings.length > 0 && (
             <ul className="validation-warnings">
               {result.validation.warnings.map((w, i) => (
                 <li key={i}>{typeof w === 'object' ? w.message : w}</li>
