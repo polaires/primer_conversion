@@ -28,3 +28,7 @@ coverage/
 
 # Source repo (used for porting)
 source_repo/
+
+# Playwright test artifacts
+playwright-report/
+test-results/
