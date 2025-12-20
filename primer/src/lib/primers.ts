@@ -2444,11 +2444,12 @@ function range(start: number, end: number): number[] {
 }
 
 /**
- * Placeholder for calcTm (should be imported from tm.js)
+ * Calculate Tm of a sequence using the cached Tm calculator
  */
 function calcTm(seq: string): number {
-  // This is a placeholder - the actual implementation should come from tm.js
-  return 60.0;
+  if (!seq || seq.length < 2) return 0;
+  const tm = tmCache(seq);
+  return tm[0][seq.length - 1];
 }
 
 /**
