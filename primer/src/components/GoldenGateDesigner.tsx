@@ -80,28 +80,122 @@ function getRecommendedOverhangs(numParts: number, enzyme: string = 'BsaI'): { o
 }
 
 // Implementation for generateCrossLigationHeatmap
-function generateCrossLigationHeatmap(overhangs: string[], enzyme: string = 'BsaI'): { cells: any[]; labels: string[]; error?: string } {
+function generateCrossLigationHeatmap(overhangs: string[], enzyme: string = 'BsaI'): {
+  overhangs: string[];
+  matrix: number[][];
+  normalizedMatrix: number[][];
+  rowStats: { overhang: string; correctLigation: number; totalCrossLigation: number; worstCross: number }[];
+  hotspots: { row: number; col: number; source: string; target: string; ratio: number; ratioPercent: string; severity: 'high' | 'medium' | 'low' }[];
+  stats: { overallFidelity: number; overallFidelityPercent: string };
+  visualization: { title?: string; xAxisLabel?: string; yAxisLabel?: string };
+  error?: string;
+} {
   if (!overhangs || overhangs.length < 2) {
-    return { cells: [], labels: [], error: 'Need at least 2 overhangs' };
+    return {
+      overhangs: [],
+      matrix: [],
+      normalizedMatrix: [],
+      rowStats: [],
+      hotspots: [],
+      stats: { overallFidelity: 0, overallFidelityPercent: '0%' },
+      visualization: {},
+      error: 'Need at least 2 overhangs'
+    };
   }
 
   try {
-    const cells: any[] = [];
-    for (let i = 0; i < overhangs.length; i++) {
-      for (let j = 0; j < overhangs.length; j++) {
+    const n = overhangs.length;
+    const matrix: number[][] = [];
+    const normalizedMatrix: number[][] = [];
+    const rowStats: { overhang: string; correctLigation: number; totalCrossLigation: number; worstCross: number }[] = [];
+    const hotspots: { row: number; col: number; source: string; target: string; ratio: number; ratioPercent: string; severity: 'high' | 'medium' | 'low' }[] = [];
+
+    // Build matrix
+    for (let i = 0; i < n; i++) {
+      const row: number[] = [];
+      const normalizedRow: number[] = [];
+      let correctLigation = 0;
+      let totalCross = 0;
+      let worstCross = 0;
+
+      for (let j = 0; j < n; j++) {
         const frequency = i === j ? 1.0 : getLigationFrequency(overhangs[i], overhangs[j], enzyme);
-        cells.push({
-          row: i,
-          col: j,
-          value: frequency,
-          overhang1: overhangs[i],
-          overhang2: overhangs[j],
-        });
+        row.push(frequency);
+
+        if (i === j) {
+          correctLigation = frequency;
+          normalizedRow.push(1.0);
+        } else {
+          totalCross += frequency;
+          worstCross = Math.max(worstCross, frequency);
+          // Normalize relative to diagonal
+          normalizedRow.push(frequency);
+
+          // Track hotspots (significant cross-ligation)
+          if (frequency > 0.05) {
+            const ratio = frequency;
+            hotspots.push({
+              row: i,
+              col: j,
+              source: overhangs[i],
+              target: overhangs[j],
+              ratio,
+              ratioPercent: `${(ratio * 100).toFixed(1)}%`,
+              severity: ratio > 0.2 ? 'high' : ratio > 0.1 ? 'medium' : 'low'
+            });
+          }
+        }
+      }
+      matrix.push(row);
+      normalizedMatrix.push(normalizedRow);
+      rowStats.push({
+        overhang: overhangs[i],
+        correctLigation,
+        totalCrossLigation: totalCross,
+        worstCross
+      });
+    }
+
+    // Calculate overall fidelity (average of diagonal / sum of row)
+    let totalFidelity = 0;
+    for (let i = 0; i < n; i++) {
+      const rowSum = matrix[i].reduce((a, b) => a + b, 0);
+      if (rowSum > 0) {
+        totalFidelity += matrix[i][i] / rowSum;
       }
     }
-    return { cells, labels: overhangs };
+    const overallFidelity = totalFidelity / n;
+
+    // Sort hotspots by severity
+    hotspots.sort((a, b) => b.ratio - a.ratio);
+
+    return {
+      overhangs,
+      matrix,
+      normalizedMatrix,
+      rowStats,
+      hotspots,
+      stats: {
+        overallFidelity,
+        overallFidelityPercent: `${(overallFidelity * 100).toFixed(1)}%`
+      },
+      visualization: {
+        title: `Cross-Ligation Matrix (${enzyme})`,
+        xAxisLabel: 'Target',
+        yAxisLabel: 'Source'
+      }
+    };
   } catch (e) {
-    return { cells: [], labels: overhangs, error: String(e) };
+    return {
+      overhangs,
+      matrix: [],
+      normalizedMatrix: [],
+      rowStats: [],
+      hotspots: [],
+      stats: { overallFidelity: 0, overallFidelityPercent: '0%' },
+      visualization: {},
+      error: String(e)
+    };
   }
 }
 
@@ -3770,20 +3864,20 @@ export default function GoldenGateDesigner() {
           details: isHiFi ? [
             'Add 0.03-0.2 pmol of each fragment (equimolar amounts)',
             'Add NEBuilder HiFi DNA Assembly Master Mix (2X)',
-            'Bring total volume to 20 µL with water',
+            'Bring total volume to 20 uL with water',
             'Incubate at 50°C for 15 minutes (2-3 fragments)',
             'For 4-6 fragments, incubate for 60 minutes',
           ] : [
             'Add 0.02-0.5 pmol of each fragment (equimolar amounts)',
             'Add Gibson Assembly Master Mix (2X)',
-            'Bring total volume to 20 µL with water',
+            'Bring total volume to 20 uL with water',
             'Incubate at 50°C for 15-60 minutes',
           ],
         },
         {
           title: 'Transformation',
           details: [
-            'Transform 2 µL of assembly reaction into competent cells',
+            'Transform 2 uL of assembly reaction into competent cells',
             'Use NEB 5-alpha or equivalent competent cells',
             'Plate on selective media',
             'Incubate overnight at 37°C',
