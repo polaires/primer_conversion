@@ -1118,6 +1118,7 @@ export function designSequencingPrimers(
         );
 
         if (!overlaps && best.penalty < 50) {
+          best.name = `Seq_F_rescue`;
           best.warnings.push('Rescue primer with adjusted quality threshold');
           rescuePrimers.push(best);
         }
@@ -1175,6 +1176,7 @@ export function designSequencingPrimers(
         );
 
         if (!overlaps && best.penalty < 50) {
+          best.name = `Seq_R_rescue`;
           best.warnings.push('Rescue primer with adjusted quality threshold');
           rescuePrimers.push(best);
         }
