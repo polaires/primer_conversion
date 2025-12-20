@@ -693,20 +693,24 @@ function AnalyzeStep({ sequence, enzyme, internalSites, orfDetection, onContinue
             </tr>
           </thead>
           <tbody>
-            {internalSites.sites.map((site, i) => (
-              <tr key={i}>
-                <td>{site.position + 1}</td>
-                <td><code>{site.sequence}</code></td>
-                <td>{site.orientation}</td>
-                <td>
-                  <code className="context">
-                    ...{sequence.slice(Math.max(0, site.position - 5), site.position)}
-                    <span className="highlight">{site.sequence}</span>
-                    {sequence.slice(site.position + site.sequence.length, site.position + site.sequence.length + 5)}...
-                  </code>
-                </td>
-              </tr>
-            ))}
+            {internalSites.sites.map((site, i) => {
+              const siteSeq = site.sequence || '';
+              const siteLen = siteSeq.length || 6; // Default to typical recognition site length
+              return (
+                <tr key={i}>
+                  <td>{site.position + 1}</td>
+                  <td><code>{siteSeq}</code></td>
+                  <td>{site.orientation}</td>
+                  <td>
+                    <code className="context">
+                      ...{sequence.slice(Math.max(0, site.position - 5), site.position)}
+                      <span className="highlight">{siteSeq}</span>
+                      {sequence.slice(site.position + siteLen, site.position + siteLen + 5)}...
+                    </code>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
