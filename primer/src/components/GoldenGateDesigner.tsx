@@ -52,6 +52,8 @@ import {
   getLigationFrequency,
 } from '../lib/repp/goldengate.js';
 
+import { designAllMutagenicJunctions } from '../lib/repp/mutagenic-junction-domesticator.js';
+
 // Implementation for getRecommendedOverhangs using findOptimalOverhangSet
 function getRecommendedOverhangs(numParts: number, enzyme: string = 'BsaI'): { overhangs: string[]; fidelity: number } {
   if (numParts < 2) return { overhangs: [], fidelity: 1.0 };
@@ -103,8 +105,7 @@ function generateCrossLigationHeatmap(overhangs: string[], enzyme: string = 'Bsa
   }
 }
 
-// Stub for designAllMutagenicJunctions - needs more complex implementation
-const designAllMutagenicJunctions = (...args: any[]): any => ({ junctions: [] });
+// designAllMutagenicJunctions imported from mutagenic-junction-domesticator.js
 
 // TypeScript Interfaces
 interface Part {
@@ -3360,11 +3361,11 @@ export default function GoldenGateDesigner() {
             try {
               // Use mutagenic junction approach - one-pot compatible!
               const mutagenicResult = designAllMutagenicJunctions(part.seq, enzyme, {
-                primerHomologyLength: 20,
-                optimizeOverhangs: true,
+                frame: 0,
+                organism: 'ecoli',
               });
 
-              if (mutagenicResult.success && mutagenicResult.junctions.length > 0) {
+              if (mutagenicResult.success && mutagenicResult.junctions && mutagenicResult.junctions.length > 0) {
                 // Create fragments with mutagenic primers
                 // Note: junctions have junctionPosition property, not position
                 const junctions = mutagenicResult.junctions.sort((a: any, b: any) => a.junctionPosition - b.junctionPosition);
@@ -3395,7 +3396,7 @@ export default function GoldenGateDesigner() {
                   const isFirst = i === 0;
                   const isLast = i === junctions.length;
                   const fragStart = isFirst ? 0 : junctions[i - 1].junctionPosition;
-                  const fragEnd = isLast ? part.seq.length : junctions[i].junctionPosition + domesticationOverhangLen;
+                  const fragEnd = isLast ? part.seq.length : (junctions[i]?.junctionPosition ?? 0) + domesticationOverhangLen;
                   const fragSeq = part.seq.slice(fragStart, fragEnd);
 
                   partsToExpand.push({
