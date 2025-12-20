@@ -1902,7 +1902,7 @@ export default function UnifiedPrimerDesigner() {
                       <div className="quality-details">
                         <span className="quality-title">
                           Quality Score: <span className={`quality-tier tier-${results.quality || results.qualityTier || 'good'}`}>{results.quality || results.qualityTier || 'good'}</span>
-                          {results.criticalWarnings && results.criticalWarnings > 0 && (
+                          {(results.criticalWarnings ?? 0) > 0 && (
                             <span className="text-[11px] text-red-500 ml-1.5">
                               ({results.criticalWarnings} critical)
                             </span>
