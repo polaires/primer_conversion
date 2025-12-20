@@ -105,6 +105,7 @@ export interface MutagenesisDefaults {
   organism: 'ecoli' | 'human' | null;
   circular: boolean;
   confineTo5Tails: boolean;
+  exhaustiveSearch?: boolean;
 }
 
 export interface MutationTypes {
@@ -2351,38 +2352,33 @@ export function parseMutationNotation(notation: string): any {
  */
 export function designDeletionPrimers(
   template: string,
-  start: number,
+  startPosition: number,
   length: number,
   options: Partial<MutagenesisDefaults> = {}
 ): any {
-  const seq = template.toUpperCase();
   const opts = { ...MUTAGENESIS_DEFAULTS, ...options };
+  const seq = template.toUpperCase();
 
-  // Create mutated sequence by removing the deletion region
-  const mutatedSeq = seq.slice(0, start) + seq.slice(start + length);
-
-  // Design primers using back-to-back approach
-  const result = designBackToBackPrimers(seq, start, mutatedSeq, 0, opts, length);
-
-  const best = selectBestByTier(result.candidates);
-
-  if (!best) {
-    return {
-      forward: { sequence: '', tm: 0, gc: 0 },
-      reverse: { sequence: '', tm: 0, gc: 0 },
-      error: 'No suitable primers found for deletion'
-    };
+  if (startPosition < 0 || startPosition + length > seq.length) {
+    throw new Error(`Deletion range ${startPosition}-${startPosition + length} is out of bounds`);
   }
 
+  const deletedSeq = seq.slice(startPosition, startPosition + length);
+  const mutatedSeq = seq.slice(0, startPosition) + seq.slice(startPosition + length);
+
+  // Use designMutagenisPrimerPair for full composite score calculation
+  const primers = designMutagenisPrimerPair(seq, mutatedSeq, startPosition, 0, opts, false, length);
+
   return {
-    forward: best.forward,
-    reverse: best.reverse,
+    type: MUTATION_TYPES.DELETION,
+    originalSequence: seq,
     mutatedSequence: mutatedSeq,
-    quality: best.tierQuality || 'unknown',
-    qualityTier: best.tierQuality || 'unknown',
-    compositeScore: best.compositeScore ?? 75,
-    effectiveScore: best.compositeScore ?? 75,
-    alternateDesigns: result.candidates.filter(c => c !== best).slice(0, 10),
+    position: startPosition,
+    deletedSequence: deletedSeq,
+    deleteLength: length,
+    change: `del${startPosition + 1}_${startPosition + length}`,
+    description: `Delete ${length} bp (${deletedSeq.slice(0, 10)}${length > 10 ? '...' : ''}) at positions ${startPosition + 1}-${startPosition + length}`,
+    ...primers,
   };
 }
 
@@ -2390,218 +2386,770 @@ export function designDeletionPrimers(
  * Design primers for inserting a sequence into template
  * @param template - Template sequence
  * @param position - Position to insert at (0-indexed)
- * @param insertion - Sequence to insert
+ * @param insertSequence - Sequence to insert
  * @param options - Design options
  */
 export function designInsertionPrimers(
   template: string,
   position: number,
-  insertion: string,
+  insertSequence: string,
   options: Partial<MutagenesisDefaults> = {}
 ): any {
-  const seq = template.toUpperCase();
-  const insertSeq = insertion.toUpperCase();
   const opts = { ...MUTAGENESIS_DEFAULTS, ...options };
+  const seq = template.toUpperCase();
+  const insert = insertSequence.toUpperCase();
 
-  // Create mutated sequence by inserting the new sequence
-  const mutatedSeq = seq.slice(0, position) + insertSeq + seq.slice(position);
-
-  // Design primers
-  const result = designBackToBackPrimers(seq, position, mutatedSeq, insertSeq.length, opts, 0);
-
-  const best = selectBestByTier(result.candidates);
-
-  if (!best) {
-    return {
-      forward: { sequence: '', tm: 0, gc: 0 },
-      reverse: { sequence: '', tm: 0, gc: 0 },
-      protocol: { name: 'Insertion', steps: [], notes: [] },
-      error: 'No suitable primers found for insertion'
-    };
+  if (position < 0 || position > seq.length) {
+    throw new Error(`Position ${position} is out of range`);
   }
 
+  if (!/^[ATGC]+$/.test(insert)) {
+    throw new Error('Insert sequence must contain only A, T, G, C');
+  }
+
+  const mutatedSeq = seq.slice(0, position) + insert + seq.slice(position);
+
+  // Use designMutagenisPrimerPair for full composite score calculation
+  const primers = designMutagenisPrimerPair(seq, mutatedSeq, position, insert.length, opts, true);
+
   return {
-    forward: best.forward,
-    reverse: best.reverse,
-    protocol: generateProtocol('insertion', best, opts),
+    type: MUTATION_TYPES.INSERTION,
+    originalSequence: seq,
     mutatedSequence: mutatedSeq,
-    quality: best.tierQuality || 'unknown',
-    qualityTier: best.tierQuality || 'unknown',
-    compositeScore: best.compositeScore ?? 75,
-    effectiveScore: best.compositeScore ?? 75,
-    alternateDesigns: result.candidates.filter(c => c !== best).slice(0, 10),
+    position,
+    insertedSequence: insert,
+    insertLength: insert.length,
+    change: `ins${position + 1}_${insert}`,
+    description: `Insert ${insert.length} bp (${insert.slice(0, 10)}${insert.length > 10 ? '...' : ''}) after position ${position}`,
+    ...primers,
   };
 }
 
 /**
- * Design primers for substituting a region in template
+ * Design primers for multi-base region substitution (replace region with different sequence)
+ * This handles cases where you want to replace X bases with Y bases (not just single base changes)
  * @param template - Template sequence
- * @param start - Start position of substitution (0-indexed)
- * @param length - Length of region to replace
- * @param replacement - Replacement sequence
+ * @param startPosition - Start position of substitution (0-indexed)
+ * @param deleteLength - Length of region to replace
+ * @param replacementSeq - Replacement sequence
  * @param options - Design options
  */
 export function designRegionSubstitutionPrimers(
   template: string,
-  start: number,
-  length: number,
-  replacement: string,
+  startPosition: number,
+  deleteLength: number,
+  replacementSeq: string,
   options: Partial<MutagenesisDefaults> = {}
 ): any {
-  const seq = template.toUpperCase();
-  const replaceSeq = replacement.toUpperCase();
   const opts = { ...MUTAGENESIS_DEFAULTS, ...options };
+  const seq = template.toUpperCase();
+  const replacement = replacementSeq.toUpperCase();
 
-  // Create mutated sequence
-  const mutatedSeq = seq.slice(0, start) + replaceSeq + seq.slice(start + length);
-
-  // Determine if this is more like a deletion or insertion
-  const netChange = replaceSeq.length - length;
-
-  const result = designBackToBackPrimers(
-    seq,
-    start,
-    mutatedSeq,
-    replaceSeq.length,
-    opts,
-    length
-  );
-
-  const best = selectBestByTier(result.candidates);
-
-  if (!best) {
-    return {
-      forward: { sequence: '', tm: 0, gc: 0 },
-      reverse: { sequence: '', tm: 0, gc: 0 },
-      protocol: { name: 'Substitution', steps: [], notes: [] },
-      error: 'No suitable primers found for substitution'
-    };
+  if (startPosition < 0 || startPosition + deleteLength > seq.length) {
+    throw new Error(`Substitution range ${startPosition}-${startPosition + deleteLength} is out of bounds`);
   }
 
+  const deletedSeq = seq.slice(startPosition, startPosition + deleteLength);
+  const mutatedSeq = seq.slice(0, startPosition) + replacement + seq.slice(startPosition + deleteLength);
+
+  // Call designMutagenisPrimerPair with:
+  // - mutLength = replacement.length (the new sequence length in mutated seq)
+  // - deletionLength = deleteLength (how much was removed from original)
+  const primers = designMutagenisPrimerPair(seq, mutatedSeq, startPosition, replacement.length, opts, false, deleteLength);
+
   return {
-    forward: best.forward,
-    reverse: best.reverse,
-    protocol: generateProtocol('substitution', best, opts),
+    type: MUTATION_TYPES.SUBSTITUTION,
+    originalSequence: seq,
     mutatedSequence: mutatedSeq,
-    quality: best.tierQuality || 'unknown',
-    qualityTier: best.tierQuality || 'unknown',
-    compositeScore: best.compositeScore ?? 75,
-    effectiveScore: best.compositeScore ?? 75,
-    alternateDesigns: result.candidates.filter(c => c !== best).slice(0, 10),
+    position: startPosition,
+    deletedSequence: deletedSeq,
+    deleteLength,
+    replacementSequence: replacement,
+    replacementLength: replacement.length,
+    change: `sub${startPosition + 1}_${startPosition + deleteLength}`,
+    description: `Replace ${deleteLength} bp with ${replacement.length} bp at positions ${startPosition + 1}-${startPosition + deleteLength}`,
+    ...primers,
   };
 }
 
 /**
  * Design primers for changing a codon to encode a different amino acid
  * @param template - Template sequence
- * @param codonPosition - Position of the first base of the codon (0-indexed)
- * @param targetAA - Target amino acid (single letter code)
+ * @param codonPosition - Codon number (1-indexed, amino acid position)
+ * @param newAA - Target amino acid (single letter code)
  * @param options - Design options
  */
 export function designCodonChangePrimers(
   template: string,
   codonPosition: number,
-  targetAA: string,
+  newAA: string,
   options: Partial<MutagenesisDefaults> = {}
 ): any {
-  const seq = template.toUpperCase();
   const opts = { ...MUTAGENESIS_DEFAULTS, ...options };
+  const seq = template.toUpperCase();
+  const newAminoAcid = newAA.toUpperCase();
 
-  // Get original codon
-  const originalCodon = seq.slice(codonPosition, codonPosition + 3);
+  // Convert codon position (1-indexed) to nucleotide position (0-indexed)
+  const nucPosition = (codonPosition - 1) * 3;
 
-  // Select optimal codon for target amino acid
-  const codonSelection = selectOptimalCodon(originalCodon, targetAA.toUpperCase(), opts);
-
-  if (!codonSelection.selectedCodon) {
-    return {
-      forward: { sequence: '', tm: 0, gc: 0 },
-      reverse: { sequence: '', tm: 0, gc: 0 },
-      protocol: { name: 'Codon Change', steps: [], notes: [] },
-      error: `No valid codon found for amino acid ${targetAA}`
-    };
+  if (nucPosition < 0 || nucPosition + 3 > seq.length) {
+    throw new Error(`Codon position ${codonPosition} is out of range`);
   }
 
-  // Create mutated sequence with new codon
-  const mutatedSeq = seq.slice(0, codonPosition) + codonSelection.selectedCodon + seq.slice(codonPosition + 3);
+  const oldCodon = seq.slice(nucPosition, nucPosition + 3);
+  const oldAA = CODON_TO_AA[oldCodon];
 
-  // Design primers
-  const result = designBackToBackPrimers(seq, codonPosition, mutatedSeq, 3, opts, 3);
+  if (!oldAA) {
+    throw new Error(`Invalid codon at position ${codonPosition}: ${oldCodon}`);
+  }
 
-  const best = selectBestByTier(result.candidates);
+  if (!CODON_TABLE[newAminoAcid]) {
+    throw new Error(`Invalid amino acid: ${newAA}`);
+  }
+
+  if (oldAA === newAminoAcid) {
+    throw new Error(`Position ${codonPosition} is already ${oldAA} (${AA_NAMES[oldAA]})`);
+  }
+
+  // Use optimized codon selection
+  const codonSelection = selectOptimalCodon(oldCodon, newAminoAcid, { organism: opts.organism });
+  const bestCodon = codonSelection.selectedCodon;
+
+  const mutatedSeq = seq.slice(0, nucPosition) + bestCodon + seq.slice(nucPosition + 3);
+
+  // Use designMutagenisPrimerPair for full composite score calculation
+  const primers = designMutagenisPrimerPair(seq, mutatedSeq, nucPosition, 3, opts);
+
+  return {
+    type: MUTATION_TYPES.CODON_CHANGE,
+    originalSequence: seq,
+    mutatedSequence: mutatedSeq,
+    position: codonPosition,
+    nucleotidePosition: nucPosition,
+    oldCodon,
+    newCodon: bestCodon,
+    oldAA,
+    newAA: newAminoAcid,
+    change: `${oldAA}${codonPosition}${newAminoAcid}`,
+    description: `${AA_NAMES[oldAA]} (${oldCodon}) → ${AA_NAMES[newAminoAcid]} (${bestCodon}) at position ${codonPosition}`,
+    codonChanges: codonSelection.nucleotideChanges,
+    codonUsage: codonSelection.codonUsage,
+    alternativeCodons: codonSelection.allCandidates?.filter((c: any) => c.codon !== bestCodon) || [],
+    ...primers,
+  };
+}
+
+// =============================================================================
+// Protocol Generation (Original version matching JS)
+// =============================================================================
+
+function generateProtocolOriginal(fwdTm: number, revTm: number, annealingTemp: number, design: string): any {
+  if (design === 'back-to-back') {
+    return {
+      name: 'Q5 Site-Directed Mutagenesis Protocol (Back-to-Back)',
+      steps: [
+        { name: 'Initial Denaturation', temp: '98°C', time: '30 sec' },
+        {
+          name: 'Cycling (25 cycles)',
+          substeps: [
+            { name: 'Denature', temp: '98°C', time: '10 sec' },
+            { name: 'Anneal', temp: `${annealingTemp}°C`, time: '30 sec' },
+            { name: 'Extend', temp: '72°C', time: '30 sec/kb' },
+          ],
+        },
+        { name: 'Final Extension', temp: '72°C', time: '2 min' },
+        { name: 'Hold', temp: '4°C', time: '∞' },
+      ],
+      notes: [
+        'Use 25 ng template DNA',
+        'Use Q5 Hot Start High-Fidelity 2X Master Mix (12.5 µL)',
+        'Use 1.25 µL each primer (10 µM stock)',
+        'Total volume: 25 µL',
+        'After PCR: KLD treatment (kinase, ligase, DpnI) - NEB KLD Enzyme Mix',
+        'Transform 5 µL KLD reaction into competent cells',
+      ],
+    };
+  } else {
+    return {
+      name: 'QuikChange-Style Mutagenesis Protocol (Overlapping)',
+      steps: [
+        { name: 'Initial Denaturation', temp: '95°C', time: '30 sec' },
+        {
+          name: 'Cycling (18 cycles)',
+          substeps: [
+            { name: 'Denature', temp: '95°C', time: '30 sec' },
+            { name: 'Anneal', temp: `${annealingTemp}°C`, time: '1 min' },
+            { name: 'Extend', temp: '68°C', time: '1 min/kb' },
+          ],
+        },
+        { name: 'Final Extension', temp: '68°C', time: '5 min' },
+        { name: 'Hold', temp: '4°C', time: '∞' },
+      ],
+      notes: [
+        'Use 50-100 ng template DNA',
+        'Use high-fidelity DNA polymerase (Pfu or similar)',
+        'Use 125 ng each primer',
+        'After PCR: DpnI digest (1 µL, 37°C, 1 hour)',
+        'Transform 2-5 µL into competent cells',
+      ],
+    };
+  }
+}
+
+// =============================================================================
+// Design Mutagenesis Primer Pair (Core function for all mutation types)
+// =============================================================================
+
+/**
+ * Design mutagenesis primer pair
+ *
+ * Uses advanced optimization:
+ * 1. Sliding window: Shifts split point ±2 bases to avoid problematic contexts
+ * 2. Tiered selection: Picks from best quality tier before considering others
+ */
+function designMutagenisPrimerPair(
+  originalSeq: string,
+  mutatedSeq: string,
+  mutPosition: number,
+  mutLength: number,
+  opts: MutagenesisDefaults,
+  isInsertion: boolean = false,
+  deletionLength: number = 0
+): any {
+  let allCandidates: CandidatePair[] = [];
+
+  const effectiveMutLength = isInsertion ? mutLength : (deletionLength > 0 ? 0 : mutLength);
+  const isDeletion = deletionLength > 0;
+
+  // Check if mutation is near edges and calculate available flanking
+  const minFlankingNeeded = opts.minPrimerLength;
+  const leftFlankingAvailable = mutPosition;
+  const rightFlankingAvailable = mutatedSeq.length - (mutPosition + effectiveMutLength);
+  const isNearLeftEdge = leftFlankingAvailable < minFlankingNeeded;
+  const isNearRightEdge = rightFlankingAvailable < minFlankingNeeded;
+  const isNearEdge = isNearLeftEdge || isNearRightEdge;
+
+  // Handle circular sequences by extending the sequence
+  let workingOriginalSeq = originalSeq;
+  let workingMutatedSeq = mutatedSeq;
+  let workingMutPosition = mutPosition;
+  let isCircularWrapped = false;
+
+  if (isNearEdge && opts.circular) {
+    const seqLen = originalSeq.length;
+    workingOriginalSeq = originalSeq + originalSeq;
+    workingMutatedSeq = mutatedSeq + mutatedSeq;
+    workingMutPosition = mutPosition + seqLen;
+    isCircularWrapped = true;
+  }
+
+  // SLIDING WINDOW: Try different split points to avoid bad contexts
+  const splitPointOffsets = isDeletion ? [0] : [-2, -1, 0, 1, 2];
+
+  // Collect diagnostics from all attempts for detailed error reporting
+  const collectedDiagnostics = {
+    totalPositionsExplored: 0,
+    totalPairsEvaluated: 0,
+    fwdRegionTooShort: 0,
+    revRegionTooShort: 0,
+    noFwdCandidatesInTmWindow: 0,
+    noRevCandidatesInTmWindow: 0,
+    fwdTmTooLow: { count: 0, lowestTm: Infinity, sequence: null as string | null, gc: null as number | null },
+    fwdTmTooHigh: { count: 0, highestTm: -Infinity, sequence: null as string | null, gc: null as number | null },
+    revTmTooLow: { count: 0, lowestTm: Infinity, sequence: null as string | null, gc: null as number | null },
+    revTmTooHigh: { count: 0, highestTm: -Infinity, sequence: null as string | null, gc: null as number | null },
+    params: { minTm: opts.minTm || 55, maxTm: opts.maxTm || 72, minLength: opts.minAnnealingLength || 15 },
+  };
+
+  for (const offset of splitPointOffsets) {
+    const adjustedMutPosition = workingMutPosition + offset;
+
+    // Skip invalid offsets
+    if (adjustedMutPosition < 0 || adjustedMutPosition > workingMutatedSeq.length) continue;
+
+    // Check sequence context at this split point
+    const contextCheck = checkSequenceContext(workingMutatedSeq, adjustedMutPosition);
+
+    let candidates: CandidatePair[];
+    let diagnostics: any = null;
+
+    if (opts.strategy === 'back-to-back') {
+      const result = designBackToBackPrimers(
+        workingOriginalSeq,
+        adjustedMutPosition,
+        workingMutatedSeq,
+        effectiveMutLength,
+        opts,
+        deletionLength
+      );
+      candidates = result.candidates;
+      diagnostics = result.diagnostics;
+
+      // Merge diagnostics into collected
+      if (diagnostics) {
+        collectedDiagnostics.totalPositionsExplored += diagnostics.positionsExplored || 0;
+        collectedDiagnostics.totalPairsEvaluated += diagnostics.pairsEvaluated || 0;
+        collectedDiagnostics.fwdRegionTooShort += diagnostics.fwdRegionTooShort || 0;
+        collectedDiagnostics.revRegionTooShort += diagnostics.revRegionTooShort || 0;
+        collectedDiagnostics.noFwdCandidatesInTmWindow += diagnostics.noFwdCandidatesInTmWindow || 0;
+        collectedDiagnostics.noRevCandidatesInTmWindow += diagnostics.noRevCandidatesInTmWindow || 0;
+
+        // Track worst cases
+        if (diagnostics.fwdTmTooLow?.lowestTm < collectedDiagnostics.fwdTmTooLow.lowestTm) {
+          collectedDiagnostics.fwdTmTooLow = { ...diagnostics.fwdTmTooLow };
+        }
+        collectedDiagnostics.fwdTmTooLow.count += diagnostics.fwdTmTooLow?.count || 0;
+
+        if (diagnostics.fwdTmTooHigh?.highestTm > collectedDiagnostics.fwdTmTooHigh.highestTm) {
+          collectedDiagnostics.fwdTmTooHigh = { ...diagnostics.fwdTmTooHigh };
+        }
+        collectedDiagnostics.fwdTmTooHigh.count += diagnostics.fwdTmTooHigh?.count || 0;
+
+        if (diagnostics.revTmTooLow?.lowestTm < collectedDiagnostics.revTmTooLow.lowestTm) {
+          collectedDiagnostics.revTmTooLow = { ...diagnostics.revTmTooLow };
+        }
+        collectedDiagnostics.revTmTooLow.count += diagnostics.revTmTooLow?.count || 0;
+
+        if (diagnostics.revTmTooHigh?.highestTm > collectedDiagnostics.revTmTooHigh.highestTm) {
+          collectedDiagnostics.revTmTooHigh = { ...diagnostics.revTmTooHigh };
+        }
+        collectedDiagnostics.revTmTooHigh.count += diagnostics.revTmTooHigh?.count || 0;
+      }
+    } else {
+      candidates = designOverlappingPrimers(
+        workingOriginalSeq,
+        adjustedMutPosition,
+        workingMutatedSeq,
+        effectiveMutLength,
+        opts
+      );
+    }
+
+    // Add context penalty for problematic sequences
+    if (contextCheck.hasProblems) {
+      candidates.forEach((c: any) => {
+        c.penalty += 3; // Mild penalty for problematic context
+        c.contextIssues = contextCheck.issues;
+      });
+    }
+
+    // Mark offset used
+    candidates.forEach((c: any) => {
+      c.splitPointOffset = offset;
+    });
+
+    allCandidates.push(...candidates);
+  }
+
+  // Also get overlapping designs for comparison if doing back-to-back
+  let crossStrategyAlternates: CandidatePair[] = [];
+  if (opts.strategy === 'back-to-back') {
+    crossStrategyAlternates = designOverlappingPrimers(workingOriginalSeq, workingMutPosition, workingMutatedSeq, effectiveMutLength, opts)
+      .sort((a: any, b: any) => a.penalty - b.penalty)
+      .slice(0, 3);
+  }
+
+  if (allCandidates.length === 0) {
+    // Fall back to overlapping
+    allCandidates = designOverlappingPrimers(workingOriginalSeq, workingMutPosition, workingMutatedSeq, effectiveMutLength, opts);
+  }
+
+  if (allCandidates.length === 0) {
+    if (isNearEdge && !opts.circular) {
+      const edgeInfo: string[] = [];
+      if (isNearLeftEdge) {
+        edgeInfo.push(`only ${leftFlankingAvailable} bp available on 5' side (need ${minFlankingNeeded} bp)`);
+      }
+      if (isNearRightEdge) {
+        edgeInfo.push(`only ${rightFlankingAvailable} bp available on 3' side (need ${minFlankingNeeded} bp)`);
+      }
+      throw new Error(
+        `Mutation is too close to sequence edge: ${edgeInfo.join(', ')}. ` +
+        `For circular plasmids, enable the "Circular" option to allow primers that wrap around the origin.`
+      );
+    }
+
+    // Build detailed diagnostic error message
+    const errorParts = ['Could not design primers for this mutation.'];
+    const suggestions: string[] = [];
+    const d = collectedDiagnostics;
+
+    if (d.fwdRegionTooShort > 0 || d.revRegionTooShort > 0) {
+      errorParts.push(`\n\nSequence Length Issue:`);
+      if (d.fwdRegionTooShort > 0) {
+        errorParts.push(`  - Forward: Not enough sequence downstream of mutation (need ${d.params.minLength}+ bp)`);
+      }
+      if (d.revRegionTooShort > 0) {
+        errorParts.push(`  - Reverse: Not enough sequence upstream of mutation (need ${d.params.minLength}+ bp)`);
+      }
+      suggestions.push('reduce minimum primer length');
+    }
+
+    if (d.noFwdCandidatesInTmWindow > 0 || d.noRevCandidatesInTmWindow > 0) {
+      errorParts.push(`\n\nTm Window Issue (target: ${d.params.minTm}-${d.params.maxTm}°C):`);
+
+      if (d.fwdTmTooLow.count > 0 && d.fwdTmTooLow.lowestTm !== Infinity) {
+        const gc = d.fwdTmTooLow.gc ? ` (GC: ${(d.fwdTmTooLow.gc * 100).toFixed(0)}%)` : '';
+        errorParts.push(`  - Forward primers too cold: best achieved ${d.fwdTmTooLow.lowestTm}°C${gc}`);
+        if (d.fwdTmTooLow.gc && d.fwdTmTooLow.gc < 0.4) {
+          errorParts.push(`    → AT-rich region makes it hard to reach ${d.params.minTm}°C`);
+        }
+        suggestions.push('lower minimum Tm');
+      }
+
+      if (d.fwdTmTooHigh.count > 0 && d.fwdTmTooHigh.highestTm !== -Infinity) {
+        const gc = d.fwdTmTooHigh.gc ? ` (GC: ${(d.fwdTmTooHigh.gc * 100).toFixed(0)}%)` : '';
+        errorParts.push(`  - Forward primers too hot: lowest achieved ${d.fwdTmTooHigh.highestTm}°C${gc}`);
+        if (d.fwdTmTooHigh.gc && d.fwdTmTooHigh.gc > 0.6) {
+          errorParts.push(`    → GC-rich region pushes Tm above ${d.params.maxTm}°C even at minimum length`);
+        }
+        suggestions.push('increase maximum Tm');
+      }
+
+      if (d.revTmTooLow.count > 0 && d.revTmTooLow.lowestTm !== Infinity) {
+        errorParts.push(`  - Reverse primers too cold: best achieved ${d.revTmTooLow.lowestTm}°C`);
+        suggestions.push('lower minimum Tm');
+      }
+
+      if (d.revTmTooHigh.count > 0 && d.revTmTooHigh.highestTm !== -Infinity) {
+        errorParts.push(`  - Reverse primers too hot: lowest achieved ${d.revTmTooHigh.highestTm}°C`);
+        suggestions.push('increase maximum Tm');
+      }
+    }
+
+    if (d.totalPositionsExplored > 0) {
+      errorParts.push(`\n\nSearch Summary:`);
+      errorParts.push(`  - Explored ${d.totalPositionsExplored} positions, evaluated ${d.totalPairsEvaluated} primer pairs`);
+      errorParts.push(`  - No pairs met all constraints (Tm window, length, GC content)`);
+    }
+
+    if (suggestions.length > 0) {
+      const uniqueSuggestions = [...new Set(suggestions)];
+      errorParts.push(`\n\nSuggested Adjustments:`);
+      uniqueSuggestions.forEach(s => errorParts.push(`  • ${s}`));
+    }
+
+    throw new Error(errorParts.join('\n'));
+  }
+
+  // Mark if circular wrapping was used
+  if (isCircularWrapped) {
+    allCandidates.forEach((c: any) => {
+      c.circularWrapped = true;
+      const seqLen = originalSeq.length;
+      if (c.forward.start >= seqLen) c.forward.start -= seqLen;
+      if (c.forward.end > seqLen) c.forward.end -= seqLen;
+      if (c.reverse.start >= seqLen) c.reverse.start -= seqLen;
+      if (c.reverse.end > seqLen) c.reverse.end -= seqLen;
+    });
+  }
+
+  // Initial sort by penalty
+  allCandidates.sort((a: any, b: any) => a.penalty - b.penalty);
+
+  // Take top N candidates for detailed analysis
+  const TOP_N = opts.exhaustiveSearch ? 100 : 10;
+  const topCandidates = allCandidates.slice(0, TOP_N);
+
+  // Run expensive calculations on top candidates only
+  for (const candidate of topCandidates) {
+    // Calculate dg (secondary structure)
+    // Use 55°C (PCR annealing temperature) for consistency with analyzePrimers()
+    candidate.forward.dg = dg(candidate.forward.sequence, 55);
+    candidate.reverse.dg = dg(candidate.reverse.sequence, 55);
+
+    // Add dg penalties
+    if (candidate.forward.dg < opts.minDg) {
+      candidate.penalty += Math.abs(candidate.forward.dg - opts.minDg) * 2;
+    }
+    if (candidate.reverse.dg < opts.minDg) {
+      candidate.penalty += Math.abs(candidate.reverse.dg - opts.minDg) * 2;
+    }
+
+    // Calculate mismatch Tm if template region is available
+    if ((candidate.forward as any)._templateRegion) {
+      try {
+        const mismatchResult = calculateMismatchedTm(
+          candidate.forward.sequence,
+          (candidate.forward as any)._templateRegion
+        );
+        candidate.forward.tmMismatch = mismatchResult.tm;
+        candidate.forward.mismatchCount = mismatchResult.mismatchCount;
+        candidate.forward.willNotBind = mismatchResult.willNotBind;
+        (candidate.forward as any).mismatchFraction = mismatchResult.mismatchFraction;
+        if (mismatchResult.hasCritical3primeMismatch) {
+          candidate.penalty += 20;
+        }
+        if (mismatchResult.willNotBind) {
+          candidate.penalty += 100;
+        }
+      } catch (e) {
+        // Mismatch calculation failed - skip it
+      }
+      delete (candidate.forward as any)._templateRegion;
+    }
+
+    if ((candidate.forward as any)._isDeletion !== undefined) {
+      (candidate.forward as any).isDeletion = (candidate.forward as any)._isDeletion;
+      delete (candidate.forward as any)._isDeletion;
+    }
+
+    // Off-target check
+    const fwdSpec = checkPrimerSpecificity(candidate.forward.sequence, originalSeq, 2);
+    const revSpec = checkPrimerSpecificity(candidate.reverse.sequence, originalSeq, 2);
+    (candidate.forward as any).offTargets = fwdSpec.offTargetCount;
+    (candidate.reverse as any).offTargets = revSpec.offTargetCount;
+    candidate.penalty += fwdSpec.offTargetCount * 5;
+    candidate.penalty += revSpec.offTargetCount * 5;
+
+    // 3' Terminal Delta G
+    const fwdTermDG = calculate3primeTerminalDG(candidate.forward.sequence);
+    const revTermDG = calculate3primeTerminalDG(candidate.reverse.sequence);
+    (candidate.forward as any).terminalDG = fwdTermDG;
+    (candidate.reverse as any).terminalDG = revTermDG;
+
+    if (fwdTermDG.dG > -6.0) candidate.penalty += 5;
+    if (fwdTermDG.dG < -12.0) candidate.penalty += 5;
+    if (revTermDG.dG > -6.0) candidate.penalty += 5;
+    if (revTermDG.dG < -12.0) candidate.penalty += 5;
+
+    // 3' Terminal Nucleotide Preference
+    const fwdTermBase = score3primeTerminalBase(candidate.forward.sequence);
+    const revTermBase = score3primeTerminalBase(candidate.reverse.sequence);
+    (candidate.forward as any).terminalBase = fwdTermBase;
+    (candidate.reverse as any).terminalBase = revTermBase;
+    candidate.penalty += fwdTermBase.penalty + revTermBase.penalty;
+
+    // G-Quadruplex Detection
+    const fwdG4 = checkGQuadruplexRisk(candidate.forward.sequence);
+    const revG4 = checkGQuadruplexRisk(candidate.reverse.sequence);
+    (candidate.forward as any).gQuadruplex = fwdG4;
+    (candidate.reverse as any).gQuadruplex = revG4;
+
+    if (fwdG4.hasG4Motif) candidate.penalty += 1000;
+    else if (fwdG4.hasGGGG) candidate.penalty += 50;
+    if (revG4.hasG4Motif) candidate.penalty += 1000;
+    else if (revG4.hasGGGG) candidate.penalty += 50;
+
+    // COMPOSITE SCORE CALCULATION
+    const fwdSeq = candidate.forward.sequence;
+    const revSeq = candidate.reverse.sequence;
+    const fwdTm = candidate.forward.tm;
+    const revTm = candidate.reverse.tm;
+    const fwdGc = candidate.forward.gc || (fwdSeq.match(/[GC]/gi) || []).length / fwdSeq.length;
+    const revGc = candidate.reverse.gc || (revSeq.match(/[GC]/gi) || []).length / revSeq.length;
+
+    const estAnnealTemp = Math.min(fwdTm, revTm) - 2;
+    const fwdHairpinDG = calculateHairpinDG(fwdSeq, estAnnealTemp);
+    const revHairpinDG = calculateHairpinDG(revSeq, estAnnealTemp);
+    const fwdHomodimerDG = calculateHomodimerDG(fwdSeq, estAnnealTemp);
+    const revHomodimerDG = calculateHomodimerDG(revSeq, estAnnealTemp);
+    const heterodimerDG = calculateHeterodimerDG(fwdSeq, revSeq, estAnnealTemp);
+
+    const fwdTermDGVal = (candidate.forward as any).terminalDG?.dG ?? -8;
+    const revTermDGVal = (candidate.reverse as any).terminalDG?.dG ?? -8;
+
+    const sanitize = (val: number, fallback = 0.5) => Number.isFinite(val) ? val : fallback;
+
+    const threePrimeCompFwd = score3PrimeComposition(fwdSeq, fwdTermDGVal);
+    const threePrimeCompRev = score3PrimeComposition(revSeq, revTermDGVal);
+
+    const candidateScores = {
+      tmFwd: sanitize(scoreTm(fwdTm)),
+      tmRev: sanitize(scoreTm(revTm)),
+      gcFwd: sanitize(scoreGc(fwdGc)),
+      gcRev: sanitize(scoreGc(revGc)),
+      terminal3DG: Math.min(sanitize(scoreTerminal3DG(fwdTermDGVal)), sanitize(scoreTerminal3DG(revTermDGVal))),
+      hairpinFwd: sanitize(scoreHairpin(fwdHairpinDG)),
+      hairpinRev: sanitize(scoreHairpin(revHairpinDG)),
+      selfDimerFwd: sanitize(scoreHomodimer(fwdHomodimerDG)),
+      selfDimerRev: sanitize(scoreHomodimer(revHomodimerDG)),
+      heterodimer: sanitize(scoreHeterodimer(heterodimerDG)),
+      tmDiff: sanitize(scoreTmDiff(fwdTm, revTm)),
+      lengthFwd: sanitize(scoreLength(fwdSeq.length)),
+      lengthRev: sanitize(scoreLength(revSeq.length)),
+      gcClampFwd: sanitize(scoreGcClamp(fwdSeq)),
+      gcClampRev: sanitize(scoreGcClamp(revSeq)),
+      homopolymerFwd: sanitize(scoreHomopolymer(fwdSeq)),
+      homopolymerRev: sanitize(scoreHomopolymer(revSeq)),
+      offTarget: Math.min(
+        sanitize(scoreOffTarget((candidate.forward as any).offTargets || 0), 1),
+        sanitize(scoreOffTarget((candidate.reverse as any).offTargets || 0), 1)
+      ),
+      gQuadruplexFwd: sanitize(fwdG4.score, 1),
+      gQuadruplexRev: sanitize(revG4.score, 1),
+      threePrimeCompFwd: sanitize(threePrimeCompFwd),
+      threePrimeCompRev: sanitize(threePrimeCompRev),
+    };
+
+    const scoreResult = calculateCompositeScore(candidateScores);
+    candidate.compositeScore = scoreResult.score;
+  }
+
+  // TIERED SELECTION
+  const best = selectBestByTier(topCandidates);
 
   if (!best) {
-    return {
-      forward: { sequence: '', tm: 0, gc: 0 },
-      reverse: { sequence: '', tm: 0, gc: 0 },
-      protocol: { name: 'Codon Change', steps: [], notes: [] },
-      error: 'No suitable primers found for codon change'
-    };
+    throw new Error('Could not find any acceptable primer designs');
   }
+
+  // Check secondary structure
+  const structureCheck = checkMutantSecondaryStructure(best.forward.sequence);
+
+  // Calculate annealing temperature
+  const annealingResult = calculateAnnealingQ5(best.forward.sequence, best.reverse.sequence);
+
+  // Use tier-based quality if available
+  const quality = best.tierQuality || (
+    best.penalty < 5 && structureCheck.isAcceptable ? 'excellent' :
+    best.penalty < 15 && structureCheck.isAcceptable ? 'good' :
+    best.penalty < 30 ? 'acceptable' : 'poor'
+  );
+
+  // Collect all warnings
+  const warnings: any[] = [...((best as any).warnings || [])];
+  if (structureCheck.warnings && structureCheck.warnings.length > 0) {
+    warnings.push(...structureCheck.warnings);
+  }
+
+  // Helper function to calculate scoring for a design
+  const calculateDesignScoring = (design: CandidatePair) => {
+    const fwdSeq = design.forward.sequence;
+    const revSeq = design.reverse.sequence;
+    const fwdTm = design.forward.tm;
+    const revTm = design.reverse.tm;
+    const fwdGc = design.forward.gc || calculateGC(fwdSeq);
+    const revGc = design.reverse.gc || calculateGC(revSeq);
+
+    const annealTemp = annealingResult.annealingTemp || 55;
+    const fwdHairpinDG = calculateHairpinDG(fwdSeq, annealTemp);
+    const revHairpinDG = calculateHairpinDG(revSeq, annealTemp);
+    const fwdHomodimerDG = calculateHomodimerDG(fwdSeq, annealTemp);
+    const revHomodimerDG = calculateHomodimerDG(revSeq, annealTemp);
+    const heterodimerDG = calculateHeterodimerDG(fwdSeq, revSeq, annealTemp);
+
+    const fwdTermDG = (design.forward as any).terminalDG?.dG ?? calculate3primeTerminalDG(fwdSeq).dG;
+    const revTermDG = (design.reverse as any).terminalDG?.dG ?? calculate3primeTerminalDG(revSeq).dG;
+
+    const piecewiseScores = {
+      tmFwd: scoreTm(fwdTm),
+      tmRev: scoreTm(revTm),
+      gcFwd: scoreGc(fwdGc),
+      gcRev: scoreGc(revGc),
+      terminal3DGFwd: scoreTerminal3DG(fwdTermDG),
+      terminal3DGRev: scoreTerminal3DG(revTermDG),
+      hairpinFwd: scoreHairpin(fwdHairpinDG),
+      hairpinRev: scoreHairpin(revHairpinDG),
+      selfDimerFwd: scoreHomodimer(fwdHomodimerDG),
+      selfDimerRev: scoreHomodimer(revHomodimerDG),
+      heterodimer: scoreHeterodimer(heterodimerDG),
+      tmDiff: scoreTmDiff(fwdTm, revTm),
+      lengthFwd: scoreLength(fwdSeq.length),
+      lengthRev: scoreLength(revSeq.length),
+      gcClampFwd: scoreGcClamp(fwdSeq),
+      gcClampRev: scoreGcClamp(revSeq),
+      homopolymerFwd: scoreHomopolymer(fwdSeq),
+      homopolymerRev: scoreHomopolymer(revSeq),
+      offTargetFwd: scoreOffTarget((design.forward as any).offTargets || 0),
+      offTargetRev: scoreOffTarget((design.reverse as any).offTargets || 0),
+    };
+
+    const compositeInput = {
+      tmFwd: piecewiseScores.tmFwd,
+      tmRev: piecewiseScores.tmRev,
+      gcFwd: piecewiseScores.gcFwd,
+      gcRev: piecewiseScores.gcRev,
+      terminal3DG: Math.min(piecewiseScores.terminal3DGFwd, piecewiseScores.terminal3DGRev),
+      hairpinFwd: piecewiseScores.hairpinFwd,
+      hairpinRev: piecewiseScores.hairpinRev,
+      selfDimerFwd: piecewiseScores.selfDimerFwd,
+      selfDimerRev: piecewiseScores.selfDimerRev,
+      heterodimer: piecewiseScores.heterodimer,
+      tmDiff: piecewiseScores.tmDiff,
+      lengthFwd: piecewiseScores.lengthFwd,
+      lengthRev: piecewiseScores.lengthRev,
+      gcClampFwd: piecewiseScores.gcClampFwd,
+      gcClampRev: piecewiseScores.gcClampRev,
+      homopolymerFwd: piecewiseScores.homopolymerFwd,
+      homopolymerRev: piecewiseScores.homopolymerRev,
+      offTarget: Math.min(piecewiseScores.offTargetFwd, piecewiseScores.offTargetRev),
+    };
+
+    const scoreResult = calculateCompositeScore(compositeInput);
+    const compositeScore = scoreResult.score;
+    const qualityClassification = classifyQuality(compositeScore);
+    const qualityTier = qualityClassification.tier;
+
+    return { compositeScore, piecewiseScores, qualityTier };
+  };
+
+  // Calculate scoring for the best design
+  const bestScoring = calculateDesignScoring(best);
+
+  // Same-strategy alternatives
+  const sameStrategyAlternates = topCandidates
+    .filter((alt: any) =>
+      alt.forward.sequence !== best.forward.sequence ||
+      alt.reverse.sequence !== best.reverse.sequence
+    )
+    .filter((alt: any, idx: number, arr: any[]) =>
+      arr.findIndex((a: any) =>
+        a.forward.sequence === alt.forward.sequence &&
+        a.reverse.sequence === alt.reverse.sequence
+      ) === idx
+    )
+    .slice(0, 5)
+    .map((alt: any) => {
+      const altScoring = calculateDesignScoring(alt);
+      return {
+        ...alt,
+        compositeScore: altScoring.compositeScore,
+        piecewiseScores: altScoring.piecewiseScores,
+        qualityTier: altScoring.qualityTier,
+      };
+    });
+
+  // Cross-strategy alternatives
+  const scoredCrossStrategyAlternates = crossStrategyAlternates
+    .filter((alt: any) =>
+      alt.forward.sequence !== best.forward.sequence ||
+      alt.reverse.sequence !== best.reverse.sequence
+    )
+    .filter((alt: any, idx: number, arr: any[]) =>
+      arr.findIndex((a: any) =>
+        a.forward.sequence === alt.forward.sequence &&
+        a.reverse.sequence === alt.reverse.sequence
+      ) === idx
+    )
+    .slice(0, 3)
+    .map((alt: any) => {
+      const altScoring = calculateDesignScoring(alt);
+      return {
+        ...alt,
+        compositeScore: altScoring.compositeScore,
+        piecewiseScores: altScoring.piecewiseScores,
+        qualityTier: altScoring.qualityTier,
+      };
+    });
 
   return {
     forward: best.forward,
     reverse: best.reverse,
-    protocol: generateProtocol('codon_change', best, opts),
-    mutatedSequence: mutatedSeq,
-    codonChange: {
-      original: originalCodon,
-      new: codonSelection.selectedCodon,
-      targetAA,
-      changes: codonSelection.changedPositions
-    },
-    quality: best.tierQuality || 'unknown',
-    qualityTier: best.tierQuality || 'unknown',
-    compositeScore: best.compositeScore ?? 75,
-    effectiveScore: best.compositeScore ?? 75,
-    alternateDesigns: result.candidates.filter(c => c !== best).slice(0, 10),
+    design: best.design,
+    annealingTemp: annealingResult.annealingTemp,
+    tmDifference: annealingResult.tmDifference,
+    quality: bestScoring.qualityTier,
+    penalty: Math.round(best.penalty * 10) / 10,
+    compositeScore: bestScoring.compositeScore,
+    piecewiseScores: bestScoring.piecewiseScores,
+    qualityTier: bestScoring.qualityTier,
+    structureCheck,
+    splitPointOffset: (best as any).splitPointOffset || 0,
+    alternateDesigns: sameStrategyAlternates,
+    crossStrategyAlternates: scoredCrossStrategyAlternates,
+    protocol: generateProtocolOriginal(best.forward.tm, best.reverse.tm, annealingResult.annealingTemp, best.design || 'back-to-back'),
+    warnings: warnings.length > 0 ? warnings : undefined,
   };
-}
-
-/**
- * Generate protocol steps for mutagenesis
- */
-function generateProtocol(
-  mutationType: string,
-  candidate: CandidatePair,
-  _options: MutagenesisDefaults
-): any {
-  const steps = [
-    {
-      name: 'Prepare PCR master mix',
-      temp: 'RT',
-      time: '10 min'
-    },
-    {
-      name: 'Set up PCR reaction',
-      temp: 'RT',
-      time: '5 min'
-    },
-    {
-      name: 'Run PCR cycling',
-      temp: `${Math.min(candidate.forward.tm, candidate.reverse.tm).toFixed(1)}°C annealing`,
-      time: '2-3 hours'
-    },
-    {
-      name: 'DpnI digest template',
-      temp: '37°C',
-      time: '1 hour'
-    },
-    {
-      name: 'Transform competent cells',
-      temp: '37°C',
-      time: 'overnight'
-    }
-  ];
-
-  const notes = [
-    `Mutation type: ${mutationType}`,
-    `Tm difference: ${Math.abs(candidate.forward.tm - candidate.reverse.tm).toFixed(1)}°C`,
-    `Forward primer: ${candidate.forward.sequence}`,
-    `Reverse primer: ${candidate.reverse.sequence}`
-  ];
-
-  return { name: `${mutationType} Mutagenesis Protocol`, steps, notes };
 }
 
 // =============================================================================
@@ -2634,27 +3182,10 @@ export function designSubstitutionPrimers(
     throw new Error(`Position ${position} is already ${oldBase}`);
   }
 
-  // Create mutated sequence by replacing the base
   const mutatedSeq = seq.slice(0, position) + newB + seq.slice(position + 1);
 
-  // Design primers using back-to-back approach (mutation length = 1 for substitution)
-  const result = designBackToBackPrimers(seq, position, mutatedSeq, 1, opts, 0);
-
-  const best = selectBestByTier(result.candidates);
-
-  if (!best) {
-    return {
-      type: MUTATION_TYPES.SUBSTITUTION,
-      originalSequence: seq,
-      mutatedSequence: mutatedSeq,
-      position,
-      change: `${oldBase}${position + 1}${newB}`,
-      description: `${oldBase} → ${newB} at position ${position + 1}`,
-      forward: { sequence: '', tm: 0, gc: 0 },
-      reverse: { sequence: '', tm: 0, gc: 0 },
-      error: 'No suitable primers found for substitution'
-    };
-  }
+  // Use designMutagenisPrimerPair for full composite score calculation
+  const primers = designMutagenisPrimerPair(seq, mutatedSeq, position, 1, opts);
 
   return {
     type: MUTATION_TYPES.SUBSTITUTION,
@@ -2663,13 +3194,7 @@ export function designSubstitutionPrimers(
     position,
     change: `${oldBase}${position + 1}${newB}`,
     description: `${oldBase} → ${newB} at position ${position + 1}`,
-    forward: best.forward,
-    reverse: best.reverse,
-    quality: best.tierQuality || 'unknown',
-    qualityTier: best.tierQuality || 'unknown',
-    compositeScore: best.compositeScore ?? 75,
-    effectiveScore: best.compositeScore ?? 75,
-    alternateDesigns: result.candidates.filter((c: CandidatePair) => c !== best).slice(0, 10),
+    ...primers,
   };
 }
 
