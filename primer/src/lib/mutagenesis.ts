@@ -2604,4 +2604,692 @@ function generateProtocol(
   return { name: `${mutationType} Mutagenesis Protocol`, steps, notes };
 }
 
-// [Continue with the remaining functions - I'll split this into multiple messages due to length constraints]
+// =============================================================================
+// Point Mutation (Substitution) Primer Design
+// =============================================================================
+
+/**
+ * Design primers for point mutation (single base substitution)
+ */
+export function designSubstitutionPrimers(
+  template: string,
+  position: number,
+  newBase: string,
+  options: Partial<MutagenesisDefaults> = {}
+): any {
+  const opts = { ...MUTAGENESIS_DEFAULTS, ...options };
+  const seq = template.toUpperCase();
+  const newB = newBase.toUpperCase();
+
+  if (position < 0 || position >= seq.length) {
+    throw new Error(`Position ${position} is out of range (0-${seq.length - 1})`);
+  }
+
+  if (!['A', 'T', 'G', 'C'].includes(newB)) {
+    throw new Error(`Invalid base: ${newBase}. Must be A, T, G, or C`);
+  }
+
+  const oldBase = seq[position];
+  if (oldBase === newB) {
+    throw new Error(`Position ${position} is already ${oldBase}`);
+  }
+
+  // Create mutated sequence by replacing the base
+  const mutatedSeq = seq.slice(0, position) + newB + seq.slice(position + 1);
+
+  // Design primers using back-to-back approach (mutation length = 1 for substitution)
+  const result = designBackToBackPrimers(seq, position, mutatedSeq, 1, opts, 0);
+
+  const best = selectBestByTier(result.candidates);
+
+  if (!best) {
+    return {
+      type: MUTATION_TYPES.SUBSTITUTION,
+      originalSequence: seq,
+      mutatedSequence: mutatedSeq,
+      position,
+      change: `${oldBase}${position + 1}${newB}`,
+      description: `${oldBase} → ${newB} at position ${position + 1}`,
+      forward: { sequence: '', tm: 0, gc: 0 },
+      reverse: { sequence: '', tm: 0, gc: 0 },
+      error: 'No suitable primers found for substitution'
+    };
+  }
+
+  return {
+    type: MUTATION_TYPES.SUBSTITUTION,
+    originalSequence: seq,
+    mutatedSequence: mutatedSeq,
+    position,
+    change: `${oldBase}${position + 1}${newB}`,
+    description: `${oldBase} → ${newB} at position ${position + 1}`,
+    forward: best.forward,
+    reverse: best.reverse,
+    quality: best.tierQuality || 'unknown',
+    qualityTier: best.tierQuality || 'unknown',
+    compositeScore: best.compositeScore ?? 75,
+    effectiveScore: best.compositeScore ?? 75,
+    alternateDesigns: result.candidates.filter((c: CandidatePair) => c !== best).slice(0, 10),
+  };
+}
+
+// =============================================================================
+// Mutation Notation Parser and Router
+// =============================================================================
+
+/**
+ * Design primers from mutation notation string
+ */
+export function designPrimersFromNotation(
+  template: string,
+  notation: string,
+  options: Partial<MutagenesisDefaults> = {}
+): any {
+  const parsed = parseMutationNotation(notation);
+
+  if (!parsed) {
+    throw new Error(`Could not parse mutation notation: ${notation}`);
+  }
+
+  switch (parsed.type) {
+    case MUTATION_TYPES.SUBSTITUTION:
+    case 'point':
+      return designSubstitutionPrimers(template, parsed.position, parsed.replacement, options);
+
+    case MUTATION_TYPES.CODON_CHANGE:
+    case 'substitution':
+      return designCodonChangePrimers(template, parsed.position + 1, parsed.replacement, options);
+
+    case MUTATION_TYPES.DELETION:
+    case 'deletion':
+      return designDeletionPrimers(template, parsed.position, parsed.length, options);
+
+    case MUTATION_TYPES.INSERTION:
+    case 'insertion':
+      return designInsertionPrimers(template, parsed.position, parsed.insertion, options);
+
+    default:
+      throw new Error(`Unknown mutation type: ${parsed.type}`);
+  }
+}
+
+// =============================================================================
+// G-Quadruplex and Terminal Base Scoring
+// =============================================================================
+
+/**
+ * Check for G-Quadruplex forming motifs
+ *
+ * G-Quadruplexes are stabilized by K+ and Mg2+ (present in NEB Q5 buffer).
+ * They cause polymerase arrest - Q5 struggles to read through these on template,
+ * and if the primer folds into one, it won't bind at all.
+ *
+ * @param sequence - DNA sequence to check
+ * @returns G-quadruplex analysis result
+ */
+export function checkGQuadruplexRisk(sequence: string): ReturnType<typeof analyzeGQuadruplex> {
+  // Use the shared analyzeGQuadruplex function from scoring.js
+  return analyzeGQuadruplex(sequence);
+}
+
+/**
+ * Score 3' terminal nucleotide preference
+ *
+ * Based on research findings:
+ * - G/C: 3 H-bonds, strong binding (preferred)
+ * - C slightly better than G (G can wobble-pair with T)
+ * - T: 2 H-bonds, but less steric hindrance than A
+ * - A: 2 H-bonds + breathing at ends (least stable)
+ */
+export function score3primeTerminalBase(sequence: string): {
+  base: string;
+  penalty: number;
+  classification: string;
+  hasGCClamp: boolean;
+} {
+  const seq = sequence.toUpperCase();
+  const lastBase = seq.slice(-1);
+
+  // Penalty map (lower is better)
+  const penalties: Record<string, number> = {
+    'C': 0,      // Best - strong binding, no wobble risk
+    'G': 0.5,    // Good - strong binding, slight wobble risk
+    'T': 2.0,    // Acceptable - improves specificity
+    'A': 5.0,    // Poor - breathing at ends, lower efficiency
+  };
+
+  const penalty = penalties[lastBase] ?? 5.0;
+
+  let classification: string;
+  if (penalty === 0) classification = 'excellent';
+  else if (penalty <= 0.5) classification = 'good';
+  else if (penalty <= 2.0) classification = 'acceptable';
+  else classification = 'poor';
+
+  return {
+    base: lastBase,
+    penalty,
+    classification,
+    hasGCClamp: lastBase === 'G' || lastBase === 'C',
+  };
+}
+
+// =============================================================================
+// Comprehensive Primer Pair Scoring
+// =============================================================================
+
+interface ScoringPrimerInfo {
+  sequence: string;
+  tm: number;
+  length: number;
+  gc?: number;
+  dg?: number;
+  offTargets?: number;
+}
+
+interface ScoringOptions {
+  minTm?: number;
+  targetTm?: number;
+  minLength?: number;
+  includeCompositeScore?: boolean;
+  temperature?: number;
+}
+
+/**
+ * Comprehensive primer pair scoring function
+ *
+ * Aggregates all scoring criteria into a single score (lower is better):
+ * 1. Physics (Must-Haves): Tm difference, target Tm distance
+ * 2. Heuristics (Nice-to-Haves): 3' terminal ΔG, terminal base preference, G-quadruplex
+ */
+export function scorePrimerPair(
+  fwd: ScoringPrimerInfo,
+  rev: ScoringPrimerInfo,
+  options: ScoringOptions = {}
+): any {
+  const {
+    minTm = 55,
+    targetTm = 62,
+    minLength = 15,
+    includeCompositeScore = true,
+    temperature = 55,
+  } = options;
+
+  let score = 0;
+  const notes: string[] = [];
+  const breakdown: Record<string, any> = {};
+
+  // ==========================================================================
+  // 1. PHYSICS (The "Must Haves") - These dominate the score
+  // ==========================================================================
+
+  // Tm Difference (Quadratic Penalty)
+  const tmDiff = Math.abs(fwd.tm - rev.tm);
+  const tmDiffScore = tmDiff * tmDiff;
+  score += tmDiffScore;
+  breakdown.tmDiff = { value: tmDiff, penalty: tmDiffScore };
+
+  if (tmDiff > 5) {
+    notes.push(`Large Tm difference: ${tmDiff}°C`);
+  }
+
+  // Target Tm Distance
+  let tmDistanceScore = 0;
+  if (fwd.tm < minTm) {
+    tmDistanceScore += Math.pow(minTm - fwd.tm, 2) * 10;
+    notes.push(`Forward Tm below minimum: ${fwd.tm}°C`);
+  }
+  if (rev.tm < minTm) {
+    tmDistanceScore += Math.pow(minTm - rev.tm, 2) * 10;
+    notes.push(`Reverse Tm below minimum: ${rev.tm}°C`);
+  }
+  score += tmDistanceScore;
+  breakdown.tmDistance = { penalty: tmDistanceScore };
+
+  // Length penalty
+  const lengthPenalty = ((fwd.length - minLength) + (rev.length - minLength)) * 0.3;
+  score += lengthPenalty;
+  breakdown.length = { fwd: fwd.length, rev: rev.length, penalty: lengthPenalty };
+
+  // ==========================================================================
+  // 2. HEURISTICS (The "Nice to Haves") - Fine-tuning
+  // ==========================================================================
+
+  // A. 3' Terminal Delta G
+  let terminalDGScore = 0;
+  const fwdTermDG = calculate3primeTerminalDG(fwd.sequence);
+  const revTermDG = calculate3primeTerminalDG(rev.sequence);
+
+  if (fwdTermDG.dG > -6.0) {
+    terminalDGScore += 5;
+    notes.push(`Forward 3' end loose (ΔG=${fwdTermDG.dG})`);
+  }
+  if (fwdTermDG.dG < -12.0) {
+    terminalDGScore += 5;
+    notes.push(`Forward 3' end sticky (ΔG=${fwdTermDG.dG})`);
+  }
+  if (revTermDG.dG > -6.0) {
+    terminalDGScore += 5;
+    notes.push(`Reverse 3' end loose (ΔG=${revTermDG.dG})`);
+  }
+  if (revTermDG.dG < -12.0) {
+    terminalDGScore += 5;
+    notes.push(`Reverse 3' end sticky (ΔG=${revTermDG.dG})`);
+  }
+  score += terminalDGScore;
+  breakdown.terminalDG = { fwd: fwdTermDG, rev: revTermDG, penalty: terminalDGScore };
+
+  // B. 3' Terminal Nucleotide Preference
+  const fwdTermBase = score3primeTerminalBase(fwd.sequence);
+  const revTermBase = score3primeTerminalBase(rev.sequence);
+  const terminalBasePenalty = fwdTermBase.penalty + revTermBase.penalty;
+  score += terminalBasePenalty;
+  breakdown.terminalBase = { fwd: fwdTermBase, rev: revTermBase, penalty: terminalBasePenalty };
+
+  if (fwdTermBase.classification === 'poor') {
+    notes.push(`Forward ends with ${fwdTermBase.base} (poor)`);
+  }
+  if (revTermBase.classification === 'poor') {
+    notes.push(`Reverse ends with ${revTermBase.base} (poor)`);
+  }
+
+  // C. G-Quadruplex
+  const fwdG4 = checkGQuadruplexRisk(fwd.sequence);
+  const revG4 = checkGQuadruplexRisk(rev.sequence);
+  let g4Penalty = 0;
+
+  if (fwdG4.hasG4Motif) {
+    g4Penalty += 1000;
+    notes.push('Forward: G-Quadruplex detected');
+  } else if (fwdG4.hasGGGG) {
+    g4Penalty += 50;
+    notes.push('Forward: GGGG run detected');
+  }
+
+  if (revG4.hasG4Motif) {
+    g4Penalty += 1000;
+    notes.push('Reverse: G-Quadruplex detected');
+  } else if (revG4.hasGGGG) {
+    g4Penalty += 50;
+    notes.push('Reverse: GGGG run detected');
+  }
+
+  score += g4Penalty;
+  breakdown.gQuadruplex = { fwd: fwdG4, rev: revG4, penalty: g4Penalty };
+
+  // Round final score
+  score = Math.round(score * 100) / 100;
+
+  // ==========================================================================
+  // 3. UNIFIED COMPOSITE SCORE
+  // ==========================================================================
+  let compositeScore: number | null = null;
+  let qualityTier: string | null = null;
+  let piecewiseScores: Record<string, number> | null = null;
+
+  if (includeCompositeScore) {
+    const sanitize = (val: number, fallback = 0.5) => Number.isFinite(val) ? val : fallback;
+
+    const fwdGc = (fwd.sequence.match(/[GC]/gi) || []).length / fwd.sequence.length;
+    const revGc = (rev.sequence.match(/[GC]/gi) || []).length / rev.sequence.length;
+
+    const hairpinDGFwd = calculateHairpinDG(fwd.sequence, temperature);
+    const hairpinDGRev = calculateHairpinDG(rev.sequence, temperature);
+    const homodimerDGFwd = calculateHomodimerDG(fwd.sequence, temperature);
+    const homodimerDGRev = calculateHomodimerDG(rev.sequence, temperature);
+    const heterodimerDG = calculateHeterodimerDG(fwd.sequence, rev.sequence, temperature);
+
+    const threePrimeCompFwd = score3PrimeComposition(fwd.sequence, fwdTermDG.dG);
+    const threePrimeCompRev = score3PrimeComposition(rev.sequence, revTermDG.dG);
+
+    piecewiseScores = {
+      tmFwd: sanitize(scoreTm(fwd.tm)),
+      tmRev: sanitize(scoreTm(rev.tm)),
+      gcFwd: sanitize(scoreGc(fwdGc)),
+      gcRev: sanitize(scoreGc(revGc)),
+      lengthFwd: sanitize(scoreLength(fwd.length)),
+      lengthRev: sanitize(scoreLength(rev.length)),
+      gcClampFwd: sanitize(scoreGcClamp(fwd.sequence)),
+      gcClampRev: sanitize(scoreGcClamp(rev.sequence)),
+      homopolymerFwd: sanitize(scoreHomopolymer(fwd.sequence)),
+      homopolymerRev: sanitize(scoreHomopolymer(rev.sequence)),
+      hairpinFwd: sanitize(scoreHairpin(hairpinDGFwd)),
+      hairpinRev: sanitize(scoreHairpin(hairpinDGRev)),
+      selfDimerFwd: sanitize(scoreHomodimer(homodimerDGFwd)),
+      selfDimerRev: sanitize(scoreHomodimer(homodimerDGRev)),
+      heterodimer: sanitize(scoreHeterodimer(heterodimerDG)),
+      tmDiff: sanitize(scoreTmDiff(fwd.tm, rev.tm)),
+      terminal3DG: Math.min(sanitize(scoreTerminal3DG(fwdTermDG.dG)), sanitize(scoreTerminal3DG(revTermDG.dG))),
+      gQuadruplexFwd: sanitize(fwdG4.score, 1),
+      gQuadruplexRev: sanitize(revG4.score, 1),
+      offTarget: Math.min(
+        sanitize(scoreOffTarget(fwd.offTargets || 0), 1),
+        sanitize(scoreOffTarget(rev.offTargets || 0), 1)
+      ),
+      threePrimeCompFwd: sanitize(threePrimeCompFwd),
+      threePrimeCompRev: sanitize(threePrimeCompRev),
+    };
+
+    const compositeResult = calculateCompositeScore(piecewiseScores);
+    compositeScore = compositeResult.score;
+    qualityTier = classifyQuality(compositeScore).tier;
+  }
+
+  return {
+    score,
+    notes,
+    breakdown,
+    fwd,
+    rev,
+    summary: {
+      tmDiff,
+      avgTm: (fwd.tm + rev.tm) / 2,
+      totalLength: fwd.length + rev.length,
+      hasG4Risk: fwdG4.hasG4Motif || revG4.hasG4Motif,
+      hasGCClamp: fwdTermBase.hasGCClamp && revTermBase.hasGCClamp,
+    },
+    compositeScore,
+    qualityTier,
+    piecewiseScores,
+  };
+}
+
+// =============================================================================
+// Unified API - Combines Mutagenesis with PCR Primer Design
+// =============================================================================
+
+interface DesignRequest {
+  type: string;
+  position?: number;
+  newBase?: string;
+  newAA?: string;
+  sequence?: string;
+  length?: number;
+  notation?: string;
+}
+
+/**
+ * Unified primer design function that combines mutagenesis and PCR primer design
+ */
+export function designPrimers(
+  template: string,
+  request: DesignRequest,
+  options: Partial<MutagenesisDefaults> = {}
+): any {
+  const { type, ...params } = request;
+
+  let result: any;
+
+  switch (type) {
+    case 'substitution':
+      result = designSubstitutionPrimers(template, params.position!, params.newBase!, options);
+      break;
+
+    case 'codon_change':
+      result = designCodonChangePrimers(template, params.position!, params.newAA!, options);
+      break;
+
+    case 'insertion':
+      result = designInsertionPrimers(template, params.position!, params.sequence!, options);
+      break;
+
+    case 'deletion':
+      result = designDeletionPrimers(template, params.position!, params.length!, options);
+      break;
+
+    case 'notation':
+      result = designPrimersFromNotation(template, params.notation!, options);
+      break;
+
+    default:
+      throw new Error(`Unknown design type: ${type}. Use 'substitution', 'codon_change', 'insertion', 'deletion', or 'notation'.`);
+  }
+
+  // Add comprehensive analysis
+  if (result.forward && result.reverse) {
+    result.analysis = analyzePrimerPair(result.forward.sequence, result.reverse.sequence, template);
+  }
+
+  return result;
+}
+
+// =============================================================================
+// Comprehensive Primer Pair Analysis
+// =============================================================================
+
+interface AnalysisOptions {
+  mode?: string;
+  template?: string | null;
+  heterodimerDG?: number;
+  includeRecommendations?: boolean;
+}
+
+/**
+ * Comprehensive primer pair analysis
+ * Combines all analysis functions into a single report
+ */
+export function analyzePrimerPair(
+  fwdPrimer: string,
+  revPrimer: string,
+  template: string | null = null,
+  options: AnalysisOptions = {}
+): any {
+  const fwdSeq = fwdPrimer.toUpperCase();
+  const revSeq = revPrimer.toUpperCase();
+
+  // Basic Tm calculations
+  const fwdTm = calculateTmQ5(fwdSeq);
+  const revTm = calculateTmQ5(revSeq);
+  const annealingResult = calculateAnnealingQ5(fwdSeq, revSeq);
+
+  // Secondary structure analysis
+  const fwdStructure = checkMutantSecondaryStructure(fwdSeq);
+  const revStructure = checkMutantSecondaryStructure(revSeq);
+
+  // Heterodimer analysis
+  const heterodimerResult = checkHeterodimer(fwdSeq, revSeq);
+
+  // Off-target analysis
+  let offTargetAnalysis: any = null;
+  if (template) {
+    offTargetAnalysis = {
+      forward: checkPrimerSpecificity(fwdSeq, template),
+      reverse: checkPrimerSpecificity(revSeq, template),
+    };
+  }
+
+  // Collect warnings
+  const mutagenesisWarnings = [
+    ...fwdStructure.warnings.map((w: any) => ({ ...w, primer: 'forward' })),
+    ...revStructure.warnings.map((w: any) => ({ ...w, primer: 'reverse' })),
+    ...heterodimerResult.warnings.map((w: any) => ({ ...w, primer: 'pair' })),
+  ];
+
+  // Use unified analysis for scoring
+  const unifiedResult = unifiedAnalyzePrimers(
+    { seq: fwdSeq, tm: fwdTm, gc: calculateGC(fwdSeq) },
+    { seq: revSeq, tm: revTm, gc: calculateGC(revSeq) },
+    {
+      mode: 'mutagenesis',
+      template,
+      heterodimerDG: heterodimerResult.heterodimerDG,
+      includeRecommendations: false,
+    }
+  );
+
+  // Calculate overall quality
+  const criticalWarnings = mutagenesisWarnings.filter((w: any) => w.severity === 'critical').length;
+  const warningCount = mutagenesisWarnings.filter((w: any) => w.severity === 'warning').length;
+
+  let quality: string;
+  if (criticalWarnings > 0) {
+    quality = 'poor';
+  } else if (warningCount > 2) {
+    quality = 'acceptable';
+  } else if (warningCount > 0) {
+    quality = 'good';
+  } else {
+    quality = 'excellent';
+  }
+
+  return {
+    forward: {
+      sequence: fwdSeq,
+      length: fwdSeq.length,
+      tm: fwdTm,
+      gc: calculateGC(fwdSeq),
+      gcPercent: (calculateGC(fwdSeq) * 100).toFixed(1) + '%',
+      hairpinDG: fwdStructure.hairpinDG,
+      selfDimerDG: fwdStructure.selfDimerDG,
+      foldDG: fwdStructure.foldDG,
+      scores: unifiedResult.forward?.scores,
+    },
+    reverse: {
+      sequence: revSeq,
+      length: revSeq.length,
+      tm: revTm,
+      gc: calculateGC(revSeq),
+      gcPercent: (calculateGC(revSeq) * 100).toFixed(1) + '%',
+      hairpinDG: revStructure.hairpinDG,
+      selfDimerDG: revStructure.selfDimerDG,
+      foldDG: revStructure.foldDG,
+      scores: unifiedResult.reverse?.scores,
+    },
+    pair: {
+      tmDifference: Math.abs(fwdTm - revTm),
+      annealingTemp: annealingResult.annealingTemp,
+      heterodimerDG: heterodimerResult.heterodimerDG,
+      scores: unifiedResult.pair?.scores,
+    },
+    offTargets: offTargetAnalysis,
+    warnings: mutagenesisWarnings,
+    quality,
+    isAcceptable: criticalWarnings === 0,
+    compositeScore: unifiedResult.composite?.score,
+    qualityTier: unifiedResult.quality?.tier,
+    gQuadruplex: {
+      forward: unifiedResult.forward?.gQuadruplex,
+      reverse: unifiedResult.reverse?.gQuadruplex,
+    },
+  };
+}
+
+// =============================================================================
+// Batch Design and Tm Comparison
+// =============================================================================
+
+/**
+ * Batch design multiple mutations
+ */
+export function batchDesignMutations(
+  template: string,
+  mutations: string[],
+  options: Partial<MutagenesisDefaults> = {}
+): {
+  results: Array<{ mutation: string; success: boolean; result?: any; error?: string }>;
+  successCount: number;
+  failureCount: number;
+} {
+  const results: Array<{ mutation: string; success: boolean; result?: any; error?: string }> = [];
+
+  for (const mutation of mutations) {
+    try {
+      const result = designPrimersFromNotation(template, mutation, options);
+      results.push({
+        mutation,
+        success: true,
+        result,
+      });
+    } catch (error) {
+      results.push({
+        mutation,
+        success: false,
+        error: (error as Error).message,
+      });
+    }
+  }
+
+  return {
+    results,
+    successCount: results.filter(r => r.success).length,
+    failureCount: results.filter(r => !r.success).length,
+  };
+}
+
+/**
+ * Calculate detailed Tm comparison between different methods
+ */
+export function compareTmMethods(
+  primer: string,
+  templateRegion: string | null = null
+): {
+  sequence: string;
+  length: number;
+  gcContent: number;
+  methods: {
+    q5: number;
+    general: number;
+    simple?: number;
+    mismatch?: number;
+  };
+  mismatchDetails?: any;
+} {
+  const seq = primer.toUpperCase();
+
+  const result: any = {
+    sequence: seq,
+    length: seq.length,
+    gcContent: calculateGC(seq),
+    methods: {
+      q5: calculateTmQ5(seq),
+      general: calculateTmGeneral(seq),
+    },
+  };
+
+  // If template region provided, calculate mismatch Tm
+  if (templateRegion) {
+    const mismatchResult = calculateMismatchedTm(seq, templateRegion);
+    result.methods.mismatch = mismatchResult.tm;
+    result.mismatchDetails = mismatchResult;
+  }
+
+  // Calculate using simple formula for reference
+  const gc = calculateGC(seq);
+  const n = seq.length;
+  result.methods.simple = Math.round(81.5 + 0.41 * (gc * 100) - 675 / n);
+
+  return result;
+}
+
+// =============================================================================
+// Exports
+// =============================================================================
+
+export {
+  // Codon tables
+  CODON_TABLE,
+  CODON_TO_AA,
+  AA_NAMES,
+  CODON_USAGE_ECOLI,
+  CODON_USAGE_HUMAN,
+
+  // Utility functions
+  reverseComplement,
+
+  // Thermodynamic parameters
+  NN_MATCHED,
+  NN_MISMATCH,
+  DANGLING_END_CORRECTIONS,
+  TERMINAL_CORRECTIONS,
+  CONSECUTIVE_MISMATCH_CORRECTION,
+
+  // Re-export Tm calculator functions for convenience
+  calculateTmQ5,
+  calculateAnnealingQ5,
+  calculateGC,
+  calculateTmGeneral as calculateTm,
+
+  // Re-export fold functions
+  dg as calculateFoldDG,
+  fold as calculateFoldStructure,
+};
