@@ -155,7 +155,7 @@ function findCostTier(seqLength: number, costs: CostTierMap): CostTier {
   }
 
   // Length exceeds all tiers - return very high cost
-  return { fixed: true, cost: 999999999 };
+  return { fixed: true, cost: Number.MAX_SAFE_INTEGER };
 }
 
 /**
