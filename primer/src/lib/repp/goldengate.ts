@@ -30,15 +30,24 @@ const calculateSetFidelity = (overhangs: string[]): any => ({
   warnings: []
 });
 
-const getRecommendedOverhangSet = (numParts: number, options?: any): any => ({
-  enzyme: 'BsaI',
-  requestedParts: numParts,
-  actualParts: numParts,
-  overhangs: [],
-  fidelity: 0.95,
-  fidelityPercent: '95.0%',
-  source: 'static'
-});
+// Standard high-fidelity overhangs from Potapov et al. (2018) and Pryor et al. (2020)
+const STANDARD_HIGH_FIDELITY_OVERHANGS = ['GGAG', 'TACT', 'AATG', 'AGGT', 'TTCG', 'GCTT', 'CGCT', 'TGCC', 'ACTA', 'GCAA'];
+
+const getRecommendedOverhangSet = (numParts: number, options?: any): any => {
+  // For N parts, we need N+1 junctions (start, between each part, end)
+  const neededOverhangs = Math.min(numParts + 1, STANDARD_HIGH_FIDELITY_OVERHANGS.length);
+  const selectedOverhangs = STANDARD_HIGH_FIDELITY_OVERHANGS.slice(0, neededOverhangs);
+  return {
+    enzyme: 'BsaI',
+    requestedParts: numParts,
+    actualParts: Math.min(numParts, STANDARD_HIGH_FIDELITY_OVERHANGS.length - 1),
+    overhangs: selectedOverhangs,
+    numJunctions: selectedOverhangs.length,
+    fidelity: 0.90, // Conservative estimate for standard overhangs
+    fidelityPercent: '90.0%',
+    source: 'static'
+  };
+};
 
 /**
  * Ligation data types
