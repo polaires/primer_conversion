@@ -2406,8 +2406,9 @@ export default function UnifiedPrimerDesigner() {
                 </div>
               )}
 
-              {/* Alternative Primers for PCR Amplification (using unified AlternativesPanel) */}
-              {results.type === 'amplification' && results.alternativePrimers && results.alternativePrimers.length > 0 && (
+              {/* Alternative Primers for PCR Amplification and Mutagenesis (using unified AlternativesPanel) */}
+              {((results.type === 'amplification' && results.alternativePrimers && results.alternativePrimers.length > 0) ||
+                (results.type !== 'amplification' && results.alternateDesigns && results.alternateDesigns.length > 0)) && (
                 <div id="section-alternates" className="alternate-designs collapsible-section">
                   <button
                     type="button"
@@ -2419,7 +2420,7 @@ export default function UnifiedPrimerDesigner() {
                   </button>
                   {!collapsedSections.alternates && (
                     <AlternativesPanel
-                      alternatives={results.alternativePrimers as any}
+                      alternatives={(results.alternativePrimers || results.alternateDesigns) as any}
                       alternativeCategories={results.alternativeCategories as any}
                       currentDesign={{
                         forward: results.forward,

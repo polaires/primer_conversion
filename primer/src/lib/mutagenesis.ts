@@ -2019,6 +2019,10 @@ function designBackToBackPrimers(
         const revIsRescue = rev.isRescue || false;
         const usedRescueMode = fwdIsRescue || revIsRescue;
 
+        // Calculate dG for both primers (hairpin/secondary structure stability)
+        const fwdDg = dg(fwd.sequence, 37);
+        const revDg = dg(revSeq, 37);
+
         const candidateEntry: CandidatePair = {
           forward: {
             sequence: fwd.sequence,
@@ -2026,6 +2030,7 @@ function designBackToBackPrimers(
             tm: fwd.tm,
             gc: fwd.gc,
             gcPercent: fwd.gcPercent,
+            dg: fwdDg,
             hasGCClamp: fwd.hasGCClamp,
             start: fwd.start,
             end: fwd.end,
@@ -2039,6 +2044,7 @@ function designBackToBackPrimers(
             tm: revTm,
             gc: revGc,
             gcPercent: (revGc * 100).toFixed(1) + '%',
+            dg: revDg,
             hasGCClamp: revHasClamp,
             start: rev3prime,
             end: rev5prime + 1,
@@ -2370,7 +2376,11 @@ export function designDeletionPrimers(
     forward: best.forward,
     reverse: best.reverse,
     mutatedSequence: mutatedSeq,
-    quality: best.tierQuality || 'unknown'
+    quality: best.tierQuality || 'unknown',
+    qualityTier: best.tierQuality || 'unknown',
+    compositeScore: best.compositeScore ?? 75,
+    effectiveScore: best.compositeScore ?? 75,
+    alternateDesigns: result.candidates.filter(c => c !== best).slice(0, 10),
   };
 }
 
@@ -2413,7 +2423,11 @@ export function designInsertionPrimers(
     reverse: best.reverse,
     protocol: generateProtocol('insertion', best, opts),
     mutatedSequence: mutatedSeq,
-    quality: best.tierQuality || 'unknown'
+    quality: best.tierQuality || 'unknown',
+    qualityTier: best.tierQuality || 'unknown',
+    compositeScore: best.compositeScore ?? 75,
+    effectiveScore: best.compositeScore ?? 75,
+    alternateDesigns: result.candidates.filter(c => c !== best).slice(0, 10),
   };
 }
 
@@ -2467,7 +2481,11 @@ export function designRegionSubstitutionPrimers(
     reverse: best.reverse,
     protocol: generateProtocol('substitution', best, opts),
     mutatedSequence: mutatedSeq,
-    quality: best.tierQuality || 'unknown'
+    quality: best.tierQuality || 'unknown',
+    qualityTier: best.tierQuality || 'unknown',
+    compositeScore: best.compositeScore ?? 75,
+    effectiveScore: best.compositeScore ?? 75,
+    alternateDesigns: result.candidates.filter(c => c !== best).slice(0, 10),
   };
 }
 
@@ -2530,7 +2548,11 @@ export function designCodonChangePrimers(
       targetAA,
       changes: codonSelection.changedPositions
     },
-    quality: best.tierQuality || 'unknown'
+    quality: best.tierQuality || 'unknown',
+    qualityTier: best.tierQuality || 'unknown',
+    compositeScore: best.compositeScore ?? 75,
+    effectiveScore: best.compositeScore ?? 75,
+    alternateDesigns: result.candidates.filter(c => c !== best).slice(0, 10),
   };
 }
 
