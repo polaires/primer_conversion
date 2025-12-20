@@ -18,6 +18,7 @@ import {
 } from '../lib/repp/domestication-primer-workflow.js';
 import {
   GOLDEN_GATE_ENZYMES,
+  findInternalSites,
 } from '../lib/repp/goldengate.js';
 
 // ============================================================================
@@ -294,6 +295,21 @@ export const DomesticationWorkflowGuide: FC<DomesticationWorkflowGuideProps> = (
   }, [workflowResult, onWorkflowComplete]);
 
   // Render
+  // Detect internal enzyme sites in the sequence
+  const internalSites = useMemo((): InternalSites => {
+    if (!sequence) return { hasSites: false, count: 0, sites: [] };
+    const result = findInternalSites(sequence, enzyme);
+    return {
+      hasSites: result.hasSites,
+      count: result.count,
+      sites: result.sites.map(s => ({
+        position: s.position,
+        sequence: s.sequence,
+        orientation: s.orientation,
+      })),
+    };
+  }, [sequence, enzyme]);
+
   if (!sequence) {
     return (
       <div className="workflow-guide empty">
@@ -302,8 +318,6 @@ export const DomesticationWorkflowGuide: FC<DomesticationWorkflowGuideProps> = (
     );
   }
 
-  // findInternalSites not yet exported, using stub
-  const internalSites: InternalSites = { hasSites: false, count: 0, sites: [] } as any;
   if (!internalSites?.hasSites) {
     return (
       <div className="workflow-guide no-sites">
