@@ -14,7 +14,7 @@
  */
 
 import { reverseComplement } from './enzymes.js';
-import { calculateExperimentalFidelity, getEnzymeLigationData } from './goldengate.js';
+import { calculateExperimentalFidelity, getEnzymeLigationData, findInternalSites } from './goldengate.js';
 import { scanForFusionSites, generateTargetPositions, filterByDistance, FusionSiteCandidate, TargetPosition } from './fusion-site-scanner.js';
 import { scoreFusionSiteComposite, quickScoreFusionSite, CompositeScore, ScoringOptions } from './fusion-site-scorer.js';
 import { calculateSetEfficiency } from './overhang-efficiency.js';
@@ -774,11 +774,10 @@ export function optimizeFusionSites(
   }
 
   // Check for internal restriction sites
-  // TODO: Implement findInternalSites when available
-  const internalSites = { hasSites: false, count: 0, sites: [] };
-  if ((internalSites as any).hasSites) {
+  const internalSites = findInternalSites(seq, enzyme);
+  if (internalSites.hasSites) {
     if (verbose) {
-      console.warn(`Found ${(internalSites as any).count} internal ${enzyme} sites - need domestication`);
+      console.warn(`Found ${internalSites.count} internal ${enzyme} sites - need domestication`);
     }
   }
 

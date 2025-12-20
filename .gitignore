@@ -8,3 +8,4 @@ primer/dist/
 # Logs
 *.log
 npm-debug.log*
+original_primer/
