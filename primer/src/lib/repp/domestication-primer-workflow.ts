@@ -19,6 +19,23 @@
  */
 
 import {
+  domesticateWithSilentMutations,
+  findAllSilentMutationCandidates,
+  scoreMutationCandidates,
+  verifyProteinSequence,
+  CODON_TO_AA,
+  ECOLI_CODON_USAGE,
+  YEAST_CODON_USAGE,
+} from './silent-mutation-domesticator.js';
+
+import {
+  designEnhancedMutagenicJunction,
+  designAllEnhancedJunctions,
+  ENHANCED_JUNCTION_CONFIG,
+  classifyQuality,
+} from './enhanced-mutagenic-junction.js';
+
+import {
   GOLDEN_GATE_ENZYMES,
   calculateExperimentalFidelity,
   getEnzymeLigationData,
@@ -47,9 +64,6 @@ import {
   scoreGQuadruplex,
   analyzeGQuadruplex,
 } from '../scoring.js';
-
-// Note: These would be imported from their respective modules when available
-// For now using placeholder types
 
 // ============================================================================
 // CONFIGURATION
@@ -153,7 +167,7 @@ interface StrategyResult {
   strategy: string;
   domesticatedSequence: string;
   mutations?: Mutation[];
-  junctions?: Junction[];
+  junctions?: Junction[] | any[];
   failedSites?: any[];
   additionalFragments: number;
   onePotCompatible: boolean;
@@ -514,28 +528,50 @@ export function analyzeSequenceForDomestication(
     };
   }
 
-  // Analyze each site - placeholder for now
-  const siteAnalyses: SiteAnalysis[] = internalSites.sites.map((site: any) => ({
-    site,
-    position: site.position,
-    sequence: site.sequence,
-    orientation: site.orientation,
-    analysis: {
-      silentMutationAvailable: false,
-      silentMutationCount: 0,
-      bestSilentMutation: null,
-      requiresJunction: true,
-    },
-  }));
+  const codonUsage = organism === 'yeast' ? YEAST_CODON_USAGE : ECOLI_CODON_USAGE;
+
+  // Analyze each site
+  const siteAnalyses: SiteAnalysis[] = internalSites.sites.map((site: any) => {
+    // Check if silent mutation is possible
+    const silentCandidates = isCodingSequence
+      ? findAllSilentMutationCandidates(sequence, site, frame, enzyme, codonUsage)
+      : [];
+
+    const scoredCandidates = silentCandidates.length > 0
+      ? scoreMutationCandidates(silentCandidates, sequence, enzyme, true)
+      : [];
+
+    const hasSilentOption = scoredCandidates.length > 0 && scoredCandidates[0].score >= 50;
+
+    return {
+      site,
+      position: site.position,
+      sequence: site.sequence,
+      orientation: site.orientation,
+      analysis: {
+        silentMutationAvailable: hasSilentOption,
+        silentMutationCount: scoredCandidates.length,
+        bestSilentMutation: scoredCandidates[0] || null,
+        requiresJunction: !hasSilentOption,
+      },
+    };
+  });
 
   // Check alternative enzymes
   const alternativeEnzymes = recommendAlternativeEnzymes(sequence, enzyme);
   const compatibleAlternatives = alternativeEnzymes.filter(e => e.isCompatible && !e.isCurrent);
 
   // Determine recommended strategy
+  const allSilentAvailable = siteAnalyses.every(s => s.analysis.silentMutationAvailable);
+  const someSilentAvailable = siteAnalyses.some(s => s.analysis.silentMutationAvailable);
+
   let recommendedStrategy = 'mutagenic_junction';
-  if (compatibleAlternatives.length > 0) {
+  if (allSilentAvailable) {
+    recommendedStrategy = 'silent_mutation';
+  } else if (compatibleAlternatives.length > 0) {
     recommendedStrategy = 'alternative_enzyme';
+  } else if (someSilentAvailable) {
+    recommendedStrategy = 'hybrid';
   }
 
   return {
@@ -547,8 +583,8 @@ export function analyzeSequenceForDomestication(
     compatibleAlternatives,
     recommendedStrategy,
     summary: {
-      silentMutationSites: 0,
-      junctionRequiredSites: siteAnalyses.length,
+      silentMutationSites: siteAnalyses.filter(s => s.analysis.silentMutationAvailable).length,
+      junctionRequiredSites: siteAnalyses.filter(s => s.analysis.requiresJunction).length,
       totalSites: internalSites.count,
     },
   };
@@ -580,7 +616,29 @@ export function selectAndExecuteStrategy(
     analysisResult,
   } = options;
 
-  const { recommendedStrategy } = analysisResult;
+  const { recommendedStrategy, siteAnalyses, sites } = analysisResult;
+
+  // Strategy 1: All sites can use silent mutations
+  if (recommendedStrategy === 'silent_mutation' && isCodingSequence) {
+    const silentResult = domesticateWithSilentMutations(sequence, enzyme, {
+      frame,
+      isCodingSequence: true,
+      organism: organism as 'ecoli' | 'yeast' | undefined,
+      allowJunctionFallback: false,
+    });
+
+    if (silentResult.success && (!silentResult.failedSites || silentResult.failedSites.length === 0)) {
+      return {
+        success: true,
+        strategy: 'silent_mutation',
+        domesticatedSequence: silentResult.domesticatedSequence,
+        mutations: silentResult.mutations,
+        additionalFragments: 0,
+        onePotCompatible: true,
+        message: `Applied ${silentResult.mutations.length} silent mutation(s)`,
+      };
+    }
+  }
 
   // Strategy 2: Alternative enzyme available
   if (recommendedStrategy === 'alternative_enzyme') {
@@ -597,15 +655,71 @@ export function selectAndExecuteStrategy(
     };
   }
 
-  // Strategy 4: Mutagenic junctions for all sites - placeholder
-  // This would call designAllEnhancedJunctions when available
+  // Strategy 3: Hybrid (some silent, some junction)
+  if (recommendedStrategy === 'hybrid' && isCodingSequence) {
+    // First apply silent mutations where possible
+    const silentResult = domesticateWithSilentMutations(sequence, enzyme, {
+      frame,
+      isCodingSequence: true,
+      organism: organism as 'ecoli' | 'yeast' | undefined,
+      allowJunctionFallback: false,
+    });
+
+    const partiallyDomesticated = silentResult.domesticatedSequence;
+    const remainingSites = findInternalSites(partiallyDomesticated, enzyme);
+
+    if (remainingSites.hasSites) {
+      // Design junctions for remaining sites
+      const junctionResult = designAllEnhancedJunctions(partiallyDomesticated, enzyme, {
+        frame,
+        organism,
+        existingOverhangs,
+      });
+
+      return {
+        success: junctionResult.success || junctionResult.junctions.length > 0,
+        strategy: 'hybrid',
+        domesticatedSequence: partiallyDomesticated,
+        mutations: silentResult.mutations,
+        junctions: junctionResult.junctions,
+        failedSites: junctionResult.failedSites,
+        additionalFragments: junctionResult.junctions.length,
+        fidelity: junctionResult.fidelity,
+        onePotCompatible: true,
+        message: `${silentResult.mutations.length} silent mutation(s), ${junctionResult.junctions.length} junction(s)`,
+      };
+    }
+
+    return {
+      success: true,
+      strategy: 'silent_mutation',
+      domesticatedSequence: partiallyDomesticated,
+      mutations: silentResult.mutations,
+      additionalFragments: 0,
+      onePotCompatible: true,
+      message: `Applied ${silentResult.mutations.length} silent mutation(s)`,
+    };
+  }
+
+  // Strategy 4: Mutagenic junctions for all sites
+  const junctionResult = designAllEnhancedJunctions(sequence, enzyme, {
+    frame,
+    organism,
+    existingOverhangs,
+    optimizeGlobalFidelity: true,
+  });
+
   return {
-    success: false,
+    success: junctionResult.success || junctionResult.junctions.length > 0,
     strategy: 'mutagenic_junction',
     domesticatedSequence: sequence,
-    additionalFragments: 0,
+    junctions: junctionResult.junctions,
+    failedSites: junctionResult.failedSites,
+    additionalFragments: junctionResult.junctions.length,
+    allOverhangs: junctionResult.allOverhangs,
+    fidelity: junctionResult.fidelity,
     onePotCompatible: true,
-    message: 'Mutagenic junction strategy not yet implemented',
+    message: `Designed ${junctionResult.junctions.length} mutagenic junction(s)`,
   };
 }
 

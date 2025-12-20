@@ -60,7 +60,13 @@ function designGoldenGatePrimers(targetSeq: string, leftOverhang: string, rightO
   // Get enzyme info
   const enzymeInfo = GOLDEN_GATE_ENZYMES[enzyme] || GOLDEN_GATE_ENZYMES['BsaI'];
   const recognitionSite = enzymeInfo?.recognition || 'GGTCTC';
+  const recognitionSiteRC = reverseComplement(enzymeInfo?.recognition || 'GGTCTC');
   const defaultFlanking = 'GG';
+
+  // Use optimal spacers from NEB research (enzyme-specific)
+  const spacerInfo = OPTIMAL_SPACERS[enzyme] || { forward: 'A', reverse: 'T' };
+  const spacer = spacerInfo.forward;
+  const spacerRC = spacerInfo.reverse;
 
   // Calculate optimal homology length for target Tm
   // Start with minHomology and extend until we reach target Tm
@@ -88,14 +94,14 @@ function designGoldenGatePrimers(targetSeq: string, leftOverhang: string, rightO
     revHomology = reverseComplement(targetSeq.slice(-revHomologyLen)).toUpperCase();
   }
 
-  // Build forward primer: extra + enzyme + overhang + homology
+  // Build forward primer: extra + enzyme + spacer + overhang + homology
   // For Type IIS enzymes, the cut is outside the recognition site
-  const fwdSequence = defaultFlanking + recognitionSite + 'N' + leftOverhang.toUpperCase() + fwdHomology;
+  const fwdSequence = defaultFlanking + recognitionSite + spacer + leftOverhang.toUpperCase() + fwdHomology;
   const fwdGC = ((fwdHomology.match(/[GC]/gi) || []).length / fwdHomology.length) * 100;
   const fwdTm = calcHomologyTm(fwdHomology);
 
-  // Build reverse primer: extra + enzyme + overhang + homology (rev comp)
-  const revSequence = defaultFlanking + recognitionSite + 'N' + reverseComplement(rightOverhang).toUpperCase() + revHomology;
+  // Build reverse primer: extra + enzyme + spacer + overhang + homology (rev comp)
+  const revSequence = defaultFlanking + recognitionSiteRC + spacerRC + reverseComplement(rightOverhang).toUpperCase() + revHomology;
   const revGC = ((revHomology.match(/[GC]/gi) || []).length / revHomology.length) * 100;
   const revTm = calcHomologyTm(revHomology);
 
@@ -113,7 +119,8 @@ function designGoldenGatePrimers(targetSeq: string, leftOverhang: string, rightO
       structure: {
         extra: defaultFlanking,
         enzyme: recognitionSite,
-        spacer: 'N',
+        recognitionSite: recognitionSite,
+        spacer: spacer,
         overhang: leftOverhang.toUpperCase(),
         homology: fwdHomology,
       },
@@ -125,8 +132,9 @@ function designGoldenGatePrimers(targetSeq: string, leftOverhang: string, rightO
       gc: revGC,
       structure: {
         extra: defaultFlanking,
-        enzyme: recognitionSite,
-        spacer: 'N',
+        enzyme: recognitionSiteRC,
+        recognitionSite: recognitionSiteRC,
+        spacer: spacerRC,
         overhang: reverseComplement(rightOverhang).toUpperCase(),
         homology: revHomology,
       },
