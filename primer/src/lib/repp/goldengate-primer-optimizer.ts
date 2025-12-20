@@ -26,7 +26,8 @@ import {
   calculateExperimentalFidelity,
   findOptimalOverhangSet,
   getOptimalOverhangSetExperimental,
-} from './goldengate.ts';
+  findInternalSites,
+} from './goldengate.js';
 import { calculateHairpinDG, calculateHomodimerDG, calculateHeterodimerDG } from '../equilibrium.js';
 import { calculate3primeTerminalDG } from '../tmQ5.js';
 import {
@@ -45,13 +46,99 @@ import {
 } from '../scoring.js';
 import { DEFAULT_WEIGHTS } from '../weightCalibration.js';
 
-// Stub functions for missing imports from goldengate.ts
-function designGoldenGatePrimers(targetSeq: string, leftOverhang: string, rightOverhang: string, options: any): any {
-  return { forward: { structure: {} }, reverse: { structure: {} }, warnings: [] };
-}
+/**
+ * Design Golden Gate primers for a target sequence
+ * @param targetSeq - Target sequence to amplify
+ * @param leftOverhang - 4bp left overhang
+ * @param rightOverhang - 4bp right overhang
+ * @param options - Design options including enzyme
+ * @returns Primer pair with structure information
+ */
+function designGoldenGatePrimers(targetSeq: string, leftOverhang: string, rightOverhang: string, options: any = {}): any {
+  const { enzyme = 'BsaI', minHomology = 18, maxHomology = 25, targetTm = 60 } = options;
 
-function findInternalSites(seq: string, enzyme: string): any {
-  return { hasSites: false, sites: [] };
+  // Get enzyme info
+  const enzymeInfo = GOLDEN_GATE_ENZYMES[enzyme] || GOLDEN_GATE_ENZYMES['BsaI'];
+  const recognitionSite = enzymeInfo?.recognition || 'GGTCTC';
+  const defaultFlanking = 'GG';
+
+  // Calculate optimal homology length for target Tm
+  // Start with minHomology and extend until we reach target Tm
+  const calcHomologyTm = (seq: string): number => {
+    const gc = (seq.match(/[GC]/gi) || []).length / seq.length;
+    // Simple Tm calculation: 4*(G+C) + 2*(A+T)
+    const at = seq.length - (seq.match(/[GC]/gi) || []).length;
+    const gcCount = (seq.match(/[GC]/gi) || []).length;
+    return 4 * gcCount + 2 * at;
+  };
+
+  // Forward primer homology (from start of target)
+  let fwdHomologyLen = minHomology;
+  let fwdHomology = targetSeq.slice(0, fwdHomologyLen).toUpperCase();
+  while (fwdHomologyLen < maxHomology && calcHomologyTm(fwdHomology) < targetTm - 5) {
+    fwdHomologyLen++;
+    fwdHomology = targetSeq.slice(0, fwdHomologyLen).toUpperCase();
+  }
+
+  // Reverse primer homology (from end of target, reverse complemented)
+  let revHomologyLen = minHomology;
+  let revHomology = reverseComplement(targetSeq.slice(-revHomologyLen)).toUpperCase();
+  while (revHomologyLen < maxHomology && calcHomologyTm(revHomology) < targetTm - 5) {
+    revHomologyLen++;
+    revHomology = reverseComplement(targetSeq.slice(-revHomologyLen)).toUpperCase();
+  }
+
+  // Build forward primer: extra + enzyme + overhang + homology
+  // For Type IIS enzymes, the cut is outside the recognition site
+  const fwdSequence = defaultFlanking + recognitionSite + 'N' + leftOverhang.toUpperCase() + fwdHomology;
+  const fwdGC = ((fwdHomology.match(/[GC]/gi) || []).length / fwdHomology.length) * 100;
+  const fwdTm = calcHomologyTm(fwdHomology);
+
+  // Build reverse primer: extra + enzyme + overhang + homology (rev comp)
+  const revSequence = defaultFlanking + recognitionSite + 'N' + reverseComplement(rightOverhang).toUpperCase() + revHomology;
+  const revGC = ((revHomology.match(/[GC]/gi) || []).length / revHomology.length) * 100;
+  const revTm = calcHomologyTm(revHomology);
+
+  const warnings: string[] = [];
+  if (Math.abs(fwdTm - revTm) > 5) {
+    warnings.push(`Tm difference (${Math.abs(fwdTm - revTm).toFixed(1)}°C) exceeds 5°C`);
+  }
+
+  return {
+    forward: {
+      sequence: fwdSequence,
+      length: fwdSequence.length,
+      tm: fwdTm,
+      gc: fwdGC,
+      structure: {
+        extra: defaultFlanking,
+        enzyme: recognitionSite,
+        spacer: 'N',
+        overhang: leftOverhang.toUpperCase(),
+        homology: fwdHomology,
+      },
+    },
+    reverse: {
+      sequence: revSequence,
+      length: revSequence.length,
+      tm: revTm,
+      gc: revGC,
+      structure: {
+        extra: defaultFlanking,
+        enzyme: recognitionSite,
+        spacer: 'N',
+        overhang: reverseComplement(rightOverhang).toUpperCase(),
+        homology: revHomology,
+      },
+    },
+    warnings,
+    pcr: {
+      annealingTemp: Math.round(Math.min(fwdTm, revTm) - 5),
+      extensionTime: Math.ceil(targetSeq.length / 1000) * 30,
+      tmDifference: Math.abs(fwdTm - revTm),
+    },
+    fidelity: null,
+  };
 }
 
 function suggestDomestication(seq: string, enzyme: string): any {
