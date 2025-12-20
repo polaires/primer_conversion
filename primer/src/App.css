@@ -9984,7 +9984,7 @@ body {
 .view-btn:hover { border-color: var(--primary-color); color: var(--primary-color); }
 .view-btn.active { background: var(--primary-color); border-color: var(--primary-color); color: white; }
 
-.seqviz-container { background: white; }
+.seqviz-container { background: white; min-height: 400px; height: 450px; }
 
 .parts-legend-bar { display: flex; flex-wrap: wrap; gap: 0.75rem; padding: 0.75rem 1rem; background: var(--bg-color); border-top: 1px solid var(--border-color); }
 .legend-chip { display: flex; align-items: center; gap: 0.35rem; font-size: 0.7rem; }

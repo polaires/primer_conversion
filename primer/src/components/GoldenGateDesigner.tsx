@@ -50,7 +50,9 @@ import IsothermalAssemblyPanel from './IsothermalAssemblyPanel';
 import {
   findOptimalOverhangSet,
   getLigationFrequency,
+  getEnzymeLigationData,
 } from '../lib/repp/goldengate.js';
+import { reverseComplement } from '../lib/repp/enzymes.js';
 
 import { designAllMutagenicJunctions } from '../lib/repp/mutagenic-junction-domesticator.js';
 
@@ -104,41 +106,67 @@ function generateCrossLigationHeatmap(overhangs: string[], enzyme: string = 'Bsa
   }
 
   try {
+    const enzymeData = getEnzymeLigationData(enzyme);
+    if (!enzymeData) {
+      return {
+        overhangs,
+        matrix: [],
+        normalizedMatrix: [],
+        rowStats: [],
+        hotspots: [],
+        stats: { overallFidelity: 0, overallFidelityPercent: '0%' },
+        visualization: {},
+        error: `No ligation data for enzyme ${enzyme}`
+      };
+    }
+
+    const ligMatrix = enzymeData.matrix;
     const n = overhangs.length;
     const matrix: number[][] = [];
     const normalizedMatrix: number[][] = [];
     const rowStats: { overhang: string; correctLigation: number; totalCrossLigation: number; worstCross: number }[] = [];
     const hotspots: { row: number; col: number; source: string; target: string; ratio: number; ratioPercent: string; severity: 'high' | 'medium' | 'low' }[] = [];
 
-    // Build matrix
+    // Build matrix using proper ratio calculations
     for (let i = 0; i < n; i++) {
       const row: number[] = [];
       const normalizedRow: number[] = [];
-      let correctLigation = 0;
-      let totalCross = 0;
-      let worstCross = 0;
+      const oh1 = overhangs[i].toUpperCase();
+      const wc1 = reverseComplement(oh1);
+
+      // Correct ligation frequency: oh1 ligating with its Watson-Crick complement
+      const correctFreq = ligMatrix[oh1]?.[wc1] || 0;
+      let totalCrossRatio = 0;
+      let worstCrossRatio = 0;
 
       for (let j = 0; j < n; j++) {
-        const frequency = i === j ? 1.0 : getLigationFrequency(overhangs[i], overhangs[j], enzyme);
-        row.push(frequency);
+        const oh2 = overhangs[j].toUpperCase();
+        const wc2 = reverseComplement(oh2);
 
         if (i === j) {
-          correctLigation = frequency;
+          // Diagonal: correct ligation = 100% (ratio = 1.0)
+          row.push(1.0);
           normalizedRow.push(1.0);
         } else {
-          totalCross += frequency;
-          worstCross = Math.max(worstCross, frequency);
-          // Normalize relative to diagonal
-          normalizedRow.push(frequency);
+          // Off-diagonal: cross-ligation risk
+          // Cross-ligation frequency: oh1 ligating with oh2's Watson-Crick complement
+          const crossFreq = ligMatrix[oh1]?.[wc2] || 0;
 
-          // Track hotspots (significant cross-ligation)
-          if (frequency > 0.05) {
-            const ratio = frequency;
+          // Calculate ratio (0-1 scale) - this is the cross-ligation risk relative to correct ligation
+          const ratio = correctFreq > 0 ? crossFreq / correctFreq : 0;
+          row.push(ratio);
+          normalizedRow.push(ratio);
+
+          totalCrossRatio += ratio;
+          worstCrossRatio = Math.max(worstCrossRatio, ratio);
+
+          // Track hotspots (significant cross-ligation risk > 5%)
+          if (ratio > 0.05) {
             hotspots.push({
               row: i,
               col: j,
-              source: overhangs[i],
-              target: overhangs[j],
+              source: oh1,
+              target: oh2,
               ratio,
               ratioPercent: `${(ratio * 100).toFixed(1)}%`,
               severity: ratio > 0.2 ? 'high' : ratio > 0.1 ? 'medium' : 'low'
@@ -149,14 +177,15 @@ function generateCrossLigationHeatmap(overhangs: string[], enzyme: string = 'Bsa
       matrix.push(row);
       normalizedMatrix.push(normalizedRow);
       rowStats.push({
-        overhang: overhangs[i],
-        correctLigation,
-        totalCrossLigation: totalCross,
-        worstCross
+        overhang: oh1,
+        correctLigation: 1.0, // Correct ligation is always 100% for the diagonal
+        totalCrossLigation: totalCrossRatio,
+        worstCross: worstCrossRatio
       });
     }
 
     // Calculate overall fidelity (average of diagonal / sum of row)
+    // For a good set, each row sum should be close to 1.0 (only diagonal has significant value)
     let totalFidelity = 0;
     for (let i = 0; i < n; i++) {
       const rowSum = matrix[i].reduce((a, b) => a + b, 0);
@@ -2744,6 +2773,7 @@ function AssemblyViewer({ result }: { result: any }) {
           showIndex={true}
           zoom={{ linear: 25 }}
           rotateOnScroll={false}
+          style={{ height: '100%', width: '100%' }}
         />
       </div>
       <div className="parts-legend-bar">
