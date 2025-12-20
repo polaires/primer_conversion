@@ -2020,8 +2020,9 @@ function designBackToBackPrimers(
         const usedRescueMode = fwdIsRescue || revIsRescue;
 
         // Calculate dG for both primers (hairpin/secondary structure stability)
-        const fwdDg = dg(fwd.sequence, 37);
-        const revDg = dg(revSeq, 37);
+        // Use 55°C (PCR annealing temperature) for consistency with analyzePrimers()
+        const fwdDg = dg(fwd.sequence, 55);
+        const revDg = dg(revSeq, 55);
 
         const candidateEntry: CandidatePair = {
           forward: {
@@ -2105,7 +2106,8 @@ function designOverlappingPrimers(
       const fwdTm = calculateTmQ5(fwdSeq);
       const revTm = calculateTmQ5(revSeq);
       const fwdGc = calculateGC(fwdSeq);
-      const fwdDg = dg(fwdSeq, 37);
+      // Use 55°C (PCR annealing temperature) for consistency with analyzePrimers()
+      const fwdDg = dg(fwdSeq, 55);
 
       let penalty = 0;
 
@@ -2144,7 +2146,7 @@ function designOverlappingPrimers(
           tm: revTm,
           gc: calculateGC(revSeq),
           gcPercent: (calculateGC(revSeq) * 100).toFixed(1) + '%',
-          dg: dg(revSeq, 37),
+          dg: dg(revSeq, 55),  // Use 55°C for consistency with analyzePrimers()
           hasGCClamp: revHasClamp,
           // Overlapping design: reverse primer has same position as forward (they're complementary)
           start: fwdStart,

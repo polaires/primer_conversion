@@ -15,6 +15,7 @@ import {
   DIMER_THRESHOLDS,  // Evidence-based thresholds (IDT, Premier Biosoft)
 } from '../lib/index.js';
 import { identifyBadges } from '../lib/diversitySelection.js';
+import { dg as calculateDG } from '../lib/fold.js';
 import { getTmDiffColorClass, TM_DIFF_THRESHOLDS } from '../lib/primerAlternativesUtils.js';
 import {
   COMMON_VECTORS,
@@ -52,6 +53,7 @@ interface PrimerData {
   length?: number;
   start?: number;
   end?: number;
+  dg?: number;           // Folding dG at annealing temperature
   terminal3DG?: number;
   hairpinDG?: number;
   selfDimerDG?: number;
@@ -677,6 +679,14 @@ export default function UnifiedPrimerDesigner() {
 
   // Helper to process design result and add metadata
   const processDesignResult = useCallback((result: DesignResult): DesignResult => {
+    // Check for design errors
+    if ((result as any).error) {
+      throw new Error((result as any).error);
+    }
+    if (!result.forward?.sequence || !result.reverse?.sequence) {
+      throw new Error('No suitable primers could be designed for this sequence/mutation');
+    }
+
     // Add GC clamp info
     if (result.forward?.sequence) {
       const fwdLast = result.forward.sequence[result.forward.sequence.length - 1];
@@ -693,6 +703,16 @@ export default function UnifiedPrimerDesigner() {
     if (result.forward?.tm && result.reverse?.tm) {
       result.tmDifference = Math.abs(result.forward.tm - result.reverse.tm);
       result.annealingTemp = Math.round(Math.min(Math.min(result.forward.tm, result.reverse.tm) + 1, 72));
+
+      // Recalculate dG at actual annealing temperature for accuracy
+      // dG is temperature-dependent: ΔG = ΔH - T×ΔS
+      const annealingTemp = result.annealingTemp;
+      if (result.forward.sequence) {
+        result.forward.dg = calculateDG(result.forward.sequence, annealingTemp);
+      }
+      if (result.reverse.sequence) {
+        result.reverse.dg = calculateDG(result.reverse.sequence, annealingTemp);
+      }
     }
 
     return result;
