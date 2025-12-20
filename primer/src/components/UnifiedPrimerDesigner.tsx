@@ -2414,8 +2414,9 @@ export default function UnifiedPrimerDesigner() {
               )}
 
               {/* Alternative Primers for PCR Amplification and Mutagenesis (using unified AlternativesPanel) */}
+              {/* Note: Back-to-back alternatives are shown in the section above, so exclude them here */}
               {((results.type === 'amplification' && results.alternativePrimers && results.alternativePrimers.length > 0) ||
-                (results.type !== 'amplification' && results.alternateDesigns && results.alternateDesigns.length > 0)) && (
+                (results.type !== 'amplification' && results.design !== 'back-to-back' && results.alternateDesigns && results.alternateDesigns.length > 0)) && (
                 <div id="section-alternates" className="alternate-designs collapsible-section">
                   <button
                     type="button"

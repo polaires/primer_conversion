@@ -29,6 +29,7 @@ import {
   selectOptimalCodon,
   MUTAGENESIS_DEFAULTS,
   MUTATION_TYPES,
+  analyzePrimerPair,
 } from './mutagenesis.js';
 
 // Stub implementations for functions not yet fully implemented
@@ -36,8 +37,6 @@ const designSubstitutionPrimers = (_seq: string, _start: number, _end: number, _
 const CODON_TABLE: any = {};
 const CODON_TO_AA: any = {};
 const AA_NAMES: any = {};
-// Import actual implementation from primerAnalysis
-import { analyzePrimerPairForMutagenesis as analyzePrimerPair } from './primerAnalysis.js';
 import { reverseComplement, expandAmbiguousBases, hasAmbiguousBases, countCombinations } from './sequenceUtils.js';
 import { calculateTmQ5, calculateGC } from './tmQ5.js';
 import { calculateEquilibriumEfficiency } from './equilibrium.js';
