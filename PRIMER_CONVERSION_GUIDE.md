@@ -1950,9 +1950,45 @@ npm run validate
 - `src/styles/seqviz.css` (NEW - SeqViz library styles)
 
 **Remaining Work:**
-- 39 failing tests (mostly edge cases and algorithm-specific tests)
+- ✅ All 637 tests now pass (100% pass rate)
 - Visual regression baseline screenshots (run `npx playwright install chromium` then `npm run test:visual:update`)
-- Optional: Further inline style reduction
+- Optional: Further inline style reduction (508 inline styles remaining)
+
+**Session: 2025-12-20**
+
+10. **IUPAC Code Consolidation**
+    - Consolidated IUPAC code tables between `sequenceUtils.ts` and `enzymes.ts`
+    - Created shared `IUPAC_CODES` export in `sequenceUtils.ts`
+    - Modified `enzymes.ts` to import and derive regex patterns from shared source
+    - Added 'X' as alternative for 'N' (any nucleotide)
+    - Reduces maintenance burden and potential for inconsistencies
+
+**Code Duplication Analysis:**
+
+`reverseComplement` function is defined in 7 different files:
+- `sequenceUtils.ts:387` - main definition (export function)
+- `repp/enzymes.ts:197` - export function
+- `repp/orf-detector.ts:986` - function reverseComplementSequence
+- `repp/assembly.ts:735` - function reverseComplementDNA
+- `offTargetClassification.ts:180` - local function
+- `offTargets.ts:66` - local function
+- `primers.ts:2426` - local function
+
+Recommendation: Consolidate to use single export from `sequenceUtils.ts` (future work)
+
+**Inline Styles Analysis:**
+
+508 inline styles remain across 22 component files:
+- `PrimerStructureViewer.tsx`: 106 occurrences
+- `PrimerOnTemplateViewer.tsx`: 94 occurrences
+- `ScoreBreakdownPopup.tsx`: 50 occurrences
+- `HairpinDiagram.tsx`: 41 occurrences
+- `GoldenGateDesigner.tsx`: 36 occurrences
+
+Most inline styles are:
+1. Dynamic theme-based colors (necessary for runtime theming)
+2. Dynamic dimensions (computed values)
+3. Static colors that could be converted to Tailwind classes
 
 **Known Issues:**
 - `PrimerOnTemplateViewer.tsx` and `PrimerStructureViewer.tsx` may have conflicts when merging to other branches due to extensive TypeScript type additions

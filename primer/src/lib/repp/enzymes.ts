@@ -4,6 +4,24 @@
  * Based on: https://github.com/Lattice-Automation/repp
  */
 
+import { IUPAC_CODES } from '../sequenceUtils';
+
+/**
+ * Convert IUPAC array codes to regex patterns
+ * Derives regex from the shared IUPAC_CODES to avoid duplication
+ */
+function iupacToRegex(bases: string[]): string {
+  if (bases.length === 1) return bases[0];
+  return `[${bases.join('')}]`;
+}
+
+/**
+ * Generate IUPAC regex mapping from shared IUPAC_CODES
+ */
+const IUPAC_REGEX: Record<string, string> = Object.fromEntries(
+  Object.entries(IUPAC_CODES).map(([code, bases]) => [code, iupacToRegex(bases)])
+);
+
 /**
  * Restriction enzyme database
  * Format: "NAME": "RECOGNITION_SEQUENCE"
@@ -122,27 +140,6 @@ export const ENZYMES: Record<string, string> = {
   "TaqI": "T^CG_A",
 };
 
-/**
- * IUPAC ambiguity codes for nucleotides
- */
-const IUPAC_CODES: Record<string, string> = {
-  'A': 'A',
-  'C': 'C',
-  'G': 'G',
-  'T': 'T',
-  'M': '[AC]',
-  'R': '[AG]',
-  'W': '[AT]',
-  'Y': '[CT]',
-  'S': '[CG]',
-  'K': '[GT]',
-  'H': '[ACT]',
-  'D': '[AGT]',
-  'V': '[ACG]',
-  'B': '[CGT]',
-  'N': '[ACGT]',
-  'X': '[ACGT]',
-};
 
 /**
  * Parsed enzyme object
@@ -189,7 +186,7 @@ export function parseEnzyme(name: string, recogSeq: string): ParsedEnzyme {
  * @returns Regex pattern
  */
 export function recogToRegex(recog: string): string {
-  return recog.split('').map(c => IUPAC_CODES[c] || c).join('');
+  return recog.split('').map(c => IUPAC_REGEX[c] || c).join('');
 }
 
 /**

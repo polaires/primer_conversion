@@ -161,6 +161,7 @@ export const IUPAC_CODES: IupacCodes = {
   'H': ['A', 'C', 'T'],   // not G
   'V': ['A', 'C', 'G'],   // not T
   'N': ['A', 'C', 'G', 'T'],
+  'X': ['A', 'C', 'G', 'T'],  // Alternative for N (any nucleotide)
 };
 
 /**
