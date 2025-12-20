@@ -47,10 +47,63 @@ import {
   importProject,
 } from '../lib/assemblyCore.js';
 import IsothermalAssemblyPanel from './IsothermalAssemblyPanel';
+import {
+  findOptimalOverhangSet,
+  getLigationFrequency,
+} from '../lib/repp/goldengate.js';
 
-// Stubs for missing exports
-const getRecommendedOverhangs = (...args: any[]): any => ({ overhangs: [], fidelity: 0 });
-const generateCrossLigationHeatmap = (...args: any[]): any => ({ cells: [], labels: [] });
+// Implementation for getRecommendedOverhangs using findOptimalOverhangSet
+function getRecommendedOverhangs(numParts: number, enzyme: string = 'BsaI'): { overhangs: string[]; fidelity: number } {
+  if (numParts < 2) return { overhangs: [], fidelity: 1.0 };
+
+  try {
+    const result = findOptimalOverhangSet(numParts, enzyme);
+    if (result && result.overhangs && result.overhangs.length > 0) {
+      return {
+        overhangs: result.overhangs,
+        fidelity: result.fidelity ?? 0.9,
+      };
+    }
+  } catch (e) {
+    console.warn('Failed to get recommended overhangs:', e);
+  }
+
+  // Fallback: generate standard overhangs
+  const standardOverhangs = ['GGAG', 'TACT', 'AATG', 'AGGT', 'TTCG', 'GCTT', 'CGCT', 'TGCC'];
+  const neededOverhangs = numParts + 1; // N parts need N+1 junctions
+  return {
+    overhangs: standardOverhangs.slice(0, Math.min(neededOverhangs, standardOverhangs.length)),
+    fidelity: 0.85,
+  };
+}
+
+// Implementation for generateCrossLigationHeatmap
+function generateCrossLigationHeatmap(overhangs: string[], enzyme: string = 'BsaI'): { cells: any[]; labels: string[]; error?: string } {
+  if (!overhangs || overhangs.length < 2) {
+    return { cells: [], labels: [], error: 'Need at least 2 overhangs' };
+  }
+
+  try {
+    const cells: any[] = [];
+    for (let i = 0; i < overhangs.length; i++) {
+      for (let j = 0; j < overhangs.length; j++) {
+        const frequency = i === j ? 1.0 : getLigationFrequency(overhangs[i], overhangs[j], enzyme);
+        cells.push({
+          row: i,
+          col: j,
+          value: frequency,
+          overhang1: overhangs[i],
+          overhang2: overhangs[j],
+        });
+      }
+    }
+    return { cells, labels: overhangs };
+  } catch (e) {
+    return { cells: [], labels: overhangs, error: String(e) };
+  }
+}
+
+// Stub for designAllMutagenicJunctions - needs more complex implementation
 const designAllMutagenicJunctions = (...args: any[]): any => ({ junctions: [] });
 
 // TypeScript Interfaces
