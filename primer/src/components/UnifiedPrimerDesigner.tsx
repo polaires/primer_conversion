@@ -150,7 +150,7 @@ interface EnhancedAnalysis {
     reverse?: {
       offTargetCount?: number;
     };
-  };
+  } | null;
   fwdTmComparison?: any;
 }
 

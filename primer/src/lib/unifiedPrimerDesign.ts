@@ -36,7 +36,8 @@ const designSubstitutionPrimers = (_seq: string, _start: number, _end: number, _
 const CODON_TABLE: any = {};
 const CODON_TO_AA: any = {};
 const AA_NAMES: any = {};
-const analyzePrimerPair = (_fwd: any, _rev: any, _options?: any) => ({} as any);
+// Import actual implementation from primerAnalysis
+import { analyzePrimerPairForMutagenesis as analyzePrimerPair } from './primerAnalysis.js';
 import { reverseComplement, expandAmbiguousBases, hasAmbiguousBases, countCombinations } from './sequenceUtils.js';
 import { calculateTmQ5, calculateGC } from './tmQ5.js';
 import { calculateEquilibriumEfficiency } from './equilibrium.js';
