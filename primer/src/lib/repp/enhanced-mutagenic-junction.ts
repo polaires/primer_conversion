@@ -1534,12 +1534,22 @@ export function designAllEnhancedJunctions(
   }
 
   // Calculate overall assembly fidelity
-  let assemblyFidelity = 1.0;
+  let fidelityResult: any = null;
   if (junctions.length > 0) {
     try {
-      const fidelityResult = calculateExperimentalFidelity(allOverhangs, enzyme);
-      assemblyFidelity = fidelityResult.assemblyFidelity;
+      fidelityResult = calculateExperimentalFidelity(allOverhangs, enzyme);
     } catch (e) {}
+  }
+
+  // Optionally optimize global overhang set
+  let optimizedResult: any = null;
+  if (optimizeGlobalFidelity && junctions.length > 1 && fidelityResult?.assemblyFidelity < 0.95) {
+    optimizedResult = optimizeGlobalOverhangSelection(
+      sequence,
+      internalSites.sites,
+      enzyme,
+      { frame, organism, existingOverhangs }
+    );
   }
 
   return {
@@ -1547,16 +1557,203 @@ export function designAllEnhancedJunctions(
     needsDomestication: true,
     totalSites: internalSites.count,
     sites: internalSites.sites,
-    junctions,
+    junctions: optimizedResult?.junctions || junctions,
     failedSites,
-    allOverhangs,
+    allOverhangs: optimizedResult?.allOverhangs || allOverhangs,
     fidelity: {
-      assembly: assemblyFidelity,
+      assembly: optimizedResult?.assemblyFidelity || fidelityResult?.assemblyFidelity,
       source: 'NEB_experimental',
     },
     additionalFragments: junctions.length,
-    optimized: false,
+    optimized: !!optimizedResult,
     message: generateBatchMessage(junctions, failedSites, internalSites.count),
+  };
+}
+
+/**
+ * Optimize global overhang selection for maximum assembly fidelity
+ */
+function optimizeGlobalOverhangSelection(
+  sequence: string,
+  sites: InternalSite[],
+  enzyme: string,
+  options: { frame: number; organism: string; existingOverhangs: string[] }
+): { junctions: EnhancedJunctionResult[]; allOverhangs: string[]; assemblyFidelity: number } | null {
+  const { frame, organism, existingOverhangs } = options;
+
+  // Get all valid junction positions for each site
+  const siteCandidates = sites.map(site => {
+    const candidates = enumerateJunctionCandidates(
+      sequence,
+      site,
+      enzyme,
+      {
+        searchRadius: ENHANCED_JUNCTION_CONFIG.searchRadius,
+        frame,
+        codonUsage: organism === 'yeast' ? YEAST_CODON_USAGE : ECOLI_CODON_USAGE,
+        existingOverhangs,
+        hasExperimentalData: true,
+      }
+    );
+    return { site, candidates };
+  });
+
+  // Try to find combination with highest overall fidelity
+  // For small number of sites, try exhaustive search
+  if (sites.length <= 4) {
+    return exhaustiveOverhangSearch(siteCandidates, sequence, enzyme, options);
+  }
+
+  // For larger numbers, use greedy approach with backtracking
+  return greedyOverhangSearch(siteCandidates, sequence, enzyme, options);
+}
+
+/**
+ * Exhaustive search for optimal overhang combination (small assemblies)
+ */
+function exhaustiveOverhangSearch(
+  siteCandidates: Array<{ site: InternalSite; candidates: JunctionCandidate[] }>,
+  sequence: string,
+  enzyme: string,
+  options: { existingOverhangs: string[]; frame: number; organism: string }
+): { junctions: EnhancedJunctionResult[]; allOverhangs: string[]; assemblyFidelity: number } | null {
+  const { existingOverhangs, frame, organism } = options;
+
+  // Limit candidates per site for tractability
+  const maxCandidatesPerSite = 10;
+  const limitedCandidates = siteCandidates.map(sc => ({
+    site: sc.site,
+    candidates: sc.candidates.slice(0, maxCandidatesPerSite),
+  }));
+
+  let bestFidelity = 0;
+  let bestCombination: { overhangs: string[]; junctions: Array<{ site: InternalSite; candidate: JunctionCandidate }> } | null = null;
+
+  // Recursive enumeration
+  function enumerate(
+    siteIndex: number,
+    currentOverhangs: string[],
+    currentJunctions: Array<{ site: InternalSite; candidate: JunctionCandidate }>
+  ): void {
+    if (siteIndex >= limitedCandidates.length) {
+      // Evaluate this combination
+      const allOverhangs = [...existingOverhangs, ...currentOverhangs];
+      try {
+        const fidelity = calculateExperimentalFidelity(allOverhangs, enzyme);
+        if (fidelity.assemblyFidelity > bestFidelity) {
+          bestFidelity = fidelity.assemblyFidelity;
+          bestCombination = {
+            overhangs: [...currentOverhangs],
+            junctions: [...currentJunctions],
+          };
+        }
+      } catch (e) {}
+      return;
+    }
+
+    const { candidates, site } = limitedCandidates[siteIndex];
+
+    for (const candidate of candidates) {
+      // Skip if overhang conflicts with existing
+      const hasConflict = currentOverhangs.some(oh =>
+        oh === candidate.overhang ||
+        oh === reverseComplement(candidate.overhang)
+      );
+      if (hasConflict) continue;
+
+      enumerate(
+        siteIndex + 1,
+        [...currentOverhangs, candidate.overhang],
+        [...currentJunctions, { site, candidate }]
+      );
+    }
+  }
+
+  enumerate(0, [], []);
+
+  if (!bestCombination) {
+    return null;
+  }
+
+  // Build full junction designs for best combination
+  const combo = bestCombination as { overhangs: string[]; junctions: Array<{ site: InternalSite; candidate: JunctionCandidate }> };
+  const junctions = combo.junctions.map(({ site, candidate }: { site: InternalSite; candidate: JunctionCandidate }) => {
+    return designEnhancedMutagenicJunction(sequence, site, enzyme, {
+      frame,
+      organism,
+      existingOverhangs: [...existingOverhangs, ...combo.overhangs.filter(oh => oh !== candidate.overhang)],
+    });
+  });
+
+  return {
+    junctions,
+    allOverhangs: [...existingOverhangs, ...combo.overhangs],
+    assemblyFidelity: bestFidelity,
+  };
+}
+
+/**
+ * Greedy search with backtracking (larger assemblies)
+ */
+function greedyOverhangSearch(
+  siteCandidates: Array<{ site: InternalSite; candidates: JunctionCandidate[] }>,
+  sequence: string,
+  enzyme: string,
+  options: { existingOverhangs: string[]; frame: number; organism: string }
+): { junctions: EnhancedJunctionResult[]; allOverhangs: string[]; assemblyFidelity: number } | null {
+  const { existingOverhangs, frame, organism } = options;
+
+  const selectedOverhangs: string[] = [];
+  const selectedJunctions: EnhancedJunctionResult[] = [];
+
+  for (const { site, candidates } of siteCandidates) {
+    // Score each candidate considering already selected overhangs
+    const allExisting = [...existingOverhangs, ...selectedOverhangs];
+
+    let bestCandidate: JunctionCandidate | null = null;
+    let bestFidelity = 0;
+
+    for (const candidate of candidates.slice(0, 20)) {
+      // Skip conflicts
+      const hasConflict = allExisting.some(oh =>
+        oh === candidate.overhang ||
+        oh === reverseComplement(candidate.overhang)
+      );
+      if (hasConflict) continue;
+
+      // Calculate fidelity with this overhang
+      const testOverhangs = [...allExisting, candidate.overhang];
+      try {
+        const fidelity = calculateExperimentalFidelity(testOverhangs, enzyme);
+        if (fidelity.assemblyFidelity > bestFidelity) {
+          bestFidelity = fidelity.assemblyFidelity;
+          bestCandidate = candidate;
+        }
+      } catch (e) {}
+    }
+
+    if (bestCandidate) {
+      selectedOverhangs.push(bestCandidate.overhang);
+
+      const junction = designEnhancedMutagenicJunction(sequence, site, enzyme, {
+        frame,
+        organism,
+        existingOverhangs: allExisting,
+      });
+      selectedJunctions.push(junction);
+    }
+  }
+
+  const allOverhangs = [...existingOverhangs, ...selectedOverhangs];
+  let finalFidelity = 0;
+  try {
+    finalFidelity = calculateExperimentalFidelity(allOverhangs, enzyme).assemblyFidelity;
+  } catch (e) {}
+
+  return {
+    junctions: selectedJunctions,
+    allOverhangs,
+    assemblyFidelity: finalFidelity,
   };
 }
 
