@@ -11,11 +11,11 @@ import {
 } from '../lib/unifiedPrimerDesign.js';
 import {
   checkHeterodimer,
+  compareTmMethods,
   MUTATION_TYPES,
   DIMER_THRESHOLDS,  // Evidence-based thresholds (IDT, Premier Biosoft)
 } from '../lib/index.js';
 import { identifyBadges } from '../lib/diversitySelection.js';
-import { dg as calculateDG } from '../lib/fold.js';
 import { getTmDiffColorClass, TM_DIFF_THRESHOLDS } from '../lib/primerAlternativesUtils.js';
 import {
   COMMON_VECTORS,
@@ -33,9 +33,6 @@ import PrimerOnTemplateViewer from './PrimerOnTemplateViewer.jsx';
 import HairpinDiagram from './HairpinDiagram.jsx';
 import { AlternativesPanel, EnhancedAnalysisSection } from './primers/index.js';
 import ScoreBreakdownPopup from './primers/ScoreBreakdownPopup.jsx';
-
-// Stub for missing export
-const compareTmMethods = (...args: any[]): any => ({});
 
 // Type definitions
 interface SequenceInfo {
@@ -703,16 +700,6 @@ export default function UnifiedPrimerDesigner() {
     if (result.forward?.tm && result.reverse?.tm) {
       result.tmDifference = Math.abs(result.forward.tm - result.reverse.tm);
       result.annealingTemp = Math.round(Math.min(Math.min(result.forward.tm, result.reverse.tm) + 1, 72));
-
-      // Recalculate dG at actual annealing temperature for accuracy
-      // dG is temperature-dependent: ΔG = ΔH - T×ΔS
-      const annealingTemp = result.annealingTemp;
-      if (result.forward.sequence) {
-        result.forward.dg = calculateDG(result.forward.sequence, annealingTemp);
-      }
-      if (result.reverse.sequence) {
-        result.reverse.dg = calculateDG(result.reverse.sequence, annealingTemp);
-      }
     }
 
     return result;
