@@ -21,33 +21,6 @@ import ligationDataRaw from './ligation-data.json';
 // Re-export ligation data for direct access
 export const ligationData = ligationDataRaw;
 
-// Stub implementations for missing functions
-const calculateSetFidelity = (overhangs: string[]): any => ({
-  overhangs,
-  assemblyFidelity: 0.95,
-  assemblyFidelityPercent: '95.0%',
-  junctions: [],
-  warnings: []
-});
-
-// Standard high-fidelity overhangs from Potapov et al. (2018) and Pryor et al. (2020)
-const STANDARD_HIGH_FIDELITY_OVERHANGS = ['GGAG', 'TACT', 'AATG', 'AGGT', 'TTCG', 'GCTT', 'CGCT', 'TGCC', 'ACTA', 'GCAA'];
-
-const getRecommendedOverhangSet = (numParts: number, options?: any): any => {
-  // For N parts, we need N+1 junctions (start, between each part, end)
-  const neededOverhangs = Math.min(numParts + 1, STANDARD_HIGH_FIDELITY_OVERHANGS.length);
-  const selectedOverhangs = STANDARD_HIGH_FIDELITY_OVERHANGS.slice(0, neededOverhangs);
-  return {
-    enzyme: 'BsaI',
-    requestedParts: numParts,
-    actualParts: Math.min(numParts, STANDARD_HIGH_FIDELITY_OVERHANGS.length - 1),
-    overhangs: selectedOverhangs,
-    numJunctions: selectedOverhangs.length,
-    fidelity: 0.90, // Conservative estimate for standard overhangs
-    fidelityPercent: '90.0%',
-    source: 'static'
-  };
-};
 
 /**
  * Ligation data types
@@ -1310,4 +1283,1703 @@ export function findInternalSites(sequence: string, enzymeName: string): Interna
     enzyme: enzymeName
   };
 }
-// export * from './goldengate-legacy.js';
+
+// ==========================================
+// Cross-ligation Heatmap and Analysis Functions
+// ==========================================
+
+/**
+ * Cross-ligation heatmap data structure
+ */
+export interface CrossLigationHeatmapData {
+  enzyme: string;
+  enzymeFullName: string;
+  overhangs: string[];
+  labels: string[];
+  labelsRC: string[];
+  matrix: number[][];
+  normalizedMatrix: number[][];
+  stats: {
+    maxFrequency: number;
+    minFrequency: number;
+    overallFidelity: number;
+    overallFidelityPercent: string;
+  };
+  rowStats: {
+    overhang: string;
+    reverseComplement: string;
+    correctFreq: number;
+    crossLigationSum: number;
+    fidelity: number;
+    fidelityPercent: string;
+  }[];
+  hotspots: {
+    source: string;
+    target: string;
+    targetRC: string;
+    frequency: number;
+    ratio: number;
+    ratioPercent: string;
+    severity: 'high' | 'medium' | 'low';
+    row: number;
+    col: number;
+  }[];
+  hasHotspots: boolean;
+  visualization: {
+    title: string;
+    xAxisLabel: string;
+    yAxisLabel: string;
+    colorScale: {
+      min: number;
+      max: number;
+      colors: string[];
+    };
+    diagonalLabel: string;
+    offDiagonalLabel: string;
+  };
+  error?: string;
+}
+
+/**
+ * Generate cross-ligation heatmap data for visualization
+ */
+export function generateCrossLigationHeatmap(
+  overhangs: string[],
+  enzyme: string = 'BsaI',
+  options: { normalize?: boolean; includeCorrect?: boolean } = {}
+): CrossLigationHeatmapData {
+  const { normalize = true } = options;
+
+  const enzymeData = getEnzymeLigationData(enzyme);
+  if (!enzymeData) {
+    return {
+      error: `No ligation data available for enzyme: ${enzyme}`,
+      enzyme,
+      enzymeFullName: enzyme,
+      overhangs: [],
+      labels: [],
+      labelsRC: [],
+      matrix: [],
+      normalizedMatrix: [],
+      stats: { maxFrequency: 0, minFrequency: 0, overallFidelity: 0, overallFidelityPercent: '0%' },
+      rowStats: [],
+      hotspots: [],
+      hasHotspots: false,
+      visualization: {
+        title: '',
+        xAxisLabel: '',
+        yAxisLabel: '',
+        colorScale: { min: 0, max: 1, colors: [] },
+        diagonalLabel: '',
+        offDiagonalLabel: '',
+      },
+    };
+  }
+
+  const matrix = enzymeData.matrix;
+  const ohList = overhangs.map(oh => oh.toUpperCase());
+
+  const heatmapData: number[][] = [];
+  let maxValue = 0;
+  let minValue = Infinity;
+
+  for (let i = 0; i < ohList.length; i++) {
+    const row: number[] = [];
+    const oh1 = ohList[i];
+
+    for (let j = 0; j < ohList.length; j++) {
+      const oh2 = ohList[j];
+      const rc2 = reverseComplement(oh2);
+      const freq = matrix[oh1]?.[rc2] || 0;
+      row.push(freq);
+      if (freq > maxValue) maxValue = freq;
+      if (freq < minValue && freq > 0) minValue = freq;
+    }
+    heatmapData.push(row);
+  }
+
+  let normalizedData = heatmapData;
+  if (normalize && maxValue > 0) {
+    normalizedData = heatmapData.map(row => row.map(val => val / maxValue));
+  }
+
+  const rowStats = ohList.map((oh, i) => {
+    const row = heatmapData[i];
+    const correctIdx = i;
+    const correctFreq = row[correctIdx];
+    const crossLigationSum = row.reduce((sum, val, j) => (j !== correctIdx ? sum + val : sum), 0);
+    const totalFreq = correctFreq + crossLigationSum;
+    const fidelity = totalFreq > 0 ? correctFreq / totalFreq : 0;
+
+    return {
+      overhang: oh,
+      reverseComplement: reverseComplement(oh),
+      correctFreq,
+      crossLigationSum,
+      fidelity,
+      fidelityPercent: `${(fidelity * 100).toFixed(1)}%`,
+    };
+  });
+
+  const hotspots: CrossLigationHeatmapData['hotspots'] = [];
+  for (let i = 0; i < ohList.length; i++) {
+    for (let j = 0; j < ohList.length; j++) {
+      if (i === j) continue;
+      const freq = heatmapData[i][j];
+      if (freq > 0) {
+        const correctFreq = heatmapData[i][i];
+        const ratio = correctFreq > 0 ? freq / correctFreq : 0;
+        if (ratio >= 0.01) {
+          hotspots.push({
+            source: ohList[i],
+            target: ohList[j],
+            targetRC: reverseComplement(ohList[j]),
+            frequency: freq,
+            ratio,
+            ratioPercent: `${(ratio * 100).toFixed(1)}%`,
+            severity: ratio >= 0.1 ? 'high' : ratio >= 0.05 ? 'medium' : 'low',
+            row: i,
+            col: j,
+          });
+        }
+      }
+    }
+  }
+
+  hotspots.sort((a, b) => b.ratio - a.ratio);
+
+  const overallFidelity = rowStats.reduce((product, stat) => product * stat.fidelity, 1);
+
+  return {
+    enzyme,
+    enzymeFullName: GOLDEN_GATE_ENZYMES[enzyme]?.fullName || enzyme,
+    overhangs: ohList,
+    labels: ohList,
+    labelsRC: ohList.map(oh => reverseComplement(oh)),
+    matrix: heatmapData,
+    normalizedMatrix: normalizedData,
+    stats: {
+      maxFrequency: maxValue,
+      minFrequency: minValue || 0,
+      overallFidelity,
+      overallFidelityPercent: `${(overallFidelity * 100).toFixed(1)}%`,
+    },
+    rowStats,
+    hotspots,
+    hasHotspots: hotspots.length > 0,
+    visualization: {
+      title: `Cross-Ligation Heatmap (${enzyme})`,
+      xAxisLabel: 'Target Overhang (RC)',
+      yAxisLabel: 'Source Overhang',
+      colorScale: {
+        min: 0,
+        max: normalize ? 1 : maxValue,
+        colors: ['#ffffff', '#fee8c8', '#fdbb84', '#e34a33', '#b30000'],
+      },
+      diagonalLabel: 'Correct Ligation',
+      offDiagonalLabel: 'Cross-Ligation',
+    },
+  };
+}
+
+/**
+ * Quality report interface
+ */
+export interface OverhangQualityReport {
+  enzyme: string;
+  overhangs: string[];
+  numJunctions: number;
+  qualityScore: number;
+  qualityGrade: 'A' | 'B' | 'C' | 'D' | 'F';
+  deductions: { reason: string; deduction: number }[];
+  fidelity: ExperimentalFidelityResult;
+  heatmap: CrossLigationHeatmapData;
+  problematicPairs: ProblematicPair[];
+  recommendations: { priority: string; type: string; message: string }[];
+  summary: {
+    assemblyFidelity: string;
+    weakestJunction: JunctionFidelity;
+    crossLigationRisks: number;
+    isPerfect: boolean;
+  };
+}
+
+/**
+ * Generate a summary report of overhang set quality
+ */
+export function generateOverhangQualityReport(overhangs: string[], enzyme: string = 'BsaI'): OverhangQualityReport {
+  const fidelityAnalysis = calculateExperimentalFidelity(overhangs, enzyme);
+  const heatmapData = generateCrossLigationHeatmap(overhangs, enzyme);
+  const problematicPairs = findProblematicPairs(overhangs, enzyme, 0.01);
+
+  let qualityScore = 100;
+  const deductions: { reason: string; deduction: number }[] = [];
+
+  if (fidelityAnalysis.assemblyFidelity < 1.0) {
+    const fidelityDeduction = Math.round((1 - fidelityAnalysis.assemblyFidelity) * 50);
+    qualityScore -= fidelityDeduction;
+    deductions.push({
+      reason: `Assembly fidelity ${fidelityAnalysis.assemblyFidelityPercent}`,
+      deduction: fidelityDeduction,
+    });
+  }
+
+  const highSeverityHotspots = heatmapData.hotspots.filter(h => h.severity === 'high');
+  if (highSeverityHotspots.length > 0) {
+    const hotspotDeduction = Math.min(30, highSeverityHotspots.length * 10);
+    qualityScore -= hotspotDeduction;
+    deductions.push({
+      reason: `${highSeverityHotspots.length} high-severity cross-ligation hotspot(s)`,
+      deduction: hotspotDeduction,
+    });
+  }
+
+  const weakJunctions = fidelityAnalysis.junctions.filter(j => j.fidelity < 0.95);
+  if (weakJunctions.length > 0) {
+    const weakDeduction = Math.min(20, weakJunctions.length * 5);
+    qualityScore -= weakDeduction;
+    deductions.push({
+      reason: `${weakJunctions.length} junction(s) below 95% fidelity`,
+      deduction: weakDeduction,
+    });
+  }
+
+  qualityScore = Math.max(0, qualityScore);
+
+  const recommendations: { priority: string; type: string; message: string }[] = [];
+
+  if (fidelityAnalysis.assemblyFidelity < 0.95) {
+    recommendations.push({
+      priority: 'high',
+      type: 'fidelity',
+      message: 'Consider using findOptimalOverhangSet() to find a higher-fidelity overhang combination',
+    });
+  }
+
+  if (highSeverityHotspots.length > 0) {
+    const worstHotspot = highSeverityHotspots[0];
+    recommendations.push({
+      priority: 'high',
+      type: 'cross-ligation',
+      message: `Replace overhang ${worstHotspot.source} or ${worstHotspot.target} to eliminate ${worstHotspot.ratioPercent} cross-ligation`,
+    });
+  }
+
+  if (weakJunctions.length > 0) {
+    const weakestJunction = fidelityAnalysis.sortedJunctions[0];
+    recommendations.push({
+      priority: 'medium',
+      type: 'junction',
+      message: `Junction ${weakestJunction.overhang} (${weakestJunction.fidelityPercent}) is the weakest link - consider replacing`,
+    });
+  }
+
+  if (qualityScore >= 95) {
+    recommendations.push({
+      priority: 'info',
+      type: 'success',
+      message: 'Excellent overhang set! Expected assembly efficiency is very high.',
+    });
+  }
+
+  const qualityGrade: 'A' | 'B' | 'C' | 'D' | 'F' =
+    qualityScore >= 95 ? 'A' :
+    qualityScore >= 85 ? 'B' :
+    qualityScore >= 70 ? 'C' :
+    qualityScore >= 50 ? 'D' : 'F';
+
+  return {
+    enzyme,
+    overhangs: overhangs.map(o => o.toUpperCase()),
+    numJunctions: overhangs.length,
+    qualityScore,
+    qualityGrade,
+    deductions,
+    fidelity: fidelityAnalysis,
+    heatmap: heatmapData,
+    problematicPairs,
+    recommendations,
+    summary: {
+      assemblyFidelity: fidelityAnalysis.assemblyFidelityPercent,
+      weakestJunction: fidelityAnalysis.lowestFidelity,
+      crossLigationRisks: heatmapData.hotspots.length,
+      isPerfect: fidelityAnalysis.assemblyFidelity >= 0.9999,
+    },
+  };
+}
+
+/**
+ * Get the recommended overhang set for a given number of parts
+ */
+export function getRecommendedOverhangSet(
+  numParts: number,
+  options: { preferMoClo?: boolean; maxFidelity?: boolean } = {}
+): HighFidelitySet {
+  const { preferMoClo = true, maxFidelity = false } = options;
+
+  if (numParts < 2 || numParts > 30) {
+    throw new Error('Golden Gate assembly supports 2-30 parts');
+  }
+
+  if (maxFidelity && numParts <= 20) {
+    return HIGH_FIDELITY_SETS['Set2-20'];
+  }
+
+  if (numParts <= 2) return HIGH_FIDELITY_SETS['2-part'];
+  if (numParts <= 3) return HIGH_FIDELITY_SETS['3-part'];
+  if (numParts <= 4) return HIGH_FIDELITY_SETS['4-part'];
+  if (numParts <= 5) return HIGH_FIDELITY_SETS['5-part'];
+  if (numParts <= 8) return HIGH_FIDELITY_SETS['8-part'];
+  if (numParts <= 12) return HIGH_FIDELITY_SETS['12-part'];
+  if (numParts <= 15 && preferMoClo) return HIGH_FIDELITY_SETS['Set1-15'];
+  if (numParts <= 20) return preferMoClo ? HIGH_FIDELITY_SETS['20-part-L1'] : HIGH_FIDELITY_SETS['Set2-20'];
+  if (numParts <= 25) return HIGH_FIDELITY_SETS['Set3-25'];
+  return HIGH_FIDELITY_SETS['Set4-30'];
+}
+
+/**
+ * Set fidelity analysis result
+ */
+export interface SetFidelityAnalysis {
+  overhangs: { sequence: string; fidelity: number; category: string; note: string }[];
+  overallFidelity: number;
+  overallFidelityPercent: string;
+  lowestFidelity: { overhang: string | null; fidelity: number };
+  warnings: string[];
+  categories: { excellent: number; good: number; medium: number; low: number; avoid: number; unknown: number };
+}
+
+/**
+ * Calculate expected assembly fidelity for a set of overhangs
+ */
+export function calculateSetFidelity(overhangs: string[]): SetFidelityAnalysis {
+  const analysis: SetFidelityAnalysis = {
+    overhangs: [],
+    overallFidelity: 1,
+    overallFidelityPercent: '',
+    lowestFidelity: { overhang: null, fidelity: 1 },
+    warnings: [],
+    categories: { excellent: 0, good: 0, medium: 0, low: 0, avoid: 0, unknown: 0 },
+  };
+
+  for (const oh of overhangs) {
+    const data = OVERHANG_FIDELITY[oh.toUpperCase()];
+    const fidelity = data?.fidelity || 0.85;
+    const category = data?.category || 'unknown';
+
+    analysis.overhangs.push({
+      sequence: oh.toUpperCase(),
+      fidelity,
+      category,
+      note: data?.note || 'Not in database',
+    });
+
+    analysis.overallFidelity *= fidelity;
+    analysis.categories[category as keyof typeof analysis.categories]++;
+
+    if (fidelity < analysis.lowestFidelity.fidelity) {
+      analysis.lowestFidelity = { overhang: oh, fidelity };
+    }
+
+    if (category === 'avoid') {
+      analysis.warnings.push(`${oh}: Problematic overhang - ${data?.note}`);
+    } else if (category === 'low') {
+      analysis.warnings.push(`${oh}: Low fidelity (${(fidelity * 100).toFixed(0)}%) - may need extra screening`);
+    }
+  }
+
+  analysis.overallFidelityPercent = (analysis.overallFidelity * 100).toFixed(1) + '%';
+
+  return analysis;
+}
+
+// ==========================================
+// Part Types and Primer Design
+// ==========================================
+
+/**
+ * Standard part type definitions with their flanking overhangs
+ */
+export const PART_TYPES: Record<string, { left: string | null; right: string | null; name: string; color: string }> = {
+  promoter:   { left: 'A', right: 'B', name: 'Promoter', color: '#ef4444' },
+  rbs:        { left: 'B', right: 'C', name: 'RBS/5\'UTR', color: '#f97316' },
+  cds:        { left: 'C', right: 'D', name: 'CDS', color: '#22c55e' },
+  terminator: { left: 'D', right: 'E', name: 'Terminator', color: '#3b82f6' },
+  backbone:   { left: 'E', right: 'A', name: 'Backbone', color: '#8b5cf6' },
+  custom:     { left: null, right: null, name: 'Custom', color: '#6b7280' },
+  other:      { left: null, right: null, name: 'Other', color: '#6b7280' },
+};
+
+/**
+ * Calculate GC content as percentage
+ */
+function gcContent(seq: string): number {
+  const gc = (seq.match(/[GC]/gi) || []).length;
+  return (gc / seq.length) * 100;
+}
+
+// Primer design constraints
+const PRIMER_MIN_HOMOLOGY = 15;
+const PRIMER_MAX_HOMOLOGY = 30;
+const PRIMER_TARGET_TM = 60;
+const PRIMER_MIN_TM = 55;
+const PRIMER_MAX_TM = 72;
+
+interface HomologyInfo {
+  sequence: string;
+  length: number;
+  tm: number;
+  gc: number;
+  targetTm: number;
+  withinRange: boolean;
+}
+
+/**
+ * Find optimal homology length to achieve target Tm
+ */
+function findOptimalHomology(templateSeq: string, targetTm: number = PRIMER_TARGET_TM, fromEnd: boolean = false): HomologyInfo {
+  const seqUpper = templateSeq.toUpperCase();
+  let bestHomology: string | null = null;
+  let bestTm = 0;
+  let bestDiff = Infinity;
+
+  for (let len = PRIMER_MIN_HOMOLOGY; len <= Math.min(PRIMER_MAX_HOMOLOGY, seqUpper.length); len++) {
+    const homology = fromEnd ? seqUpper.slice(-len) : seqUpper.slice(0, len);
+
+    try {
+      const tm = calculateTmQ5(homology);
+      const diff = Math.abs(tm - targetTm);
+
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        bestHomology = homology;
+        bestTm = tm;
+      }
+
+      if (tm >= targetTm && tm <= PRIMER_MAX_TM) {
+        break;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  if (!bestHomology) {
+    bestHomology = fromEnd ? seqUpper.slice(-PRIMER_MIN_HOMOLOGY) : seqUpper.slice(0, PRIMER_MIN_HOMOLOGY);
+    try {
+      bestTm = calculateTmQ5(bestHomology);
+    } catch {
+      bestTm = 50;
+    }
+  }
+
+  return {
+    sequence: bestHomology,
+    length: bestHomology.length,
+    tm: bestTm,
+    gc: gcContent(bestHomology),
+    targetTm,
+    withinRange: bestTm >= PRIMER_MIN_TM && bestTm <= PRIMER_MAX_TM,
+  };
+}
+
+/**
+ * Golden Gate primer design result
+ */
+export interface GoldenGatePrimerResult {
+  forward: {
+    sequence: string;
+    length: number;
+    tm: number;
+    gc: number;
+    homologyRegion: string;
+    homologyLength: number;
+    overhang: string;
+    structure: {
+      extra: string;
+      flanking: string;
+      bsaISite: string;
+      recognitionSite: string;
+      spacer: string;
+      overhang: string;
+      homology: string;
+    };
+  };
+  reverse: {
+    sequence: string;
+    length: number;
+    tm: number;
+    gc: number;
+    homologyRegion: string;
+    homologyLength: number;
+    overhang: string;
+    structure: {
+      extra: string;
+      flanking: string;
+      bsaISite: string;
+      recognitionSite: string;
+      spacer: string;
+      overhang: string;
+      homology: string;
+    };
+  };
+  pcr: {
+    annealingTemp: number;
+    lowerTm: number;
+    higherTm: number;
+    tmDifference: number;
+    extensionTime: number;
+  };
+  insert: {
+    original: string;
+    length: number;
+    afterDigestion: string;
+  };
+  fidelity: {
+    leftOverhang: OverhangFidelityInfo;
+    rightOverhang: OverhangFidelityInfo;
+    estimated: number;
+  };
+  enzyme: string;
+  warnings: string[];
+}
+
+/**
+ * Design Golden Gate primers to add Type IIS sites and overhangs to a target sequence
+ */
+export function designGoldenGatePrimers(
+  targetSeq: string,
+  leftOverhang: string,
+  rightOverhang: string,
+  options: { enzyme?: string; targetTm?: number; extraBases?: string; useOptimizedFlanking?: boolean } = {}
+): GoldenGatePrimerResult {
+  const {
+    enzyme = 'BsaI',
+    targetTm = PRIMER_TARGET_TM,
+    extraBases,
+    useOptimizedFlanking = true,
+  } = options;
+
+  const enz = GOLDEN_GATE_ENZYMES[enzyme];
+  if (!enz) {
+    throw new Error(`Unknown enzyme: ${enzyme}`);
+  }
+
+  const seqUpper = targetSeq.toUpperCase();
+  const leftOH = leftOverhang.toUpperCase();
+  const rightOH = rightOverhang.toUpperCase();
+
+  const expectedOHLength = enz.overhangLength || 4;
+  if (leftOH.length !== expectedOHLength || rightOH.length !== expectedOHLength) {
+    throw new Error(`Overhangs must be exactly ${expectedOHLength} bases for ${enzyme}`);
+  }
+
+  const fwdHomologyInfo = findOptimalHomology(seqUpper, targetTm, false);
+  const revHomologyInfo = findOptimalHomology(seqUpper, targetTm, true);
+
+  const recognitionSite = enz.recognition;
+  const recognitionSiteRC = reverseComplement(enz.recognition);
+
+  const spacerInfo = OPTIMAL_SPACERS[enzyme] || { forward: 'A', reverse: 'T' };
+  const spacer = spacerInfo.forward;
+  const spacerRC = spacerInfo.reverse;
+  const rightOHrc = reverseComplement(rightOH);
+
+  let flankingBases: string;
+  if (extraBases !== undefined) {
+    flankingBases = extraBases;
+  } else if (useOptimizedFlanking) {
+    const flankingOptions = OPTIMAL_FLANKING_SEQUENCES[enzyme] || OPTIMAL_FLANKING_SEQUENCES.BsaI;
+    flankingBases = flankingOptions.default;
+  } else {
+    flankingBases = 'GG';
+  }
+
+  const fwdPrimer = flankingBases + recognitionSite + spacer + leftOH + fwdHomologyInfo.sequence;
+  const revHomologyRC = reverseComplement(revHomologyInfo.sequence);
+  const revPrimer = flankingBases + recognitionSiteRC + spacerRC + rightOHrc + revHomologyRC;
+
+  const leftFidelity = OVERHANG_FIDELITY[leftOH] || { fidelity: 0.85, note: 'Custom', category: 'unknown' as const };
+  const rightFidelity = OVERHANG_FIDELITY[rightOH] || { fidelity: 0.85, note: 'Custom', category: 'unknown' as const };
+
+  const warnings: string[] = [];
+  if (!fwdHomologyInfo.withinRange) {
+    warnings.push(`Forward primer Tm (${fwdHomologyInfo.tm.toFixed(1)}°C) outside optimal range (${PRIMER_MIN_TM}-${PRIMER_MAX_TM}°C)`);
+  }
+  if (!revHomologyInfo.withinRange) {
+    warnings.push(`Reverse primer Tm (${revHomologyInfo.tm.toFixed(1)}°C) outside optimal range (${PRIMER_MIN_TM}-${PRIMER_MAX_TM}°C)`);
+  }
+  const tmDiff = Math.abs(fwdHomologyInfo.tm - revHomologyInfo.tm);
+  if (tmDiff > 5) {
+    warnings.push(`Primer Tm difference (${tmDiff.toFixed(1)}°C) is large - consider adjusting for better PCR`);
+  }
+
+  const lowerTm = Math.min(fwdHomologyInfo.tm, revHomologyInfo.tm);
+  const higherTm = Math.max(fwdHomologyInfo.tm, revHomologyInfo.tm);
+  const annealingTemp = Math.min(lowerTm + 1, 72);
+
+  return {
+    forward: {
+      sequence: fwdPrimer,
+      length: fwdPrimer.length,
+      tm: fwdHomologyInfo.tm,
+      gc: fwdHomologyInfo.gc,
+      homologyRegion: fwdHomologyInfo.sequence,
+      homologyLength: fwdHomologyInfo.length,
+      overhang: leftOH,
+      structure: {
+        extra: flankingBases,
+        flanking: flankingBases,
+        bsaISite: recognitionSite,
+        recognitionSite,
+        spacer,
+        overhang: leftOH,
+        homology: fwdHomologyInfo.sequence,
+      },
+    },
+    reverse: {
+      sequence: revPrimer,
+      length: revPrimer.length,
+      tm: revHomologyInfo.tm,
+      gc: revHomologyInfo.gc,
+      homologyRegion: revHomologyRC,
+      homologyLength: revHomologyInfo.length,
+      overhang: rightOHrc,
+      structure: {
+        extra: flankingBases,
+        flanking: flankingBases,
+        bsaISite: recognitionSiteRC,
+        recognitionSite: recognitionSiteRC,
+        spacer: spacerRC,
+        overhang: rightOHrc,
+        homology: revHomologyRC,
+      },
+    },
+    pcr: {
+      annealingTemp,
+      lowerTm,
+      higherTm,
+      tmDifference: Math.abs(higherTm - lowerTm),
+      extensionTime: Math.ceil(seqUpper.length / 1000) * 30,
+    },
+    insert: {
+      original: seqUpper,
+      length: seqUpper.length,
+      afterDigestion: leftOH + seqUpper + reverseComplement(rightOHrc),
+    },
+    fidelity: {
+      leftOverhang: leftFidelity,
+      rightOverhang: rightFidelity,
+      estimated: Math.min(leftFidelity.fidelity, rightFidelity.fidelity),
+    },
+    enzyme,
+    warnings,
+  };
+}
+
+// ==========================================
+// Domestication Functions
+// ==========================================
+
+/**
+ * Codon table for synonymous substitutions
+ */
+export const CODON_TABLE: Record<string, string[]> = {
+  F: ['TTT', 'TTC'],
+  L: ['TTA', 'TTG', 'CTT', 'CTC', 'CTA', 'CTG'],
+  I: ['ATT', 'ATC', 'ATA'],
+  M: ['ATG'],
+  V: ['GTT', 'GTC', 'GTA', 'GTG'],
+  S: ['TCT', 'TCC', 'TCA', 'TCG', 'AGT', 'AGC'],
+  P: ['CCT', 'CCC', 'CCA', 'CCG'],
+  T: ['ACT', 'ACC', 'ACA', 'ACG'],
+  A: ['GCT', 'GCC', 'GCA', 'GCG'],
+  Y: ['TAT', 'TAC'],
+  H: ['CAT', 'CAC'],
+  Q: ['CAA', 'CAG'],
+  N: ['AAT', 'AAC'],
+  K: ['AAA', 'AAG'],
+  D: ['GAT', 'GAC'],
+  E: ['GAA', 'GAG'],
+  C: ['TGT', 'TGC'],
+  W: ['TGG'],
+  R: ['CGT', 'CGC', 'CGA', 'CGG', 'AGA', 'AGG'],
+  G: ['GGT', 'GGC', 'GGA', 'GGG'],
+  '*': ['TAA', 'TAG', 'TGA'],
+};
+
+/**
+ * Reverse lookup: codon -> amino acid
+ */
+export const CODON_TO_AA: Record<string, string> = {};
+for (const [aa, codons] of Object.entries(CODON_TABLE)) {
+  for (const codon of codons) {
+    CODON_TO_AA[codon] = aa;
+  }
+}
+
+interface MutationSuggestion {
+  position: number;
+  positionInSite: number;
+  originalBase: string;
+  newBase: string;
+  originalCodon?: string;
+  newCodon?: string;
+  aminoAcid?: string;
+  isSynonymous: boolean;
+  codonStart?: number;
+  note?: string;
+}
+
+/**
+ * Find synonymous mutations that break a restriction site
+ */
+function findSynonymousMutations(
+  sequence: string,
+  site: InternalSite,
+  frame: number,
+  enzyme: string = 'BsaI'
+): MutationSuggestion[] {
+  const mutations: MutationSuggestion[] = [];
+  const recognition = site.sequence;
+  const siteStart = site.position;
+
+  const enz = GOLDEN_GATE_ENZYMES[enzyme];
+  const enzRecognition = enz?.recognition || GOLDEN_GATE_ENZYMES.BsaI.recognition;
+  const enzRecognitionRC = reverseComplement(enzRecognition);
+
+  for (let i = 0; i < recognition.length; i++) {
+    const seqPos = siteStart + i;
+    const originalBase = recognition[i];
+
+    const adjustedPos = seqPos - frame;
+    if (adjustedPos < 0) continue;
+
+    const codonStart = Math.floor(adjustedPos / 3) * 3 + frame;
+    const codonPos = adjustedPos % 3;
+
+    if (codonStart + 3 > sequence.length) continue;
+
+    const originalCodon = sequence.slice(codonStart, codonStart + 3);
+    const originalAA = CODON_TO_AA[originalCodon];
+
+    if (!originalAA) continue;
+
+    for (const newBase of ['A', 'T', 'G', 'C']) {
+      if (newBase === originalBase) continue;
+
+      const newCodon = originalCodon.slice(0, codonPos) + newBase + originalCodon.slice(codonPos + 1);
+      const newAA = CODON_TO_AA[newCodon];
+
+      if (newAA === originalAA) {
+        const newSite = recognition.slice(0, i) + newBase + recognition.slice(i + 1);
+
+        if (newSite !== enzRecognition && newSite !== enzRecognitionRC) {
+          mutations.push({
+            position: seqPos,
+            positionInSite: i,
+            originalBase,
+            newBase,
+            originalCodon,
+            newCodon,
+            aminoAcid: originalAA,
+            isSynonymous: true,
+            codonStart,
+          });
+        }
+      }
+    }
+  }
+
+  mutations.sort((a, b) => {
+    const aScore = Math.abs(a.positionInSite - 2.5);
+    const bScore = Math.abs(b.positionInSite - 2.5);
+    return aScore - bScore;
+  });
+
+  return mutations;
+}
+
+/**
+ * Find any mutation that breaks a restriction site (for non-coding sequences)
+ */
+function findNonCodingMutations(site: InternalSite): MutationSuggestion[] {
+  const mutations: MutationSuggestion[] = [];
+  const recognition = site.sequence;
+
+  for (let i = 0; i < recognition.length; i++) {
+    const originalBase = recognition[i];
+
+    for (const newBase of ['A', 'T', 'G', 'C']) {
+      if (newBase === originalBase) continue;
+
+      mutations.push({
+        position: site.position + i,
+        positionInSite: i,
+        originalBase,
+        newBase,
+        isSynonymous: false,
+        note: 'Non-synonymous mutation (non-coding region)',
+      });
+    }
+  }
+
+  return mutations;
+}
+
+/**
+ * Domestication result interface
+ */
+export interface DomesticationSuggestion {
+  position: number;
+  originalSite: string;
+  orientation: string;
+  mutations: MutationSuggestion[];
+}
+
+export interface DomesticationResult {
+  enzyme: string;
+  needsDomestication: boolean;
+  originalSites?: number;
+  sites: InternalSite[];
+  suggestions: DomesticationSuggestion[];
+  domesticatedSequence: string;
+  success?: boolean;
+  remainingSites?: number;
+}
+
+/**
+ * Suggest silent mutations to remove internal restriction sites
+ */
+export function suggestDomestication(
+  sequence: string,
+  enzyme: string = 'BsaI',
+  options: { isCodingSequence?: boolean; frame?: number } = {}
+): DomesticationResult {
+  const { isCodingSequence = true, frame = 0 } = options;
+
+  const internalSites = findInternalSites(sequence, enzyme);
+
+  if (!internalSites.hasSites) {
+    return {
+      enzyme,
+      needsDomestication: false,
+      sites: [],
+      suggestions: [],
+      domesticatedSequence: sequence,
+    };
+  }
+
+  const seq = sequence.toUpperCase();
+  const suggestions: DomesticationSuggestion[] = [];
+
+  for (const site of internalSites.sites) {
+    const suggestion: DomesticationSuggestion = {
+      position: site.position,
+      originalSite: site.sequence,
+      orientation: site.orientation,
+      mutations: [],
+    };
+
+    if (isCodingSequence) {
+      suggestion.mutations = findSynonymousMutations(seq, site, frame, enzyme);
+    } else {
+      suggestion.mutations = findNonCodingMutations(site);
+    }
+
+    suggestions.push(suggestion);
+  }
+
+  let domesticatedSeq = seq;
+  for (const suggestion of suggestions) {
+    if (suggestion.mutations.length > 0) {
+      const mut = suggestion.mutations[0];
+      domesticatedSeq =
+        domesticatedSeq.slice(0, mut.position) +
+        mut.newBase +
+        domesticatedSeq.slice(mut.position + 1);
+    }
+  }
+
+  const verifyResult = findInternalSites(domesticatedSeq, enzyme);
+
+  return {
+    enzyme,
+    needsDomestication: true,
+    originalSites: internalSites.count,
+    sites: internalSites.sites,
+    suggestions,
+    domesticatedSequence: domesticatedSeq,
+    success: !verifyResult.hasSites,
+    remainingSites: verifyResult.count,
+  };
+}
+
+/**
+ * Compatibility analysis result
+ */
+export interface CompatibilityResult {
+  enzyme: string;
+  isCompatible: boolean;
+  issues: { type: string; severity: string; message: string; details?: unknown; suggestion?: string }[];
+  warnings: { type: string; severity: string; message: string }[];
+  internalSites: InternalSitesResult;
+  alternativeEnzymes: { enzyme: string; fullName: string; recognition: string; hasData: boolean }[];
+  gcContent: number;
+}
+
+/**
+ * Check if a sequence is compatible with Golden Gate assembly
+ */
+export function checkGoldenGateCompatibility(sequence: string, enzyme: string = 'BsaI'): CompatibilityResult {
+  const internalSites = findInternalSites(sequence, enzyme);
+
+  const issues: CompatibilityResult['issues'] = [];
+  const warnings: CompatibilityResult['warnings'] = [];
+
+  if (internalSites.hasSites) {
+    issues.push({
+      type: 'internal_site',
+      severity: 'error',
+      message: `Sequence contains ${internalSites.count} internal ${enzyme} site(s) that will interfere with assembly`,
+      details: internalSites.sites.map(s => ({ position: s.position, orientation: s.orientation })),
+      suggestion: 'Remove sites via synonymous mutations (domestication) or choose a different enzyme',
+    });
+  }
+
+  if (sequence.length < 50) {
+    warnings.push({
+      type: 'short_sequence',
+      severity: 'warning',
+      message: 'Sequence is very short (<50bp). Assembly efficiency may be reduced.',
+    });
+  }
+
+  const gc = gcContent(sequence);
+  if (gc < 30) {
+    warnings.push({
+      type: 'low_gc',
+      severity: 'warning',
+      message: `Low GC content (${gc.toFixed(1)}%) may result in low primer Tm`,
+    });
+  } else if (gc > 70) {
+    warnings.push({
+      type: 'high_gc',
+      severity: 'warning',
+      message: `High GC content (${gc.toFixed(1)}%) may cause secondary structures`,
+    });
+  }
+
+  let alternativeEnzymes: CompatibilityResult['alternativeEnzymes'] = [];
+  if (internalSites.hasSites) {
+    alternativeEnzymes = findAlternativeEnzymes(sequence, enzyme);
+  }
+
+  return {
+    enzyme,
+    isCompatible: issues.length === 0,
+    issues,
+    warnings,
+    internalSites,
+    alternativeEnzymes,
+    gcContent: gc,
+  };
+}
+
+/**
+ * Find alternative enzymes that don't have internal sites in the sequence
+ */
+export function findAlternativeEnzymes(
+  sequence: string,
+  currentEnzyme: string
+): { enzyme: string; fullName: string; recognition: string; hasData: boolean }[] {
+  const alternatives: { enzyme: string; fullName: string; recognition: string; hasData: boolean }[] = [];
+
+  for (const [name, enz] of Object.entries(GOLDEN_GATE_ENZYMES)) {
+    if (name === currentEnzyme) continue;
+
+    const sites = findInternalSites(sequence, name);
+    if (!sites.hasSites) {
+      alternatives.push({
+        enzyme: name,
+        fullName: enz.fullName,
+        recognition: enz.recognition,
+        hasData: !!enz.dataKey,
+      });
+    }
+  }
+
+  alternatives.sort((a, b) => (b.hasData ? 1 : 0) - (a.hasData ? 1 : 0));
+
+  return alternatives;
+}
+
+// ==========================================
+// Golden Gate Assembly Design
+// ==========================================
+
+/**
+ * Part with primer information
+ */
+export interface DesignedPart {
+  id: string;
+  seq: string;
+  type?: string;
+  index: number;
+  leftOverhang: string;
+  rightOverhang: string;
+  primers: GoldenGatePrimerResult;
+}
+
+/**
+ * Assembly protocol step
+ */
+export interface ProtocolStep {
+  step: number;
+  title: string;
+  details: string[];
+}
+
+/**
+ * Assembly protocol
+ */
+export interface AssemblyProtocol {
+  title: string;
+  steps: ProtocolStep[];
+  notes: string[];
+}
+
+/**
+ * Internal site issue
+ */
+export interface InternalSiteIssue {
+  partId: string;
+  sites: InternalSite[];
+  count: number;
+  domestication: DomesticationResult;
+  alternativeEnzymes: { enzyme: string; fullName: string; recognition: string; hasData: boolean }[];
+}
+
+/**
+ * Golden Gate assembly result
+ */
+export interface GoldenGateAssemblyResult {
+  enzyme: string;
+  parts: DesignedPart[];
+  overhangs: string[];
+  circular: boolean;
+  assembledSequence: string;
+  assembledLength: number;
+  fidelity: {
+    individual: { junction: number; overhang: string; fidelity: number; fidelityPercent: string }[];
+    overall: number;
+    percentage: string;
+  };
+  warnings: string[];
+  internalSiteIssues: InternalSiteIssue[];
+  hasInternalSites: boolean;
+  protocol: AssemblyProtocol;
+}
+
+/**
+ * Generate a protocol text for the assembly
+ */
+function generateProtocol(parts: DesignedPart[], enzyme: string): AssemblyProtocol {
+  const totalVolume = 20;
+  const dnaPerPart = 2;
+  const enzymeVol = 2;
+  const bufferVol = 2;
+  const waterVol = totalVolume - parts.length * dnaPerPart - enzymeVol - bufferVol;
+
+  return {
+    title: `Golden Gate Assembly Protocol (${parts.length} parts)`,
+    steps: [
+      {
+        step: 1,
+        title: 'Prepare DNA fragments',
+        details: [
+          'PCR amplify each fragment using the designed primers',
+          'Gel purify or PCR cleanup each product',
+          'Dilute to 75 ng/µL in water or TE buffer',
+        ],
+      },
+      {
+        step: 2,
+        title: 'Setup reaction',
+        details: [
+          `Add ${bufferVol} µL T4 DNA Ligase Buffer (10X)`,
+          ...parts.map(p => `Add ${dnaPerPart} µL ${p.id} (75 ng/µL)`),
+          `Add ${enzymeVol} µL NEB Golden Gate Assembly Mix`,
+          `Add ${waterVol.toFixed(1)} µL nuclease-free water`,
+          `Total volume: ${totalVolume} µL`,
+        ],
+      },
+      {
+        step: 3,
+        title: 'Thermocycler program',
+        details: [
+          '37°C for 60 min (digestion and ligation)',
+          '60°C for 5 min (enzyme inactivation)',
+          '4°C hold',
+        ],
+      },
+      {
+        step: 4,
+        title: 'Transformation',
+        details: [
+          'Transform 2-5 µL into competent E. coli',
+          'Plate on appropriate antibiotic selection',
+          'Incubate overnight at 37°C',
+        ],
+      },
+    ],
+    notes: [
+      `Expected fidelity: ~${parts.length <= 3 ? 95 : parts.length <= 5 ? 90 : 85}% correct assemblies`,
+      'For best results, use high-fidelity BsaI-HFv2',
+      'Avoid internal BsaI sites in your insert sequences',
+    ],
+  };
+}
+
+/**
+ * Design primers for a complete Golden Gate assembly
+ */
+export function designGoldenGateAssembly(
+  parts: { id: string; seq: string; type?: string }[],
+  options: { enzyme?: string; circular?: boolean; useStandardOverhangs?: boolean; customOverhangs?: string[] | null } = {}
+): GoldenGateAssemblyResult {
+  const { enzyme = 'BsaI', circular = true, useStandardOverhangs = true, customOverhangs = null } = options;
+
+  if (parts.length < 2 || parts.length > 5) {
+    throw new Error('Golden Gate assembly requires 2-5 parts');
+  }
+
+  let overhangs: string[];
+
+  if (customOverhangs && customOverhangs.length === parts.length + 1) {
+    overhangs = customOverhangs;
+  } else if (useStandardOverhangs) {
+    const standardSets: Record<number, string[]> = {
+      2: ['GGAG', 'AATG', 'GCTT'],
+      3: ['GGAG', 'TACT', 'AATG', 'GCTT'],
+      4: ['GGAG', 'TACT', 'AATG', 'AGGT', 'GCTT'],
+      5: ['GGAG', 'TACT', 'CCAT', 'AATG', 'AGGT', 'GCTT'],
+    };
+    overhangs = standardSets[parts.length];
+  } else {
+    throw new Error('Must provide customOverhangs or set useStandardOverhangs=true');
+  }
+
+  const designedParts: DesignedPart[] = parts.map((part, i) => {
+    const leftOH = overhangs[i];
+    const rightOH = overhangs[i + 1];
+    const primers = designGoldenGatePrimers(part.seq, leftOH, rightOH, { enzyme });
+
+    return {
+      ...part,
+      index: i + 1,
+      leftOverhang: leftOH,
+      rightOverhang: rightOH,
+      primers,
+    };
+  });
+
+  const experimentalFidelity = calculateExperimentalFidelity(overhangs, enzyme);
+
+  let assembledSeq = '';
+  for (const part of designedParts) {
+    assembledSeq += part.seq;
+  }
+
+  const warnings: string[] = [...experimentalFidelity.warnings];
+  const internalSiteIssues: InternalSiteIssue[] = [];
+
+  for (const part of designedParts) {
+    const siteCheck = findInternalSites(part.seq, enzyme);
+    if (siteCheck.hasSites) {
+      const domestication = suggestDomestication(part.seq, enzyme);
+      const altEnzymes = findAlternativeEnzymes(part.seq, enzyme);
+
+      const issue: InternalSiteIssue = {
+        partId: part.id,
+        sites: siteCheck.sites,
+        count: siteCheck.count,
+        domestication,
+        alternativeEnzymes: altEnzymes,
+      };
+      internalSiteIssues.push(issue);
+
+      let suggestion = '';
+      if (domestication.success && domestication.suggestions.length > 0) {
+        const mut = domestication.suggestions[0].mutations[0];
+        if (mut) {
+          suggestion = ` Suggested fix: ${mut.originalBase}${mut.position + 1}${mut.newBase}`;
+          if (mut.isSynonymous) suggestion += ' (silent mutation)';
+        }
+      } else if (altEnzymes.length > 0) {
+        suggestion = ` Consider using ${altEnzymes[0].enzyme} instead.`;
+      }
+
+      warnings.push(
+        `⚠ Part "${part.id}" contains ${siteCheck.count} internal ${enzyme} site(s) - MUST be removed before assembly.${suggestion}`
+      );
+    }
+
+    if (part.primers.warnings) {
+      for (const w of part.primers.warnings) {
+        warnings.push(`Part "${part.id}": ${w}`);
+      }
+    }
+  }
+
+  return {
+    enzyme,
+    parts: designedParts,
+    overhangs,
+    circular,
+    assembledSequence: assembledSeq,
+    assembledLength: assembledSeq.length,
+    fidelity: {
+      individual: experimentalFidelity.junctions.map((j, i) => ({
+        junction: i,
+        overhang: j.overhang,
+        fidelity: j.fidelity,
+        fidelityPercent: j.fidelityPercent,
+      })),
+      overall: experimentalFidelity.assemblyFidelity,
+      percentage: experimentalFidelity.assemblyFidelityPercent,
+    },
+    warnings,
+    internalSiteIssues,
+    hasInternalSites: internalSiteIssues.length > 0,
+    protocol: generateProtocol(designedParts, enzyme),
+  };
+}
+
+/**
+ * Get recommended overhang set for N parts
+ */
+export function getRecommendedOverhangs(numParts: number): { overhangs: string[]; fidelity: number } {
+  const sets: Record<number, { overhangs: string[]; fidelity: number }> = {
+    2: { overhangs: ['GGAG', 'AATG', 'GCTT'], fidelity: 0.98 },
+    3: { overhangs: ['GGAG', 'TACT', 'AATG', 'GCTT'], fidelity: 0.97 },
+    4: { overhangs: ['GGAG', 'TACT', 'AATG', 'AGGT', 'GCTT'], fidelity: 0.95 },
+    5: { overhangs: ['GGAG', 'TACT', 'CCAT', 'AATG', 'AGGT', 'GCTT'], fidelity: 0.93 },
+  };
+
+  return sets[numParts] || sets[5];
+}
+
+/**
+ * Overhang validation result
+ */
+export interface OverhangValidation {
+  valid: boolean;
+  error?: string;
+  overhang?: string;
+  reverseComplement?: string;
+  fidelity?: number;
+  note?: string;
+  warning?: string | null;
+}
+
+/**
+ * Validate an overhang sequence
+ */
+export function validateOverhang(overhang: string): OverhangValidation {
+  const oh = overhang.toUpperCase();
+
+  if (oh.length !== 4) {
+    return { valid: false, error: 'Overhang must be exactly 4 bases' };
+  }
+
+  if (!/^[ATGC]+$/.test(oh)) {
+    return { valid: false, error: 'Overhang must contain only A, T, G, C' };
+  }
+
+  const rc = reverseComplement(oh);
+  if (oh === rc) {
+    return {
+      valid: false,
+      error: 'Palindromic overhangs should be avoided (can self-ligate)',
+    };
+  }
+
+  const fidelity = OVERHANG_FIDELITY[oh] || { fidelity: 0.85, note: 'Custom' };
+
+  return {
+    valid: true,
+    overhang: oh,
+    reverseComplement: rc,
+    fidelity: fidelity.fidelity,
+    note: fidelity.note,
+    warning: fidelity.fidelity < 0.8 ? 'Low fidelity overhang - may cause misassembly' : null,
+  };
+}
+
+/**
+ * Overhang compatibility result
+ */
+export interface OverhangCompatibility {
+  compatible: boolean;
+  error?: string;
+  overhang?: string;
+  fidelity?: number;
+}
+
+/**
+ * Check compatibility between two adjacent overhangs
+ */
+export function checkOverhangCompatibility(leftPartRightOH: string, rightPartLeftOH: string): OverhangCompatibility {
+  const left = leftPartRightOH.toUpperCase();
+  const right = rightPartLeftOH.toUpperCase();
+
+  if (left !== right) {
+    return {
+      compatible: false,
+      error: `Overhangs don't match: ${left} ≠ ${right}`,
+    };
+  }
+
+  return {
+    compatible: true,
+    overhang: left,
+    fidelity: OVERHANG_FIDELITY[left]?.fidelity || 0.85,
+  };
+}
+
+// ==========================================
+// Legacy Functions for Backward Compatibility
+// ==========================================
+
+/**
+ * Type IIS site found in sequence
+ */
+export interface TypeIISSite {
+  position: number;
+  strand: '+' | '-';
+  enzyme: string;
+  recognition: string;
+}
+
+/**
+ * Find Type IIS restriction sites in a sequence
+ */
+export function findTypeIISSites(seq: string, enzymeName: string): TypeIISSite[] {
+  const enzyme = GOLDEN_GATE_ENZYMES[enzymeName];
+  if (!enzyme) {
+    throw new Error(`Unknown Golden Gate enzyme: ${enzymeName}`);
+  }
+
+  const sites: TypeIISSite[] = [];
+  const recognition = enzyme.recognition.toUpperCase();
+  const recognitionRC = reverseComplement(recognition);
+  const seqUpper = seq.toUpperCase();
+
+  let pos = 0;
+  while ((pos = seqUpper.indexOf(recognition, pos)) !== -1) {
+    sites.push({ position: pos, strand: '+', enzyme: enzymeName, recognition });
+    pos++;
+  }
+
+  pos = 0;
+  while ((pos = seqUpper.indexOf(recognitionRC, pos)) !== -1) {
+    sites.push({ position: pos, strand: '-', enzyme: enzymeName, recognition: recognitionRC });
+    pos++;
+  }
+
+  return sites.sort((a, b) => a.position - b.position);
+}
+
+/**
+ * Fragment from catalysis
+ */
+export interface CatalyzedFragment {
+  seq: string;
+  start: number;
+  end: number;
+  leftOverhang: string;
+  rightOverhang: string;
+  leftOverhangSeq: string;
+  rightOverhangSeq: string;
+}
+
+/**
+ * Catalyze/digest a sequence with Type IIS enzymes
+ */
+export function catalyze(seq: string, enzymes: string[], options: { linear?: boolean } = {}): CatalyzedFragment[] {
+  const seqUpper = seq.toUpperCase();
+
+  const allSites: TypeIISSite[] = [];
+  for (const enzymeName of enzymes) {
+    const sites = findTypeIISSites(seqUpper, enzymeName);
+    allSites.push(...sites);
+  }
+
+  if (allSites.length < 2) {
+    return [];
+  }
+
+  allSites.sort((a, b) => a.position - b.position);
+
+  const cuts = allSites.map(site => {
+    const enzyme = GOLDEN_GATE_ENZYMES[site.enzyme];
+    let cutPos: number;
+    let overhangStart: number;
+
+    if (site.strand === '+') {
+      cutPos = site.position + enzyme.recognition.length + enzyme.cutOffset;
+      overhangStart = cutPos;
+    } else {
+      cutPos = site.position - enzyme.cutOffset;
+      overhangStart = cutPos - enzyme.overhangLength;
+    }
+
+    const overhang = seqUpper.slice(overhangStart, overhangStart + enzyme.overhangLength);
+
+    return {
+      site,
+      cutPos,
+      overhang: site.strand === '+' ? overhang : reverseComplement(overhang),
+      overhangRaw: overhang,
+      strand: site.strand,
+    };
+  });
+
+  cuts.sort((a, b) => a.cutPos - b.cutPos);
+
+  const fragments: CatalyzedFragment[] = [];
+  for (let i = 0; i < cuts.length - 1; i++) {
+    const currentCut = cuts[i];
+    const nextCut = cuts[i + 1];
+
+    const fragSeq = seqUpper.slice(currentCut.cutPos, nextCut.cutPos);
+
+    fragments.push({
+      seq: fragSeq,
+      start: currentCut.cutPos,
+      end: nextCut.cutPos,
+      leftOverhang: currentCut.overhang,
+      rightOverhang: nextCut.overhang,
+      leftOverhangSeq: currentCut.overhangRaw,
+      rightOverhangSeq: nextCut.overhangRaw,
+    });
+  }
+
+  return fragments;
+}
+
+/**
+ * Fusion site identification result
+ */
+export interface FusionSiteIdentification {
+  left: string | null;
+  right: string | null;
+  leftOverhang?: string;
+  rightOverhang?: string;
+  partType?: string;
+}
+
+/**
+ * Identify fusion sites in a part
+ */
+export function identifyFusionSites(
+  part: { seq: string },
+  options: { enzymes?: string[] } = {}
+): FusionSiteIdentification {
+  const { enzymes = ['BsaI'] } = options;
+  const fragments = catalyze(part.seq, enzymes, { linear: true });
+
+  if (fragments.length === 0) {
+    return { left: null, right: null };
+  }
+
+  const leftOH = fragments[0].leftOverhangSeq;
+  const rightOH = fragments[0].rightOverhangSeq;
+
+  let leftSite: string | null = null;
+  let rightSite: string | null = null;
+
+  for (const [code, data] of Object.entries(STANDARD_FUSION_SITES)) {
+    if (leftOH === data.seq) leftSite = code;
+    if (rightOH === data.seq) rightSite = code;
+  }
+
+  return {
+    left: leftSite,
+    right: rightSite,
+    leftOverhang: leftOH,
+    rightOverhang: rightOH,
+    partType: leftSite && rightSite ? `${leftSite}${rightSite}` : 'custom',
+  };
+}
+
+/**
+ * Ordered assembly validation result
+ */
+export interface OrderedAssemblyValidation {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+  partDetails: {
+    id: string;
+    index: number;
+    leftOverhang: string;
+    rightOverhang: string;
+    insertLength: number;
+    sites: number;
+  }[];
+  canCircularize: boolean;
+}
+
+/**
+ * Validate an ordered assembly
+ */
+export function validateOrderedAssembly(
+  parts: { id: string; seq: string }[],
+  options: { enzymes?: string[] } = {}
+): OrderedAssemblyValidation {
+  const { enzymes = ['BsaI'] } = options;
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const partDetails: OrderedAssemblyValidation['partDetails'] = [];
+
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    const sites = findTypeIISSites(part.seq, enzymes[0]);
+
+    if (sites.length === 0) {
+      errors.push(`Part "${part.id}": No ${enzymes.join('/')} sites found`);
+      continue;
+    }
+
+    if (sites.length > 2) {
+      warnings.push(`Part "${part.id}": Has ${sites.length} cut sites (expected 2)`);
+    }
+
+    const fragments = catalyze(part.seq, enzymes, { linear: true });
+
+    if (fragments.length > 0) {
+      partDetails.push({
+        id: part.id,
+        index: i,
+        leftOverhang: fragments[0].leftOverhangSeq,
+        rightOverhang: fragments[0].rightOverhangSeq,
+        insertLength: fragments[0].seq.length,
+        sites: sites.length,
+      });
+    }
+  }
+
+  for (let i = 0; i < partDetails.length - 1; i++) {
+    const current = partDetails[i];
+    const next = partDetails[i + 1];
+
+    if (current.rightOverhang !== next.leftOverhang) {
+      errors.push(
+        `Parts "${current.id}" and "${next.id}": Incompatible overhangs. ` +
+          `${current.id} right: ${current.rightOverhang}, ${next.id} left: ${next.leftOverhang}`
+      );
+    }
+  }
+
+  if (partDetails.length >= 2) {
+    const first = partDetails[0];
+    const last = partDetails[partDetails.length - 1];
+    if (last.rightOverhang !== first.leftOverhang) {
+      errors.push(
+        `Assembly cannot circularize: Last part right overhang (${last.rightOverhang}) ` +
+          `≠ first part left overhang (${first.leftOverhang})`
+      );
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings,
+    partDetails,
+    canCircularize: errors.length === 0,
+  };
+}
+
+/**
+ * Assembly step
+ */
+export interface AssemblyStep {
+  step: number;
+  partId: string;
+  insertSequence: string;
+  insertLength: number;
+  leftOverhang: string;
+  rightOverhang: string;
+  cumulativeLength: number;
+}
+
+/**
+ * Assembled sequence result
+ */
+export interface AssembledSequenceResult {
+  sequence: string;
+  length: number;
+  circular: boolean;
+  steps: AssemblyStep[];
+}
+
+/**
+ * Assemble a sequence from parts
+ */
+export function assembleSequence(
+  parts: { id: string; seq: string }[],
+  options: { enzymes?: string[]; circular?: boolean } = {}
+): AssembledSequenceResult {
+  const { enzymes = ['BsaI'], circular = true } = options;
+
+  let assembled = '';
+  const assemblySteps: AssemblyStep[] = [];
+
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    const fragments = catalyze(part.seq, enzymes, { linear: true });
+
+    if (fragments.length > 0) {
+      const insert = fragments[0];
+      assembled += insert.seq;
+
+      assemblySteps.push({
+        step: i + 1,
+        partId: part.id,
+        insertSequence: insert.seq,
+        insertLength: insert.seq.length,
+        leftOverhang: insert.leftOverhangSeq,
+        rightOverhang: insert.rightOverhangSeq,
+        cumulativeLength: assembled.length,
+      });
+    }
+  }
+
+  return {
+    sequence: assembled,
+    length: assembled.length,
+    circular,
+    steps: assemblySteps,
+  };
+}
+
+// Stub exports for backward compatibility
+export const calculateOverhang = (_seq: string, _site: unknown): null => null;
+export const findSimpleCycles = (_graph: unknown): unknown[] => [];
+export const planGoldenGate = (parts: { id: string; seq: string; type?: string }[], options?: unknown): GoldenGateAssemblyResult =>
+  designGoldenGateAssembly(parts, options as Parameters<typeof designGoldenGateAssembly>[1]);
+export const getStandardOverhang = (code: string): string | null => STANDARD_FUSION_SITES[code]?.seq || null;
+
+// Re-export overhang optimizer functions
+export {
+  optimizeOverhangSet,
+  evaluateOverhangSet,
+  optimizeOverhangSetMultiRun,
+  batchScoreRandomSets,
+  calculateLigationFidelity,
+  getAllOverhangs,
+  filterOverhangs,
+} from './overhang-optimizer.js';
