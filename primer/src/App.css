@@ -9961,14 +9961,21 @@ body {
   color: #374151;
 }
 
-.protocol-panel { padding: 1rem; }
-.protocol-panel h4 { margin: 0 0 0.75rem; font-size: 0.95rem; }
-.protocol-steps { margin: 0; padding-left: 1.25rem; font-size: 0.85rem; }
-.protocol-steps li { margin-bottom: 0.75rem; }
-.protocol-steps li ul { margin: 0.25rem 0 0; padding-left: 1rem; font-size: 0.8rem; }
-.protocol-notes { margin-top: 1rem; padding: 0.75rem; background: rgba(59,130,246,0.08); border-radius: 6px; }
-.protocol-notes h5 { margin: 0 0 0.5rem; font-size: 0.8rem; }
-.protocol-notes ul { margin: 0; padding-left: 1rem; font-size: 0.75rem; }
+.protocol-panel { padding: 1.25rem; background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%); border-radius: 8px; }
+.protocol-panel h4 { margin: 0 0 1rem; font-size: 1.1rem; font-weight: 600; color: #1f2937; display: flex; align-items: center; gap: 0.5rem; }
+.protocol-panel h4::before { content: '📋'; font-size: 1.2rem; }
+.protocol-steps { margin: 0; padding-left: 0; font-size: 0.9rem; list-style: none; counter-reset: step; }
+.protocol-steps > li { margin-bottom: 1.25rem; padding: 1rem; background: white; border-radius: 8px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.05); counter-increment: step; position: relative; padding-left: 3.5rem; }
+.protocol-steps > li::before { content: counter(step); position: absolute; left: 1rem; top: 1rem; width: 1.75rem; height: 1.75rem; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.85rem; }
+.protocol-steps > li strong { display: block; margin-bottom: 0.5rem; font-size: 0.95rem; color: #1f2937; }
+.protocol-steps > li ul { margin: 0; padding-left: 1rem; font-size: 0.85rem; color: #4b5563; }
+.protocol-steps > li ul li { margin-bottom: 0.35rem; position: relative; padding-left: 0.75rem; }
+.protocol-steps > li ul li::before { content: '•'; position: absolute; left: 0; color: #3b82f6; }
+.protocol-notes { margin-top: 1.25rem; padding: 1rem; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 8px; border: 1px solid #bfdbfe; }
+.protocol-notes h5 { margin: 0 0 0.75rem; font-size: 0.9rem; font-weight: 600; color: #1e40af; display: flex; align-items: center; gap: 0.35rem; }
+.protocol-notes h5::before { content: '💡'; font-size: 0.9rem; }
+.protocol-notes ul { margin: 0; padding-left: 1rem; font-size: 0.8rem; color: #1e40af; }
+.protocol-notes ul li { margin-bottom: 0.35rem; }
 
 /* Assembly Viewer Panel */
 .assembly-viewer-panel { padding: 0; }
