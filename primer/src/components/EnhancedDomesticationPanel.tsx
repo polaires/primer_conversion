@@ -29,7 +29,7 @@ import {
   validateReadingFrame,
   translateSequence,
 } from '../lib/repp/enhanced-domestication.js';
-import { GOLDEN_GATE_ENZYMES } from '../lib/repp/goldengate.js';
+import { GOLDEN_GATE_ENZYMES, findInternalSites } from '../lib/repp/goldengate.js';
 import { designAllMutagenicJunctions } from '../lib/repp/mutagenic-junction-domesticator.js';
 import { recommendAlternativeEnzymes } from '../lib/repp/auto-domestication-optimizer.js';
 import { designIntegratedPrimers, generatePrimerSummary } from '../lib/repp/domestication-primer-workflow.js';
@@ -303,10 +303,19 @@ export function EnhancedDomesticationPanel({
   const [primerDesign, setPrimerDesign] = useState<PrimerDesignResult | null>(null);
   const [selectedAlternativeEnzyme, setSelectedAlternativeEnzyme] = useState<string | null>(null);
 
-  // Initial analysis (findInternalSites not yet exported, using stub)
+  // Detect internal enzyme sites in the sequence
   const internalSites = useMemo<InternalSitesResult | null>(() => {
     if (!sequence) return null;
-    return { hasSites: false, count: 0, sites: [] } as InternalSitesResult;
+    const result = findInternalSites(sequence, enzyme);
+    return {
+      hasSites: result.hasSites,
+      count: result.count,
+      sites: result.sites.map(s => ({
+        position: s.position,
+        sequence: s.sequence,
+        orientation: s.orientation,
+      })),
+    };
   }, [sequence, enzyme]);
 
   // ORF detection

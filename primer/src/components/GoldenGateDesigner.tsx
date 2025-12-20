@@ -3607,7 +3607,6 @@ export default function GoldenGateDesigner() {
           method: effectiveMethod,
           parts: designResult.fragments.map((frag: any, i: number) => {
             const part = validParts[i];
-            const junction = designResult.junctions[i];
             return {
               id: frag.id || part?.id || `Part ${i + 1}`,
               type: part?.type || 'other',
@@ -3657,12 +3656,12 @@ export default function GoldenGateDesigner() {
           fidelity: {
             overall: 0.95,
             percentage: '95.0%',
-            individual: designResult.junctions.map((j, i) => ({
+            individual: (designResult.junctions || []).map((j, i) => ({
               overhang: j.optimal?.sequence || '',
               fidelity: j.optimal?.compositeScore || 0.9,
             })),
           },
-          overlapAnalysis: designResult.junctions.map(j => ({
+          overlapAnalysis: (designResult.junctions || []).map(j => ({
             length: j.optimal?.length || overlapSettings.overlapLength,
             tm: j.optimal?.tm || overlapSettings.targetTm,
             gc: j.optimal?.gc || 50,
