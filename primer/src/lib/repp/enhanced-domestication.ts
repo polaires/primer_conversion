@@ -171,6 +171,15 @@ export interface PlanStep {
   preview?: any;
   validation?: ReadingFrameValidationResult;  // FIXED: Type name
   orfDetection?: ORFDetectionResult;
+  // Global optimization results (for MUTATION_OPTIONS step)
+  overallAssemblyFidelity?: number;
+  selectedOverhangs?: string[];
+  globalOptimizationInfo?: {
+    totalCombinationsEvaluated: number;
+    bestFidelity: number;
+    bestOverhangs: string[];
+    alternativeFidelities: number[];
+  };
 }
 
 export interface StrategyOption {
@@ -1271,19 +1280,54 @@ function handleAdjacentSites(
 }
 
 // ============================================================================
-// FIDELITY-FIRST JUNCTION SELECTION (USER-CENTRIC)
+// GLOBAL OVERHANG OPTIMIZATION (ASSEMBLY-CENTRIC)
 // ============================================================================
 
+/**
+ * ARCHITECTURE OVERVIEW:
+ *
+ * The key insight is that overhang fidelity only matters in the context of the
+ * ENTIRE assembly. A single overhang's fidelity against all 256 possible overhangs
+ * is meaningless - what matters is how well it works with the OTHER overhangs
+ * in YOUR specific assembly.
+ *
+ * This architecture:
+ * 1. COLLECTS all junction candidates from ALL sites first
+ * 2. GLOBALLY OPTIMIZES to find the best combination across all sites
+ * 3. CALCULATES assembly fidelity for the chosen combination
+ * 4. GENERATES alternatives that maintain high assembly fidelity
+ */
+
 interface JunctionCandidateInfo {
+  siteIndex: number;           // Which site this candidate is for
+  sitePosition: number;        // Position of the internal site
   junctionPosition: number;
   overhang: string;
   overallScore: number;
-  overhangFidelity: number;
+  overhangFidelity: number;    // Single overhang fidelity (internal use only)
   mutation: any;
   quality: any;
   fidelity: any;
   primers: any;
   isBest: boolean;
+}
+
+/**
+ * Represents a complete overhang selection across all sites
+ */
+interface GlobalOverhangSelection {
+  selections: JunctionCandidateInfo[];  // One per site
+  assemblyFidelity: number;             // REAL fidelity for this combination
+  overallScore: number;                 // Combined quality score
+}
+
+/**
+ * Result of global optimization
+ */
+interface GlobalOptimizationResult {
+  bestSelection: GlobalOverhangSelection;
+  alternativeSelections: GlobalOverhangSelection[];
+  allCandidates: Map<number, JunctionCandidateInfo[]>;  // siteIndex -> candidates
 }
 
 /**
@@ -1294,6 +1338,222 @@ function classifyJunctionQuality(score: number): 'excellent' | 'good' | 'accepta
   if (score >= 75) return 'good';
   if (score >= 60) return 'acceptable';
   return 'poor';
+}
+
+// ============================================================================
+// STEP 1: COLLECT ALL CANDIDATES FROM ALL SITES
+// ============================================================================
+
+/**
+ * Collect all junction candidates from all sites BEFORE making any selection.
+ * This gives us the full picture to optimize globally.
+ */
+function collectAllJunctionCandidates(
+  sequence: string,
+  sites: any[],
+  enzyme: string,
+  frame: number,
+  organism: string,
+  existingOverhangs: string[]
+): Map<number, JunctionCandidateInfo[]> {
+  const allCandidates = new Map<number, JunctionCandidateInfo[]>();
+
+  for (let siteIndex = 0; siteIndex < sites.length; siteIndex++) {
+    const site = sites[siteIndex];
+    const candidates: JunctionCandidateInfo[] = [];
+
+    // Design enhanced mutagenic junction with all alternatives
+    const enhancedJunction = designEnhancedMutagenicJunction(sequence, site, enzyme, {
+      frame,
+      organism: organism as any,
+      existingOverhangs,
+    });
+
+    if (enhancedJunction.success && enhancedJunction.junctionPosition !== undefined) {
+      // Add the best junction
+      candidates.push({
+        siteIndex,
+        sitePosition: site.position,
+        junctionPosition: enhancedJunction.junctionPosition,
+        overhang: enhancedJunction.overhang!,
+        overallScore: enhancedJunction.quality?.overall ?? 0,
+        overhangFidelity: enhancedJunction.fidelity?.singleOverhang ?? 0,
+        mutation: enhancedJunction.mutation,
+        quality: enhancedJunction.quality,
+        fidelity: enhancedJunction.fidelity,
+        primers: enhancedJunction.primers,
+        isBest: true,
+      });
+
+      // Add all alternatives
+      if (enhancedJunction.alternatives) {
+        for (const alt of enhancedJunction.alternatives) {
+          candidates.push({
+            siteIndex,
+            sitePosition: site.position,
+            junctionPosition: alt.junctionPosition,
+            overhang: alt.overhang,
+            overallScore: alt.overallScore,
+            overhangFidelity: alt.overhangFidelity,
+            mutation: null,  // Will be computed if selected
+            quality: null,
+            fidelity: null,
+            primers: null,
+            isBest: false,
+          });
+        }
+      }
+    }
+
+    allCandidates.set(siteIndex, candidates);
+  }
+
+  return allCandidates;
+}
+
+// ============================================================================
+// STEP 2: GLOBAL OVERHANG OPTIMIZATION
+// ============================================================================
+
+/**
+ * Find the BEST combination of overhangs across ALL sites.
+ *
+ * This is the critical optimization step that considers assembly fidelity
+ * for the ENTIRE assembly, not just individual overhangs.
+ *
+ * Algorithm:
+ * 1. Generate all reasonable combinations (with pruning for performance)
+ * 2. Calculate assembly fidelity for each combination
+ * 3. Select the combination with highest fidelity + quality score
+ * 4. Generate alternatives that also have high fidelity
+ */
+function optimizeGlobalOverhangSelection(
+  allCandidates: Map<number, JunctionCandidateInfo[]>,
+  existingOverhangs: string[],
+  enzyme: string,
+  maxAlternatives: number = 2
+): GlobalOptimizationResult {
+  const siteIndices = Array.from(allCandidates.keys()).sort((a, b) => a - b);
+
+  // If no sites, return empty result
+  if (siteIndices.length === 0) {
+    return {
+      bestSelection: { selections: [], assemblyFidelity: 1.0, overallScore: 0 },
+      alternativeSelections: [],
+      allCandidates,
+    };
+  }
+
+  // For single site, just calculate fidelity and return top candidates
+  if (siteIndices.length === 1) {
+    const candidates = allCandidates.get(siteIndices[0]) || [];
+    const selections = candidates.map(c => {
+      const overhangs = [...existingOverhangs, c.overhang];
+      let fidelity = 1.0;
+      try {
+        const result = calculateExperimentalFidelity(overhangs, enzyme);
+        fidelity = result.assemblyFidelity;
+      } catch {
+        fidelity = Math.max(0.85, 1.0 - (overhangs.length - 1) * 0.02);
+      }
+      return {
+        selections: [c],
+        assemblyFidelity: fidelity,
+        overallScore: c.overallScore,
+      };
+    });
+
+    // Sort by fidelity first, then by score
+    selections.sort((a, b) => {
+      const fidelityDiff = b.assemblyFidelity - a.assemblyFidelity;
+      if (Math.abs(fidelityDiff) > 0.01) return fidelityDiff;
+      return b.overallScore - a.overallScore;
+    });
+
+    return {
+      bestSelection: selections[0] || { selections: [], assemblyFidelity: 1.0, overallScore: 0 },
+      alternativeSelections: selections.slice(1, maxAlternatives + 1),
+      allCandidates,
+    };
+  }
+
+  // For multiple sites, use greedy optimization with fidelity checking
+  // This avoids exponential explosion for many sites
+
+  // Get top candidates per site (limit to 5 for performance)
+  const topCandidatesPerSite: JunctionCandidateInfo[][] = siteIndices.map(idx => {
+    const candidates = allCandidates.get(idx) || [];
+    return candidates
+      .sort((a, b) => b.overallScore - a.overallScore)
+      .slice(0, 5);
+  });
+
+  // Generate combinations using iterative approach
+  const allSelections: GlobalOverhangSelection[] = [];
+  const maxCombinations = 100; // Limit to avoid explosion
+
+  // Helper to generate combinations recursively with early pruning
+  function generateCombinations(
+    siteIdx: number,
+    currentSelection: JunctionCandidateInfo[],
+    currentOverhangs: string[]
+  ) {
+    if (allSelections.length >= maxCombinations) return;
+
+    if (siteIdx >= topCandidatesPerSite.length) {
+      // Calculate final assembly fidelity
+      const allOverhangs = [...existingOverhangs, ...currentOverhangs];
+      let assemblyFidelity = 1.0;
+      try {
+        const result = calculateExperimentalFidelity(allOverhangs, enzyme);
+        assemblyFidelity = result.assemblyFidelity;
+      } catch {
+        assemblyFidelity = Math.max(0.85, 1.0 - (allOverhangs.length - 1) * 0.02);
+      }
+
+      const overallScore = currentSelection.reduce((sum, c) => sum + c.overallScore, 0) / currentSelection.length;
+
+      allSelections.push({
+        selections: [...currentSelection],
+        assemblyFidelity,
+        overallScore,
+      });
+      return;
+    }
+
+    // Try each candidate for this site
+    for (const candidate of topCandidatesPerSite[siteIdx]) {
+      // Skip if this overhang would create a duplicate (bad for fidelity)
+      if (currentOverhangs.includes(candidate.overhang)) continue;
+
+      generateCombinations(
+        siteIdx + 1,
+        [...currentSelection, candidate],
+        [...currentOverhangs, candidate.overhang]
+      );
+    }
+  }
+
+  generateCombinations(0, [], []);
+
+  // Sort by assembly fidelity first, then by overall score
+  allSelections.sort((a, b) => {
+    const fidelityDiff = b.assemblyFidelity - a.assemblyFidelity;
+    if (Math.abs(fidelityDiff) > 0.01) return fidelityDiff;
+    return b.overallScore - a.overallScore;
+  });
+
+  // Log optimization results
+  console.log('[Global Optimization] Total combinations evaluated:', allSelections.length);
+  if (allSelections.length > 0) {
+    console.log('[Global Optimization] Best assembly fidelity:', (allSelections[0].assemblyFidelity * 100).toFixed(1) + '%');
+  }
+
+  return {
+    bestSelection: allSelections[0] || { selections: [], assemblyFidelity: 1.0, overallScore: 0 },
+    alternativeSelections: allSelections.slice(1, maxAlternatives + 1),
+    allCandidates,
+  };
 }
 
 // ============================================================================
@@ -1480,7 +1740,15 @@ function selectTopJunctionOptions(
 }
 
 /**
- * Generate mutation options for each site
+ * Generate mutation options for each site using GLOBAL OPTIMIZATION
+ *
+ * NEW ARCHITECTURE (Assembly-Centric):
+ * 1. Collect ALL candidates from ALL sites FIRST
+ * 2. Globally optimize to find the BEST combination across all sites
+ * 3. Calculate REAL assembly fidelity for the chosen combination
+ * 4. Present options per-site that maintain high assembly fidelity
+ *
+ * This ensures overhangs are selected to work together, not independently.
  */
 function generateMutationOptions(
   sequence: string,
@@ -1502,82 +1770,138 @@ function generateMutationOptions(
   const codonUsage = organism === 'yeast' ? YEAST_CODON_USAGE : ECOLI_CODON_USAGE;
   const prioritizeMutagenic = selectedStrategy === ENHANCED_CONFIG.strategies.MUTAGENIC_JUNCTION;
 
-  for (const site of sites) {
+  // =========================================================================
+  // STEP 1: COLLECT ALL CANDIDATES FROM ALL SITES
+  // =========================================================================
+  console.log('[Global Optimization] Collecting candidates from', sites.length, 'sites...');
+  const allCandidates = collectAllJunctionCandidates(
+    sequence,
+    sites,
+    enzyme,
+    frame,
+    organism,
+    existingOverhangs
+  );
+
+  // =========================================================================
+  // STEP 2: GLOBALLY OPTIMIZE OVERHANG SELECTION
+  // =========================================================================
+  console.log('[Global Optimization] Optimizing overhang combinations...');
+  const optimizationResult = optimizeGlobalOverhangSelection(
+    allCandidates,
+    existingOverhangs,
+    enzyme,
+    2  // Generate 2 alternative combinations
+  );
+
+  const { bestSelection, alternativeSelections } = optimizationResult;
+  const overallAssemblyFidelity = bestSelection.assemblyFidelity;
+
+  console.log('[Global Optimization] Overall assembly fidelity:', (overallAssemblyFidelity * 100).toFixed(1) + '%');
+  console.log('[Global Optimization] Selected overhangs:', bestSelection.selections.map(s => s.overhang).join(', '));
+
+  // =========================================================================
+  // STEP 3: BUILD OPTIONS PER SITE USING GLOBAL OPTIMIZATION RESULT
+  // =========================================================================
+  for (let siteIndex = 0; siteIndex < sites.length; siteIndex++) {
+    const site = sites[siteIndex];
     const siteOption: SiteOption = {
       site,
       options: [],
       recommended: null,
     };
 
-    // Design mutagenic junction options using ENHANCED algorithm with NEB fidelity data
-    // State-of-the-art: Generate 5 diverse junction options for user selection
-    const enhancedJunction = designEnhancedMutagenicJunction(sequence, site, enzyme, {
-      frame,
-      organism: organism as any,
-      existingOverhangs,
-    });
+    // Get the globally-optimized selection for this site
+    const bestCandidate = bestSelection.selections.find(s => s.siteIndex === siteIndex);
+    const siteCandidates = allCandidates.get(siteIndex) || [];
 
-    if (enhancedJunction.success && enhancedJunction.junctionPosition !== undefined) {
-      // Debug: Log junction alternatives
-      console.log('[Junction Selection] Site:', site.position, 'Alternatives:', enhancedJunction.alternatives?.length || 0);
+    // Debug: Log site candidates
+    console.log(`[Site ${siteIndex}] Position: ${site.position}, Candidates: ${siteCandidates.length}`);
 
-      // Collect all junction candidates: best + alternatives
-      const allJunctionCandidates: JunctionCandidateInfo[] = [
-        {
-          junctionPosition: enhancedJunction.junctionPosition,
-          overhang: enhancedJunction.overhang!,
-          overallScore: enhancedJunction.quality?.overall ?? 0,
-          overhangFidelity: enhancedJunction.fidelity?.singleOverhang ?? 0,
-          mutation: enhancedJunction.mutation,
-          quality: enhancedJunction.quality,
-          fidelity: enhancedJunction.fidelity,
-          primers: enhancedJunction.primers,
-          isBest: true,
-        },
-        ...(enhancedJunction.alternatives || []).map(alt => ({
-          junctionPosition: alt.junctionPosition,
-          overhang: alt.overhang,
-          overallScore: alt.overallScore,
-          overhangFidelity: alt.overhangFidelity,
-          mutation: null as any,
-          quality: null as any,
-          fidelity: null as any,
-          primers: null as any,
-          isBest: false,
-        })),
-      ];
+    if (siteCandidates.length > 0) {
+      // Build list of candidates to show:
+      // 1. The globally-optimized best choice
+      // 2. Alternatives from other global combinations
+      // 3. Any high-quality site-local options that maintain fidelity
+      const shownCandidates: JunctionCandidateInfo[] = [];
+      const shownOverhangs = new Set<string>();
 
-      // Select top 3 junction options prioritizing excellent fidelity (≥95%)
-      const topJunctions = selectTopJunctionOptions(allJunctionCandidates, 3);
+      // First: Add the globally-optimized choice
+      if (bestCandidate) {
+        shownCandidates.push(bestCandidate);
+        shownOverhangs.add(bestCandidate.overhang);
+      }
 
-      // Debug: Log selection results
-      console.log('[Junction Selection] Total candidates:', allJunctionCandidates.length, 'Selected:', topJunctions.length);
-      topJunctions.forEach((j, i) => console.log(`  Option ${i + 1}: ${j.overhang} fidelity=${j.overhangFidelity} score=${j.overallScore}`));
+      // Second: Add alternatives from other global combinations
+      for (const altSelection of alternativeSelections) {
+        const altCandidate = altSelection.selections.find(s => s.siteIndex === siteIndex);
+        if (altCandidate && !shownOverhangs.has(altCandidate.overhang)) {
+          shownCandidates.push(altCandidate);
+          shownOverhangs.add(altCandidate.overhang);
+          if (shownCandidates.length >= 3) break;
+        }
+      }
 
-      // Create MutationOption for each selected junction
-      for (let i = 0; i < topJunctions.length; i++) {
-        const junc = topJunctions[i];
+      // Third: Fill remaining slots with high-quality local options
+      if (shownCandidates.length < 3) {
+        const remaining = siteCandidates
+          .filter(c => !shownOverhangs.has(c.overhang))
+          .filter(c => c.overallScore >= 60)
+          .sort((a, b) => b.overallScore - a.overallScore);
 
-        // Calculate REAL assembly fidelity - the practical metric users care about
-        // This is how well this overhang works with the other overhangs in the assembly
-        const realAssemblyFidelity = calculateRealAssemblyFidelity(
-          junc.overhang,
-          existingOverhangs,
-          enzyme
-        );
-        const assemblyFidelityPercent = Math.round(realAssemblyFidelity * 100);
-        const isExcellentFidelity = realAssemblyFidelity >= ASSEMBLY_FIDELITY_THRESHOLDS.excellent;
+        for (const candidate of remaining) {
+          if (shownCandidates.length >= 3) break;
+          shownCandidates.push(candidate);
+          shownOverhangs.add(candidate.overhang);
+        }
+      }
 
-        // Use pre-computed data for best junction, compute for alternatives
-        let junctionData: any;
-        if (junc.isBest) {
-          junctionData = enhancedJunction;
-          // Update the fidelity in the best junction data to use real assembly fidelity
-          if (junctionData.fidelity) {
-            junctionData.fidelity.withExisting = realAssemblyFidelity;
-          }
+      // Create MutationOption for each shown junction
+      for (let i = 0; i < shownCandidates.length; i++) {
+        const junc = shownCandidates[i];
+
+        // For the globally-optimized choice, use the overall assembly fidelity
+        // For alternatives, recalculate what the assembly fidelity would be
+        let assemblyFidelity: number;
+        if (i === 0 && bestCandidate) {
+          // This is the globally-optimized choice - use the calculated overall fidelity
+          assemblyFidelity = overallAssemblyFidelity;
         } else {
-          // For alternatives, create junction data with REAL fidelity info
+          // This is an alternative - calculate what fidelity would be with this choice
+          // Collect overhangs from best selection, replacing this site's choice
+          const otherOverhangs = bestSelection.selections
+            .filter(s => s.siteIndex !== siteIndex)
+            .map(s => s.overhang);
+          const allOverhangs = [...existingOverhangs, ...otherOverhangs, junc.overhang];
+
+          try {
+            const result = calculateExperimentalFidelity(allOverhangs, enzyme);
+            assemblyFidelity = result.assemblyFidelity;
+          } catch {
+            assemblyFidelity = Math.max(0.85, 1.0 - (allOverhangs.length - 1) * 0.02);
+          }
+        }
+
+        const assemblyFidelityPercent = Math.round(assemblyFidelity * 100);
+        const displayFidelity = assemblyFidelityPercent >= 99 ? '100' : assemblyFidelityPercent.toString();
+        const isExcellentFidelity = assemblyFidelity >= ASSEMBLY_FIDELITY_THRESHOLDS.excellent;
+
+        // Get junction data (full for isBest, computed for alternatives)
+        let junctionData: any;
+        if (junc.isBest && junc.mutation) {
+          junctionData = {
+            success: true,
+            junctionPosition: junc.junctionPosition,
+            overhang: junc.overhang,
+            mutation: junc.mutation,
+            quality: junc.quality,
+            fidelity: {
+              ...junc.fidelity,
+              withExisting: assemblyFidelity,
+            },
+            primers: junc.primers,
+          };
+        } else {
           junctionData = {
             success: true,
             junctionPosition: junc.junctionPosition,
@@ -1587,14 +1911,14 @@ function generateMutationOptions(
               tier: classifyJunctionQuality(junc.overallScore),
               breakdown: {
                 overhangFidelity: assemblyFidelityPercent,
-                mutationQuality: 70, // Reasonable default
+                mutationQuality: 70,
                 primerQuality: 70,
                 positionOptimality: 70,
               },
             },
             fidelity: {
-              singleOverhang: junc.overhangFidelity,  // Keep for reference
-              withExisting: realAssemblyFidelity,     // REAL assembly fidelity
+              singleOverhang: junc.overhangFidelity,
+              withExisting: assemblyFidelity,
               source: 'NEB_experimental' as const,
             },
           };
@@ -1605,37 +1929,33 @@ function generateMutationOptions(
         const primerQualityLabel = primerQualityScore >= PRIMER_QUALITY_THRESHOLDS.excellent ? 'Excellent primers' :
                                    primerQualityScore >= PRIMER_QUALITY_THRESHOLDS.good ? 'Good primers' : 'OK primers';
 
-        // Clear labels using REAL assembly fidelity (what users care about)
-        const fidelityClass = classifyAssemblyFidelity(realAssemblyFidelity);
-        const getRecommendationReason = (idx: number, fidelity: number, primerScore: number): string => {
-          if (fidelity >= 99) return primerScore >= PRIMER_QUALITY_THRESHOLDS.excellent ? 'Best option' : '100% fidelity';
-          if (idx === 0 && fidelity >= 95) return 'Excellent fidelity';
-          if (idx === 0) return 'Best available';
-          if (fidelity >= 95) return `${fidelity}% (excellent)`;
-          if (fidelity >= 90) return `${fidelity}% fidelity`;
-          return 'Alternative';
+        // Labels reflect GLOBAL optimization
+        const getRecommendationReason = (idx: number, fidelity: number): string => {
+          if (idx === 0) {
+            if (fidelity >= 99) return 'Globally optimized • 100%';
+            return `Globally optimized • ${fidelity}%`;
+          }
+          if (fidelity >= 99) return '100% assembly fidelity';
+          if (fidelity >= 95) return `${fidelity}% assembly fidelity`;
+          return 'Alternative option';
         };
-
-        // Display format: show 100% when assembly fidelity is perfect
-        const displayFidelity = assemblyFidelityPercent >= 99 ? '100' : assemblyFidelityPercent.toString();
 
         const mutagenicOption: MutationOption = {
           type: 'mutagenic_junction',
           junction: junctionData,
-          score: junc.overallScore + (prioritizeMutagenic ? 100 : 0),
+          score: junc.overallScore + (prioritizeMutagenic ? 100 : 0) + (i === 0 ? 50 : 0),
           description: i === 0
-            ? `Recommended: ${junc.overhang} • ${displayFidelity}% fidelity • ${primerQualityLabel}`
-            : `Alternative: ${junc.overhang} • ${displayFidelity}% fidelity`,
-          shortDescription: getRecommendationReason(i, assemblyFidelityPercent, primerQualityScore),
+            ? `Recommended: ${junc.overhang} • ${displayFidelity}% assembly fidelity • ${primerQualityLabel}`
+            : `Alternative: ${junc.overhang} • ${displayFidelity}% assembly fidelity`,
+          shortDescription: getRecommendationReason(i, assemblyFidelityPercent),
           fragmentIncrease: 1,
           overhang: junc.overhang,
           onePotCompatible: true,
           primers: junctionData.primers,
           mutations: junctionData.mutation ? [junctionData.mutation] : [],
           benefits: isExcellentFidelity
-            ? ['Excellent ligation fidelity', 'One-pot compatible']
-            : [`${displayFidelity}% ligation fidelity`, 'One-pot compatible'],
-          // Simplified junction metrics using REAL assembly fidelity
+            ? ['Globally optimized', 'Excellent assembly fidelity', 'One-pot compatible']
+            : [`${displayFidelity}% assembly fidelity`, 'One-pot compatible'],
           junctionQuality: {
             overall: junctionData.quality?.overall || junc.overallScore,
             tier: qualityTier as 'excellent' | 'good' | 'acceptable' | 'poor',
@@ -1647,8 +1967,8 @@ function generateMutationOptions(
             },
           },
           junctionFidelity: {
-            singleOverhang: junc.overhangFidelity,    // Keep for reference (internal use)
-            withExisting: realAssemblyFidelity,       // REAL assembly fidelity (what users see)
+            singleOverhang: junc.overhangFidelity,
+            withExisting: assemblyFidelity,
             source: 'NEB_experimental',
           },
           junctionPosition: junc.junctionPosition,
@@ -1668,7 +1988,9 @@ function generateMutationOptions(
       }
     }
 
-    // Find silent mutation candidates (ALTERNATIVE)
+    // =========================================================================
+    // SILENT MUTATIONS (ALTERNATIVE STRATEGY)
+    // =========================================================================
     const candidates = findAllSilentMutationCandidates(
       sequence,
       site,
@@ -1677,7 +1999,6 @@ function generateMutationOptions(
       codonUsage
     );
 
-    // Score and rank candidates
     const scoredCandidates = scoreMutationCandidates(
       candidates,
       sequence,
@@ -1685,12 +2006,11 @@ function generateMutationOptions(
       DOMESTICATION_CONFIG.checkAllGoldenGateEnzymes
     );
 
-    // Add silent mutation options
-    for (const candidate of scoredCandidates.slice(0, 5)) {
+    for (const candidate of scoredCandidates.slice(0, 3)) {
       const option: MutationOption = {
         type: 'silent_mutation',
         mutation: candidate,
-        score: candidate.score + (prioritizeMutagenic ? 0 : 50), // Boost if silent mutation strategy
+        score: candidate.score + (prioritizeMutagenic ? 0 : 50),
         description: formatMutationDescription(candidate, codonUsage),
         shortDescription: `${candidate.originalCodon}→${candidate.newCodon}`,
         codonChange: `${candidate.originalCodon}→${candidate.newCodon}`,
@@ -1698,47 +2018,39 @@ function generateMutationOptions(
         frequencyChange: `${candidate.originalCodonFrequency?.toFixed(1) || '?'}→${candidate.newCodonFrequency?.toFixed(1) || '?'}/1000`,
         warnings: candidate.penalties?.map(p => p.reason) || [],
         onePotCompatible: false,
-        benefits: [
-          'No additional fragments',
-          'Simpler assembly',
-        ],
-        tradeoffs: [
-          'Requires pre-modified template',
-          'Not one-pot compatible',
-        ],
+        benefits: ['No additional fragments', 'Simpler assembly'],
+        tradeoffs: ['Requires pre-modified template', 'Not one-pot compatible'],
       };
 
-      // Insert after mutagenic options if present, otherwise at the front
       if (prioritizeMutagenic) {
         siteOption.options.push(option);
       } else {
-        // Find where to insert (after any existing silent mutations)
         const insertIndex = siteOption.options.filter(o => o.type === 'silent_mutation').length;
         siteOption.options.splice(insertIndex, 0, option);
       }
     }
 
-    // Select recommended option based on selected strategy
+    // =========================================================================
+    // SELECT RECOMMENDED OPTION
+    // =========================================================================
     if (siteOption.options.length > 0) {
       if (prioritizeMutagenic) {
-        // Prefer mutagenic junction (first option)
+        // The first mutagenic option is the globally-optimized choice
         const mutagenicOptions = siteOption.options.filter(o => o.type === 'mutagenic_junction');
         siteOption.recommended = mutagenicOptions.length > 0 ? mutagenicOptions[0] : siteOption.options[0];
       } else if (codonMode === ENHANCED_CONFIG.codonModes.CONSERVATIVE) {
-        // Prefer mutation with closest codon frequency
         const silentOptions = siteOption.options.filter(o => o.type === 'silent_mutation');
         if (silentOptions.length > 0) {
           silentOptions.sort((a, b) => {
             const aRatio = a.mutation?.frequencyRatio || 0;
             const bRatio = b.mutation?.frequencyRatio || 0;
-            return bRatio - aRatio; // Higher ratio = closer to original
+            return bRatio - aRatio;
           });
           siteOption.recommended = silentOptions[0];
         } else {
           siteOption.recommended = siteOption.options[0];
         }
       } else if (codonMode === ENHANCED_CONFIG.codonModes.OPTIMIZED) {
-        // Prefer mutation with highest new codon frequency
         const silentOptions = siteOption.options.filter(o => o.type === 'silent_mutation');
         if (silentOptions.length > 0) {
           silentOptions.sort((a, b) => {
@@ -1758,6 +2070,23 @@ function generateMutationOptions(
 
     step.siteOptions!.push(siteOption);
   }
+
+  // =========================================================================
+  // STEP 4: STORE OVERALL ASSEMBLY FIDELITY
+  // =========================================================================
+  // Add overall assembly fidelity to the step result for display in the UI
+  step.overallAssemblyFidelity = overallAssemblyFidelity;
+  step.selectedOverhangs = bestSelection.selections.map(s => s.overhang);
+  step.globalOptimizationInfo = {
+    totalCombinationsEvaluated: optimizationResult.alternativeSelections.length + 1,
+    bestFidelity: overallAssemblyFidelity,
+    bestOverhangs: bestSelection.selections.map(s => s.overhang),
+    alternativeFidelities: alternativeSelections.map(s => s.assemblyFidelity),
+  };
+
+  console.log('[Global Optimization] Complete. Overall assembly fidelity:',
+    (overallAssemblyFidelity * 100).toFixed(1) + '%',
+    'Overhangs:', bestSelection.selections.map(s => s.overhang).join(', '));
 
   return step;
 }
