@@ -24064,6 +24064,169 @@ body {
 }
 
 /* ============================================================
+   Junction Options - Domestication Workflow Guide
+   ============================================================ */
+
+.junction-options-intro {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-bottom: 1rem;
+}
+
+.junction-options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.junction-site-card {
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+}
+
+.junction-site-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.junction-site-header .junction-label {
+  font-weight: 600;
+  color: #1e293b;
+  font-size: 0.9rem;
+}
+
+.junction-site-header .junction-position {
+  font-size: 0.75rem;
+  color: #64748b;
+  background: #e2e8f0;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.junction-options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.junction-option-card {
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.junction-option-card:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+}
+
+.junction-option-card.selected {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.2);
+}
+
+.junction-option-card.recommended {
+  border-color: #22c55e;
+}
+
+.junction-option-card.recommended.selected {
+  border-color: #22c55e;
+  background: #f0fdf4;
+}
+
+.junction-option-card .option-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.junction-option-card .option-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #64748b;
+}
+
+.junction-option-card.recommended .option-label {
+  color: #16a34a;
+}
+
+.junction-option-card .selected-check {
+  color: #3b82f6;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.junction-option-card .option-overhang {
+  margin-bottom: 0.5rem;
+}
+
+.junction-option-card .option-overhang code {
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e293b;
+  background: #f1f5f9;
+  padding: 4px 10px;
+  border-radius: 6px;
+  letter-spacing: 1px;
+}
+
+.junction-option-card .option-fidelity {
+  margin-bottom: 0.25rem;
+}
+
+.junction-option-card .fidelity-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.junction-option-card .fidelity-badge.perfect {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  color: #166534;
+}
+
+.junction-option-card .fidelity-badge.high {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  color: #1e40af;
+}
+
+.junction-option-card .fidelity-badge.medium {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+}
+
+.junction-option-card .option-note {
+  font-size: 0.65rem;
+  color: #16a34a;
+  margin-top: 0.25rem;
+}
+
+.no-alternatives-note {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  text-align: center;
+  padding: 0.5rem;
+  font-style: italic;
+}
+
+/* ============================================================
    IsothermalAssemblyPanel - State-of-the-Art Primer Designer
    ============================================================ */
 

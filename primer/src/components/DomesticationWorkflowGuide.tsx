@@ -66,6 +66,13 @@ interface MutationData {
   score?: number;
 }
 
+interface JunctionAlternative {
+  junctionPosition: number;
+  overhang: string;
+  overallScore: number;
+  overhangFidelity: number;
+}
+
 interface JunctionData {
   junctionPosition?: number;
   position?: number;
@@ -73,6 +80,11 @@ interface JunctionData {
   fidelity?: {
     singleOverhang?: number;
   } | number;
+  quality?: {
+    overall: number;
+    tier: string;
+  };
+  alternatives?: JunctionAlternative[];
 }
 
 interface FidelityData {
@@ -199,8 +211,15 @@ interface AnalysisStepProps {
   onBack: () => void;
 }
 
+interface JunctionSelection {
+  junctionIndex: number;
+  selectedOption: number; // 0 = best, 1-2 = alternatives
+}
+
 interface StrategyStepProps {
   result: WorkflowResult;
+  junctionSelections: JunctionSelection[];
+  onJunctionSelect: (junctionIndex: number, optionIndex: number) => void;
   onContinue: () => void;
   onBack: () => void;
 }
@@ -246,6 +265,20 @@ export const DomesticationWorkflowGuide: FC<DomesticationWorkflowGuideProps> = (
   const [isCoding, setIsCoding] = useState<boolean>(true);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [junctionSelections, setJunctionSelections] = useState<JunctionSelection[]>([]);
+
+  // Handle junction option selection
+  const handleJunctionSelect = useCallback((junctionIndex: number, optionIndex: number) => {
+    setJunctionSelections(prev => {
+      const existing = prev.findIndex(s => s.junctionIndex === junctionIndex);
+      if (existing >= 0) {
+        const updated = [...prev];
+        updated[existing] = { junctionIndex, selectedOption: optionIndex };
+        return updated;
+      }
+      return [...prev, { junctionIndex, selectedOption: optionIndex }];
+    });
+  }, []);
 
   // Initial analysis
   const analysis = useMemo((): Analysis | null => {
@@ -375,6 +408,8 @@ export const DomesticationWorkflowGuide: FC<DomesticationWorkflowGuideProps> = (
       {step === 'strategy' && workflowResult && (
         <StrategyStep
           result={workflowResult}
+          junctionSelections={junctionSelections}
+          onJunctionSelect={handleJunctionSelect}
           onContinue={() => setStep('primers')}
           onBack={() => setStep('analysis')}
         />
@@ -620,8 +655,14 @@ const AnalysisStep: FC<AnalysisStepProps> = ({
   );
 };
 
-const StrategyStep: FC<StrategyStepProps> = ({ result, onContinue, onBack }) => {
+const StrategyStep: FC<StrategyStepProps> = ({ result, junctionSelections, onJunctionSelect, onContinue, onBack }) => {
   const { strategy, domestication, analysis: _analysis } = result;
+
+  // Get selected option index for a junction
+  const getSelectedOption = (junctionIndex: number): number => {
+    const selection = junctionSelections.find(s => s.junctionIndex === junctionIndex);
+    return selection?.selectedOption ?? 0;
+  };
 
   const strategyInfo: Record<string, { name: string; desc: string; icon: string }> = {
     none: { name: 'No Domestication', desc: 'Sequence is already compatible', icon: '✓' },
@@ -690,39 +731,89 @@ const StrategyStep: FC<StrategyStepProps> = ({ result, onContinue, onBack }) => 
 
       {(strategy === 'mutagenic_junction' || strategy === 'hybrid') && domestication?.junctions && domestication.junctions.length > 0 && (
         <div className="strategy-details">
-          <h4>Junction Positions</h4>
-          <table className="junctions-table">
-            <thead>
-              <tr>
-                <th>Junction</th>
-                <th>Position</th>
-                <th>Overhang</th>
-                <th>Fidelity</th>
-              </tr>
-            </thead>
-            <tbody>
-              {domestication.junctions.map((jnc, i) => {
-                // Handle both position and junctionPosition field names
-                const pos = jnc.junctionPosition ?? jnc.position ?? 0;
-                // Handle fidelity from junction or from nested fidelity object
-                const fidelity = typeof jnc.fidelity === 'object'
-                  ? jnc.fidelity?.singleOverhang ?? 0.9
-                  : jnc.fidelity ?? 0.9;
-                return (
-                  <tr key={i}>
-                    <td>J{i + 1}</td>
-                    <td>{pos + 1}</td>
-                    <td><code>{jnc.overhang}</code></td>
-                    <td>
-                      <span className={`fidelity-badge ${fidelity >= 0.95 ? 'high' : fidelity >= 0.85 ? 'medium' : 'low'}`}>
-                        {(fidelity * 100).toFixed(0)}%
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <h4>Junction Options</h4>
+          <p className="junction-options-intro">Select the best junction for each site. All options preserve protein sequence.</p>
+
+          <div className="junction-options-list">
+            {domestication.junctions.map((jnc, junctionIndex) => {
+              // Handle both position and junctionPosition field names
+              const pos = jnc.junctionPosition ?? jnc.position ?? 0;
+              // Handle fidelity from junction or from nested fidelity object
+              const fidelity = typeof jnc.fidelity === 'object'
+                ? jnc.fidelity?.singleOverhang ?? 0.9
+                : jnc.fidelity ?? 0.9;
+
+              // Get alternatives (limit to 2 for clean UI)
+              const alternatives = (jnc.alternatives || []).slice(0, 2);
+              const hasAlternatives = alternatives.length > 0;
+              const selectedOption = getSelectedOption(junctionIndex);
+
+              // Build all options: best + alternatives
+              const allOptions = [
+                {
+                  position: pos,
+                  overhang: jnc.overhang || 'NNNN',
+                  fidelity: fidelity,
+                  isBest: true,
+                  label: 'Recommended'
+                },
+                ...alternatives.map((alt, altIndex) => ({
+                  position: alt.junctionPosition,
+                  overhang: alt.overhang,
+                  fidelity: alt.overhangFidelity,
+                  isBest: false,
+                  label: `Alternative ${altIndex + 1}`
+                }))
+              ];
+
+              return (
+                <div key={junctionIndex} className="junction-site-card">
+                  <div className="junction-site-header">
+                    <span className="junction-label">Site {junctionIndex + 1}</span>
+                    <span className="junction-position">Position {pos + 1}</span>
+                  </div>
+
+                  <div className="junction-options-grid">
+                    {allOptions.map((option, optionIndex) => {
+                      const isSelected = selectedOption === optionIndex;
+                      const fidelityPercent = (option.fidelity * 100).toFixed(0);
+                      const isPerfect = option.fidelity >= 0.99;
+
+                      return (
+                        <div
+                          key={optionIndex}
+                          className={`junction-option-card ${isSelected ? 'selected' : ''} ${option.isBest ? 'recommended' : ''}`}
+                          onClick={() => onJunctionSelect(junctionIndex, optionIndex)}
+                        >
+                          <div className="option-header">
+                            <span className="option-label">{option.label}</span>
+                            {isSelected && <span className="selected-check">✓</span>}
+                          </div>
+                          <div className="option-overhang">
+                            <code>{option.overhang}</code>
+                          </div>
+                          <div className="option-fidelity">
+                            <span className={`fidelity-badge ${isPerfect ? 'perfect' : option.fidelity >= 0.95 ? 'high' : 'medium'}`}>
+                              {isPerfect ? '100%' : `${fidelityPercent}%`} fidelity
+                            </span>
+                          </div>
+                          {option.isBest && (
+                            <div className="option-note">Best primer quality</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {!hasAlternatives && (
+                    <div className="no-alternatives-note">
+                      Single best option available for this site
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
           {domestication.fidelity && (
             <div className="assembly-fidelity">
