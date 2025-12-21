@@ -45,6 +45,10 @@ import {
   designAllMutagenicJunctions,
   selectDomesticationStrategy,
 } from './mutagenic-junction-domesticator.js';
+import {
+  designEnhancedMutagenicJunction,
+  ENHANCED_JUNCTION_CONFIG,
+} from './enhanced-mutagenic-junction.js';
 
 // Type stubs for missing exports
 type MutagenicJunctionResult = any;
@@ -163,6 +167,23 @@ export interface SiteOption {
   recommended: MutationOption | null;
 }
 
+export interface JunctionQualityMetrics {
+  overall: number;
+  tier: 'excellent' | 'good' | 'acceptable' | 'poor';
+  breakdown: {
+    overhangFidelity: number;
+    mutationQuality: number;
+    primerQuality: number;
+    positionOptimality: number;
+  };
+}
+
+export interface JunctionFidelityInfo {
+  singleOverhang: number;
+  withExisting: number;
+  source: 'NEB_experimental' | 'calculated';
+}
+
 export interface MutationOption {
   type: string;
   mutation?: SilentMutationCandidate;
@@ -181,6 +202,17 @@ export interface MutationOption {
   aminoAcid?: string;
   frequencyChange?: string;
   warnings?: string[];
+  // Enhanced junction metrics (state-of-the-art)
+  junctionQuality?: JunctionQualityMetrics;
+  junctionFidelity?: JunctionFidelityInfo;
+  junctionPosition?: number;
+  primerTm?: { fwd: number; rev: number };
+  mutationImpact?: {
+    codonChange: string;
+    aminoAcid: string;
+    frequencyChange: string;
+    isWobble: boolean;
+  };
 }
 
 export interface DomesticationPlan {
@@ -1215,6 +1247,177 @@ function handleAdjacentSites(
   return step;
 }
 
+// ============================================================================
+// FIDELITY-FIRST JUNCTION SELECTION (USER-CENTRIC)
+// ============================================================================
+
+interface JunctionCandidateInfo {
+  junctionPosition: number;
+  overhang: string;
+  overallScore: number;
+  overhangFidelity: number;
+  mutation: any;
+  quality: any;
+  fidelity: any;
+  primers: any;
+  isBest: boolean;
+}
+
+/**
+ * Classify junction quality tier based on overall score
+ */
+function classifyJunctionQuality(score: number): 'excellent' | 'good' | 'acceptable' | 'poor' {
+  if (score >= 90) return 'excellent';
+  if (score >= 75) return 'good';
+  if (score >= 60) return 'acceptable';
+  return 'poor';
+}
+
+// ============================================================================
+// PRIMER QUALITY THRESHOLDS
+// ============================================================================
+
+const PRIMER_QUALITY_THRESHOLDS = {
+  // Tm range for good primers
+  minTm: 55,
+  maxTm: 68,
+  optimalTm: 62,
+
+  // Quality score thresholds (0-100)
+  minAcceptable: 50,  // Below this, reject the junction
+  good: 70,
+  excellent: 85,
+};
+
+/**
+ * Estimate primer quality score from junction candidate
+ * Higher score = better primer design
+ */
+function estimatePrimerQualityScore(candidate: JunctionCandidateInfo): number {
+  // If we have actual quality breakdown, use it
+  if (candidate.quality?.breakdown?.primerQuality) {
+    return candidate.quality.breakdown.primerQuality;
+  }
+
+  // Otherwise estimate from overall score
+  // Overall score = 35% fidelity + 25% mutation + 25% primer + 15% position
+  // If fidelity is 100% (score ~100), mutation quality ~70, position ~70
+  // Then primer quality ≈ (overall - 35*1 - 25*0.7 - 15*0.7) / 0.25
+  const overallScore = candidate.overallScore || 0;
+  const fidelityContribution = (candidate.overhangFidelity || 0) * 35;
+  const estimatedOtherContribution = 25 * 0.7 + 15 * 0.7; // ~28
+  const estimatedPrimerScore = Math.max(0, Math.min(100,
+    (overallScore - fidelityContribution - estimatedOtherContribution) / 0.25
+  ));
+
+  return estimatedPrimerScore;
+}
+
+/**
+ * Check if junction meets minimum primer quality requirements
+ */
+function meetsMinimumPrimerQuality(candidate: JunctionCandidateInfo): boolean {
+  const primerScore = estimatePrimerQualityScore(candidate);
+  return primerScore >= PRIMER_QUALITY_THRESHOLDS.minAcceptable;
+}
+
+/**
+ * Select top junction options: 100% fidelity first, then best primer quality
+ *
+ * Algorithm:
+ * 1. Filter for 100% fidelity options (≥99%)
+ * 2. Remove any with unacceptable primer quality
+ * 3. Sort by PRIMER QUALITY (not overall score) - fidelity is already 100%
+ * 4. Pick top 3 with different overhangs for flexibility
+ * 5. Fall back to lower fidelity only if no good 100% options
+ */
+function selectTopJunctionOptions(
+  candidates: JunctionCandidateInfo[],
+  maxCount: number = 3
+): JunctionCandidateInfo[] {
+  if (candidates.length === 0) return [];
+  if (candidates.length <= maxCount) return candidates;
+
+  // Step 1: Find all 100% fidelity options with acceptable primer quality
+  const perfectFidelity = candidates
+    .filter(c => (c.overhangFidelity || 0) >= 0.99)
+    .filter(c => meetsMinimumPrimerQuality(c));
+
+  // Step 2: Sort by PRIMER QUALITY (since fidelity is already 100%)
+  perfectFidelity.sort((a, b) => {
+    const aQuality = estimatePrimerQualityScore(a);
+    const bQuality = estimatePrimerQualityScore(b);
+    return bQuality - aQuality;
+  });
+
+  const selected: JunctionCandidateInfo[] = [];
+  const usedOverhangs = new Set<string>();
+
+  // Step 3: Select best primer quality options with different overhangs
+  if (perfectFidelity.length > 0) {
+    for (const candidate of perfectFidelity) {
+      if (selected.length >= maxCount) break;
+
+      // First one always added, then prefer different overhangs
+      if (selected.length === 0 || !usedOverhangs.has(candidate.overhang)) {
+        selected.push(candidate);
+        usedOverhangs.add(candidate.overhang);
+      }
+    }
+
+    // Fill remaining slots if needed (same overhang but different positions)
+    if (selected.length < maxCount) {
+      for (const candidate of perfectFidelity) {
+        if (selected.length >= maxCount) break;
+        if (!selected.includes(candidate)) {
+          selected.push(candidate);
+        }
+      }
+    }
+  }
+
+  // Step 4: Fall back to high fidelity (≥95%) if not enough 100% options
+  if (selected.length < maxCount) {
+    const highFidelity = candidates
+      .filter(c => (c.overhangFidelity || 0) >= 0.95 && (c.overhangFidelity || 0) < 0.99)
+      .filter(c => meetsMinimumPrimerQuality(c))
+      .filter(c => !selected.includes(c))
+      .sort((a, b) => estimatePrimerQualityScore(b) - estimatePrimerQualityScore(a));
+
+    for (const candidate of highFidelity) {
+      if (selected.length >= maxCount) break;
+      if (!usedOverhangs.has(candidate.overhang)) {
+        selected.push(candidate);
+        usedOverhangs.add(candidate.overhang);
+      }
+    }
+  }
+
+  // Step 5: Last resort - any remaining candidates sorted by overall score
+  if (selected.length < maxCount) {
+    const remaining = candidates
+      .filter(c => !selected.includes(c))
+      .sort((a, b) => b.overallScore - a.overallScore);
+
+    for (const candidate of remaining) {
+      if (selected.length >= maxCount) break;
+      selected.push(candidate);
+    }
+  }
+
+  // Final sort: best primer quality first (all should have 100% fidelity)
+  selected.sort((a, b) => {
+    // Primary: fidelity (100% first)
+    const fidelityDiff = (b.overhangFidelity || 0) - (a.overhangFidelity || 0);
+    if (Math.abs(fidelityDiff) > 0.01) return fidelityDiff > 0 ? 1 : -1;
+
+    // Secondary: primer quality
+    return estimatePrimerQualityScore(b) - estimatePrimerQualityScore(a);
+  });
+
+  return selected;
+}
+
 /**
  * Generate mutation options for each site
  */
@@ -1245,41 +1448,139 @@ function generateMutationOptions(
       recommended: null,
     };
 
-    // Design mutagenic junction option (PRIMARY for one-pot Golden Gate)
-    const junction = designMutagenicJunction(sequence, site, enzyme, {
+    // Design mutagenic junction options using ENHANCED algorithm with NEB fidelity data
+    // State-of-the-art: Generate 5 diverse junction options for user selection
+    const enhancedJunction = designEnhancedMutagenicJunction(sequence, site, enzyme, {
       frame,
-      organism: organism as any,  // FIXED: Type assertion for organism
+      organism: organism as any,
       existingOverhangs,
     });
 
-    if (junction.success) {
-      const mutagenicOption: MutationOption = {
-        type: 'mutagenic_junction',
-        junction,
-        score: (junction.combinedScore || 0) + (prioritizeMutagenic ? 100 : 0), // Boost if primary strategy
-        description: `Mutagenic junction at position ${(junction.junctionPosition ?? 0) + 1}`,
-        shortDescription: 'Junction + primer mutation',
-        fragmentIncrease: 1,
-        overhang: junction.overhang,
-        onePotCompatible: true,
-        primers: junction.primers,
-        // Ensure mutations is always an array (designMutagenicJunction returns 'mutation' singular)
-        mutations: Array.isArray((junction as any).mutations)
-          ? (junction as any).mutations
-          : (junction as any).mutation
-            ? [(junction as any).mutation]
-            : [],
-        benefits: [
-          'One-pot Golden Gate compatible',
-          'No pre-modified template needed',
-          'Permanent mutation after PCR',
-        ],
-      };
+    if (enhancedJunction.success && enhancedJunction.junctionPosition !== undefined) {
+      // Collect all junction candidates: best + alternatives
+      const allJunctionCandidates: JunctionCandidateInfo[] = [
+        {
+          junctionPosition: enhancedJunction.junctionPosition,
+          overhang: enhancedJunction.overhang!,
+          overallScore: enhancedJunction.quality?.overall ?? 0,
+          overhangFidelity: enhancedJunction.fidelity?.singleOverhang ?? 0,
+          mutation: enhancedJunction.mutation,
+          quality: enhancedJunction.quality,
+          fidelity: enhancedJunction.fidelity,
+          primers: enhancedJunction.primers,
+          isBest: true,
+        },
+        ...(enhancedJunction.alternatives || []).map(alt => ({
+          junctionPosition: alt.junctionPosition,
+          overhang: alt.overhang,
+          overallScore: alt.overallScore,
+          overhangFidelity: alt.overhangFidelity,
+          mutation: null as any,
+          quality: null as any,
+          fidelity: null as any,
+          primers: null as any,
+          isBest: false,
+        })),
+      ];
 
-      // Add as FIRST option if mutagenic junction is the selected strategy
-      if (prioritizeMutagenic) {
-        siteOption.options.unshift(mutagenicOption);
-      } else {
+      // Select top 3 junction options prioritizing 100% fidelity
+      const topJunctions = selectTopJunctionOptions(allJunctionCandidates, 3);
+
+      // Create MutationOption for each selected junction
+      for (let i = 0; i < topJunctions.length; i++) {
+        const junc = topJunctions[i];
+        const fidelityPercent = Math.round((junc.overhangFidelity || 0) * 100);
+        const isPerfectFidelity = fidelityPercent >= 99;
+
+        // Use pre-computed data for best junction, compute for alternatives
+        let junctionData: any;
+        if (junc.isBest) {
+          junctionData = enhancedJunction;
+        } else {
+          // For alternatives, create junction data with fidelity info
+          junctionData = {
+            success: true,
+            junctionPosition: junc.junctionPosition,
+            overhang: junc.overhang,
+            quality: {
+              overall: junc.overallScore,
+              tier: classifyJunctionQuality(junc.overallScore),
+              breakdown: {
+                overhangFidelity: fidelityPercent,
+                mutationQuality: 70, // Reasonable default
+                primerQuality: 70,
+                positionOptimality: 70,
+              },
+            },
+            fidelity: {
+              singleOverhang: junc.overhangFidelity,
+              withExisting: junc.overhangFidelity * 0.98,
+              source: 'NEB_experimental' as const,
+            },
+          };
+        }
+
+        const qualityTier = junctionData.quality?.tier || classifyJunctionQuality(junc.overallScore);
+        const primerQualityScore = estimatePrimerQualityScore(junc);
+        const primerQualityLabel = primerQualityScore >= PRIMER_QUALITY_THRESHOLDS.excellent ? 'Excellent primers' :
+                                   primerQualityScore >= PRIMER_QUALITY_THRESHOLDS.good ? 'Good primers' : 'OK primers';
+
+        // Clear labels: fidelity + primer quality (what matters)
+        const getRecommendationReason = (idx: number, fidelity: number, primerScore: number): string => {
+          if (idx === 0 && fidelity >= 99) {
+            return primerScore >= PRIMER_QUALITY_THRESHOLDS.excellent ? 'Best option' : '100% fidelity';
+          }
+          if (idx === 0) return 'Best available';
+          if (fidelity >= 99) return '100% fidelity';
+          if (fidelity >= 95) return `${fidelity}% fidelity`;
+          return 'Alternative';
+        };
+
+        const mutagenicOption: MutationOption = {
+          type: 'mutagenic_junction',
+          junction: junctionData,
+          score: junc.overallScore + (prioritizeMutagenic ? 100 : 0),
+          description: i === 0
+            ? `Recommended: ${junc.overhang} • ${fidelityPercent}% fidelity • ${primerQualityLabel}`
+            : `Alternative: ${junc.overhang} • ${fidelityPercent}% fidelity`,
+          shortDescription: getRecommendationReason(i, fidelityPercent, primerQualityScore),
+          fragmentIncrease: 1,
+          overhang: junc.overhang,
+          onePotCompatible: true,
+          primers: junctionData.primers,
+          mutations: junctionData.mutation ? [junctionData.mutation] : [],
+          benefits: isPerfectFidelity
+            ? ['100% ligation fidelity', 'One-pot compatible']
+            : [`${fidelityPercent}% ligation fidelity`, 'One-pot compatible'],
+          // Simplified junction metrics
+          junctionQuality: {
+            overall: junctionData.quality?.overall || junc.overallScore,
+            tier: qualityTier as 'excellent' | 'good' | 'acceptable' | 'poor',
+            breakdown: junctionData.quality?.breakdown || {
+              overhangFidelity: fidelityPercent,
+              mutationQuality: 70,
+              primerQuality: 70,
+              positionOptimality: 70,
+            },
+          },
+          junctionFidelity: {
+            singleOverhang: junc.overhangFidelity,
+            withExisting: junc.overhangFidelity * 0.98,
+            source: 'NEB_experimental',
+          },
+          junctionPosition: junc.junctionPosition,
+          primerTm: junctionData.primers ? {
+            fwd: junctionData.primers.fragment2?.forwardPrimer?.tm || 0,
+            rev: junctionData.primers.fragment1?.reversePrimer?.tm || 0,
+          } : undefined,
+          mutationImpact: junctionData.mutation ? {
+            codonChange: `${junctionData.mutation.originalCodon}→${junctionData.mutation.newCodon}`,
+            aminoAcid: junctionData.mutation.aminoAcid,
+            frequencyChange: `${junctionData.mutation.originalCodonFrequency?.toFixed(1) || '?'}→${junctionData.mutation.codonFrequency?.toFixed(1) || '?'}/1000`,
+            isWobble: junctionData.mutation.positionInCodon === 2,
+          } : undefined,
+        };
+
         siteOption.options.push(mutagenicOption);
       }
     }

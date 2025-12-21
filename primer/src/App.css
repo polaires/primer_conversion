@@ -27443,6 +27443,103 @@ body {
 }
 
 /* ==========================================================================
+   SIMPLIFIED JUNCTION DISPLAY (USER-CENTRIC)
+   ========================================================================== */
+
+/* Simple junction metrics layout */
+.enhanced-domestication-panel .junction-metrics-simple {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.enhanced-domestication-panel .junction-primary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.enhanced-domestication-panel .junction-secondary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--edp-neutral-500);
+}
+
+/* Overhang code styling */
+.enhanced-domestication-panel .overhang-code {
+  font-family: var(--edp-font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+  color: #0369a1;
+  padding: 4px 10px;
+  border-radius: 4px;
+  letter-spacing: 2px;
+}
+
+/* Fidelity badge - the key metric users care about */
+.enhanced-domestication-panel .fidelity-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 12px;
+}
+
+.enhanced-domestication-panel .fidelity-badge.perfect {
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  color: white;
+}
+
+.enhanced-domestication-panel .fidelity-badge.high {
+  background: linear-gradient(135deg, #0891b2 0%, #22d3ee 100%);
+  color: white;
+}
+
+.enhanced-domestication-panel .fidelity-badge.moderate {
+  background: var(--edp-neutral-200);
+  color: var(--edp-neutral-600);
+}
+
+/* Secondary info styling */
+.enhanced-domestication-panel .junction-pos {
+  color: var(--edp-neutral-400);
+}
+
+.enhanced-domestication-panel .junction-mutation {
+  font-family: var(--edp-font-mono);
+  font-size: 11px;
+  background: var(--edp-neutral-100);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.enhanced-domestication-panel .wobble-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  font-size: 8px;
+  font-weight: 700;
+  background: #059669;
+  color: white;
+  border-radius: 50%;
+  margin-left: 3px;
+}
+
+/* Quality Tag Badge - shows fidelity prominently */
+.enhanced-domestication-panel .option-badge.quality-tag {
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  color: white;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+/* ==========================================================================
    PREVIEW STEP - CELEBRATORY SUCCESS
    ========================================================================== */
 

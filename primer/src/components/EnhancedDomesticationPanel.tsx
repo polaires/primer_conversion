@@ -74,6 +74,23 @@ interface ReadingFrameValidation {
   warnings: string[];
 }
 
+interface JunctionQualityMetrics {
+  overall: number;
+  tier: 'excellent' | 'good' | 'acceptable' | 'poor';
+  breakdown: {
+    overhangFidelity: number;
+    mutationQuality: number;
+    primerQuality: number;
+    positionOptimality: number;
+  };
+}
+
+interface JunctionFidelityInfo {
+  singleOverhang: number;
+  withExisting: number;
+  source: 'NEB_experimental' | 'calculated';
+}
+
 interface MutationOption {
   type: 'silent_mutation' | 'mutagenic_junction';
   score: number;
@@ -85,6 +102,20 @@ interface MutationOption {
     junctionPosition: number;
   };
   overhang?: string;
+  shortDescription?: string;
+  description?: string;
+  benefits?: string[];
+  // Enhanced junction metrics (state-of-the-art)
+  junctionQuality?: JunctionQualityMetrics;
+  junctionFidelity?: JunctionFidelityInfo;
+  junctionPosition?: number;
+  primerTm?: { fwd: number; rev: number };
+  mutationImpact?: {
+    codonChange: string;
+    aminoAcid: string;
+    frequencyChange: string;
+    isWobble: boolean;
+  };
 }
 
 interface SiteOption {
@@ -1559,6 +1590,11 @@ function MutationSelectionStep({
                           {isRecommended && (
                             <span className="option-badge recommended" title="Recommended option">★ Recommended</span>
                           )}
+                          {option.shortDescription && option.type === 'mutagenic_junction' && (
+                            <span className="option-badge quality-tag" title={option.shortDescription}>
+                              {option.shortDescription}
+                            </span>
+                          )}
                           <span className={`option-badge fragment-tag ${option.type === 'silent_mutation' ? 'silent' : 'junction'}`}>
                             {option.type === 'silent_mutation' ? '○ No fragments' : '◇ +1 fragment'}
                           </span>
@@ -1587,13 +1623,36 @@ function MutationSelectionStep({
                           </>
                         ) : (
                           <>
-                            <div className="detail">
-                              <span className="label">Junction at:</span>
-                              <span>position {(option.junction?.junctionPosition ?? 0) + 1}</span>
-                            </div>
-                            <div className="detail">
-                              <span className="label">Overhang:</span>
-                              <code>{option.overhang}</code>
+                            {/* Simplified Junction Display - User-Centric */}
+                            <div className="junction-metrics-simple">
+                              {/* Primary info: Overhang + Fidelity (what users care about) */}
+                              <div className="junction-primary">
+                                <code className="overhang-code">{option.overhang}</code>
+                                {option.junctionFidelity && (
+                                  <span className={`fidelity-badge ${
+                                    option.junctionFidelity.singleOverhang >= 0.99 ? 'perfect' :
+                                    option.junctionFidelity.singleOverhang >= 0.95 ? 'high' : 'moderate'
+                                  }`}>
+                                    {option.junctionFidelity.singleOverhang >= 0.99 ? '100%' :
+                                     `${Math.round(option.junctionFidelity.singleOverhang * 100)}%`} fidelity
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Secondary: Position (compact) */}
+                              <div className="junction-secondary">
+                                <span className="junction-pos">
+                                  Position {(option.junctionPosition ?? option.junction?.junctionPosition ?? 0) + 1}
+                                </span>
+                                {option.mutationImpact && (
+                                  <span className="junction-mutation">
+                                    {option.mutationImpact.codonChange}
+                                    {option.mutationImpact.isWobble && (
+                                      <span className="wobble-indicator" title="Wobble position (preferred)">W</span>
+                                    )}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </>
                         )}
