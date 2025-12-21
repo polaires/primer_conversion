@@ -1214,15 +1214,35 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
     if (!result?.parts || method !== 'golden_gate') return null;
     try {
       // Extract unique overhangs from parts (each part has left and right overhang)
+      // Also include _overhang for domestication fragments and check result.overhangs directly
       const overhangs: string[] = [];
-      result.parts.forEach((part: any) => {
-        if (part.leftOverhang && !overhangs.includes(part.leftOverhang)) {
-          overhangs.push(part.leftOverhang);
-        }
-        if (part.rightOverhang && !overhangs.includes(part.rightOverhang)) {
-          overhangs.push(part.rightOverhang);
-        }
-      });
+
+      // First, try to use the result.overhangs array directly if available
+      // This is the authoritative source from the optimizer
+      if (result.overhangs && Array.isArray(result.overhangs)) {
+        result.overhangs.forEach((oh: string) => {
+          if (oh && !overhangs.includes(oh)) {
+            overhangs.push(oh);
+          }
+        });
+      }
+
+      // If no overhangs from result.overhangs, extract from parts
+      if (overhangs.length === 0) {
+        result.parts.forEach((part: any) => {
+          if (part.leftOverhang && !overhangs.includes(part.leftOverhang)) {
+            overhangs.push(part.leftOverhang);
+          }
+          if (part.rightOverhang && !overhangs.includes(part.rightOverhang)) {
+            overhangs.push(part.rightOverhang);
+          }
+          // Include domestication junction overhangs (_overhang property)
+          if (part._overhang && !overhangs.includes(part._overhang)) {
+            overhangs.push(part._overhang);
+          }
+        });
+      }
+
       if (overhangs.length < 2) return null;
       return generateCrossLigationHeatmap(overhangs, enzyme || 'BsaI') as CrossLigationData;
     } catch (e: unknown) {
@@ -3487,12 +3507,28 @@ export default function GoldenGateDesigner() {
         // - 6bp flanking sequences (NEB recommendation)
         // - G:T mismatch detection
         // - Automatic overhang optimization for maximum fidelity
+
+        // Collect domestication overhangs from expanded fragments
+        // These must be preserved - they are specifically designed to break internal restriction sites
+        const requiredOverhangPatterns: string[] = [];
+        const requiredOverhangIndices: number[] = [];
+        expandedParts.forEach((part: Part, i: number) => {
+          // _overhang is the right-side overhang of this fragment (junction to next fragment)
+          // This corresponds to overhang index i+1 in the assembly
+          if ((part as any)._overhang) {
+            requiredOverhangPatterns.push((part as any)._overhang);
+            requiredOverhangIndices.push(i + 1);
+          }
+        });
+
         assemblyResult = designOptimizedGoldenGateAssemblyForUI(expandedParts, {
           enzyme,
           circular: true,
-          useStandardOverhangs: true,
+          useStandardOverhangs: requiredOverhangPatterns.length === 0, // Don't use standard if we have domestication overhangs
           autoOptimize: true,
           autoDomestication: domesticationApplied, // Tell primer optimizer about domestication
+          requiredOverhangPatterns: requiredOverhangPatterns.length > 0 ? requiredOverhangPatterns : undefined,
+          requiredOverhangIndices: requiredOverhangIndices.length > 0 ? requiredOverhangIndices : undefined,
         });
 
         // Add domestication info to result
