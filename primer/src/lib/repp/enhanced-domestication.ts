@@ -1273,14 +1273,63 @@ function classifyJunctionQuality(score: number): 'excellent' | 'good' | 'accepta
   return 'poor';
 }
 
+// ============================================================================
+// PRIMER QUALITY THRESHOLDS
+// ============================================================================
+
+const PRIMER_QUALITY_THRESHOLDS = {
+  // Tm range for good primers
+  minTm: 55,
+  maxTm: 68,
+  optimalTm: 62,
+
+  // Quality score thresholds (0-100)
+  minAcceptable: 50,  // Below this, reject the junction
+  good: 70,
+  excellent: 85,
+};
+
 /**
- * Select top junction options prioritizing 100% fidelity
+ * Estimate primer quality score from junction candidate
+ * Higher score = better primer design
+ */
+function estimatePrimerQualityScore(candidate: JunctionCandidateInfo): number {
+  // If we have actual quality breakdown, use it
+  if (candidate.quality?.breakdown?.primerQuality) {
+    return candidate.quality.breakdown.primerQuality;
+  }
+
+  // Otherwise estimate from overall score
+  // Overall score = 35% fidelity + 25% mutation + 25% primer + 15% position
+  // If fidelity is 100% (score ~100), mutation quality ~70, position ~70
+  // Then primer quality ≈ (overall - 35*1 - 25*0.7 - 15*0.7) / 0.25
+  const overallScore = candidate.overallScore || 0;
+  const fidelityContribution = (candidate.overhangFidelity || 0) * 35;
+  const estimatedOtherContribution = 25 * 0.7 + 15 * 0.7; // ~28
+  const estimatedPrimerScore = Math.max(0, Math.min(100,
+    (overallScore - fidelityContribution - estimatedOtherContribution) / 0.25
+  ));
+
+  return estimatedPrimerScore;
+}
+
+/**
+ * Check if junction meets minimum primer quality requirements
+ */
+function meetsMinimumPrimerQuality(candidate: JunctionCandidateInfo): boolean {
+  const primerScore = estimatePrimerQualityScore(candidate);
+  return primerScore >= PRIMER_QUALITY_THRESHOLDS.minAcceptable;
+}
+
+/**
+ * Select top junction options: 100% fidelity first, then best primer quality
  *
- * Algorithm (simple and effective):
- * 1. Filter for 100% fidelity options first (≥99%)
- * 2. If multiple 100% fidelity options, pick top 3 by overall score
- * 3. If no 100% fidelity, fall back to highest fidelity available
- * 4. Ensure different overhangs when possible for flexibility
+ * Algorithm:
+ * 1. Filter for 100% fidelity options (≥99%)
+ * 2. Remove any with unacceptable primer quality
+ * 3. Sort by PRIMER QUALITY (not overall score) - fidelity is already 100%
+ * 4. Pick top 3 with different overhangs for flexibility
+ * 5. Fall back to lower fidelity only if no good 100% options
  */
 function selectTopJunctionOptions(
   candidates: JunctionCandidateInfo[],
@@ -1289,22 +1338,23 @@ function selectTopJunctionOptions(
   if (candidates.length === 0) return [];
   if (candidates.length <= maxCount) return candidates;
 
-  // Step 1: Find all 100% fidelity options (≥99% is effectively 100%)
-  const perfectFidelity = candidates.filter(c => (c.overhangFidelity || 0) >= 0.99);
+  // Step 1: Find all 100% fidelity options with acceptable primer quality
+  const perfectFidelity = candidates
+    .filter(c => (c.overhangFidelity || 0) >= 0.99)
+    .filter(c => meetsMinimumPrimerQuality(c));
 
-  // Step 2: Find high fidelity options (≥95%)
-  const highFidelity = candidates.filter(c =>
-    (c.overhangFidelity || 0) >= 0.95 && (c.overhangFidelity || 0) < 0.99
-  );
+  // Step 2: Sort by PRIMER QUALITY (since fidelity is already 100%)
+  perfectFidelity.sort((a, b) => {
+    const aQuality = estimatePrimerQualityScore(a);
+    const bQuality = estimatePrimerQualityScore(b);
+    return bQuality - aQuality;
+  });
 
   const selected: JunctionCandidateInfo[] = [];
   const usedOverhangs = new Set<string>();
 
-  // Priority 1: 100% fidelity options (pick best, then alternatives with different overhangs)
+  // Step 3: Select best primer quality options with different overhangs
   if (perfectFidelity.length > 0) {
-    // Sort by overall score
-    perfectFidelity.sort((a, b) => b.overallScore - a.overallScore);
-
     for (const candidate of perfectFidelity) {
       if (selected.length >= maxCount) break;
 
@@ -1315,7 +1365,7 @@ function selectTopJunctionOptions(
       }
     }
 
-    // If we still need more and have same-overhang options, add them
+    // Fill remaining slots if needed (same overhang but different positions)
     if (selected.length < maxCount) {
       for (const candidate of perfectFidelity) {
         if (selected.length >= maxCount) break;
@@ -1326,9 +1376,13 @@ function selectTopJunctionOptions(
     }
   }
 
-  // Priority 2: If not enough 100% fidelity, add high fidelity options
-  if (selected.length < maxCount && highFidelity.length > 0) {
-    highFidelity.sort((a, b) => b.overallScore - a.overallScore);
+  // Step 4: Fall back to high fidelity (≥95%) if not enough 100% options
+  if (selected.length < maxCount) {
+    const highFidelity = candidates
+      .filter(c => (c.overhangFidelity || 0) >= 0.95 && (c.overhangFidelity || 0) < 0.99)
+      .filter(c => meetsMinimumPrimerQuality(c))
+      .filter(c => !selected.includes(c))
+      .sort((a, b) => estimatePrimerQualityScore(b) - estimatePrimerQualityScore(a));
 
     for (const candidate of highFidelity) {
       if (selected.length >= maxCount) break;
@@ -1339,7 +1393,7 @@ function selectTopJunctionOptions(
     }
   }
 
-  // Priority 3: Fill remaining slots with best available
+  // Step 5: Last resort - any remaining candidates sorted by overall score
   if (selected.length < maxCount) {
     const remaining = candidates
       .filter(c => !selected.includes(c))
@@ -1351,8 +1405,15 @@ function selectTopJunctionOptions(
     }
   }
 
-  // Final sort: best score first
-  selected.sort((a, b) => b.overallScore - a.overallScore);
+  // Final sort: best primer quality first (all should have 100% fidelity)
+  selected.sort((a, b) => {
+    // Primary: fidelity (100% first)
+    const fidelityDiff = (b.overhangFidelity || 0) - (a.overhangFidelity || 0);
+    if (Math.abs(fidelityDiff) > 0.01) return fidelityDiff > 0 ? 1 : -1;
+
+    // Secondary: primer quality
+    return estimatePrimerQualityScore(b) - estimatePrimerQualityScore(a);
+  });
 
   return selected;
 }
@@ -1460,14 +1521,19 @@ function generateMutationOptions(
         }
 
         const qualityTier = junctionData.quality?.tier || classifyJunctionQuality(junc.overallScore);
+        const primerQualityScore = estimatePrimerQualityScore(junc);
+        const primerQualityLabel = primerQualityScore >= PRIMER_QUALITY_THRESHOLDS.excellent ? 'Excellent primers' :
+                                   primerQualityScore >= PRIMER_QUALITY_THRESHOLDS.good ? 'Good primers' : 'OK primers';
 
-        // Clear, simple labels based on fidelity (what users care about most)
-        const getRecommendationReason = (idx: number, fidelity: number, overhang: string): string => {
-          if (idx === 0 && fidelity >= 99) return '100% fidelity';
+        // Clear labels: fidelity + primer quality (what matters)
+        const getRecommendationReason = (idx: number, fidelity: number, primerScore: number): string => {
+          if (idx === 0 && fidelity >= 99) {
+            return primerScore >= PRIMER_QUALITY_THRESHOLDS.excellent ? 'Best option' : '100% fidelity';
+          }
           if (idx === 0) return 'Best available';
           if (fidelity >= 99) return '100% fidelity';
           if (fidelity >= 95) return `${fidelity}% fidelity`;
-          return `Alternative (${overhang})`;
+          return 'Alternative';
         };
 
         const mutagenicOption: MutationOption = {
@@ -1475,9 +1541,9 @@ function generateMutationOptions(
           junction: junctionData,
           score: junc.overallScore + (prioritizeMutagenic ? 100 : 0),
           description: i === 0
-            ? `Recommended: ${junc.overhang} overhang with ${fidelityPercent}% fidelity`
-            : `Alternative: ${junc.overhang} overhang (${fidelityPercent}% fidelity)`,
-          shortDescription: getRecommendationReason(i, fidelityPercent, junc.overhang),
+            ? `Recommended: ${junc.overhang} • ${fidelityPercent}% fidelity • ${primerQualityLabel}`
+            : `Alternative: ${junc.overhang} • ${fidelityPercent}% fidelity`,
+          shortDescription: getRecommendationReason(i, fidelityPercent, primerQualityScore),
           fragmentIncrease: 1,
           overhang: junc.overhang,
           onePotCompatible: true,
