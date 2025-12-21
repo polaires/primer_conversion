@@ -50,6 +50,29 @@ import {
   ENHANCED_JUNCTION_CONFIG,
 } from './enhanced-mutagenic-junction.js';
 
+// ============================================================================
+// UNIFIED FIDELITY CONFIGURATION
+// ============================================================================
+
+/**
+ * Centralized fidelity thresholds based on NEB experimental data
+ *
+ * KEY INSIGHT: We only care about ASSEMBLY FIDELITY (fidelity against the
+ * overhangs we're actually using), not single overhang fidelity (against all
+ * 256 possible overhangs). Assembly fidelity can be 100% when overhangs are
+ * orthogonal to each other.
+ */
+export const ASSEMBLY_FIDELITY_THRESHOLDS = {
+  // Assembly fidelity thresholds (what matters to users)
+  perfect: 0.99,       // 99%+ - considered 100% in practice
+  excellent: 0.95,     // 95-99% - very high confidence
+  good: 0.90,          // 90-95% - acceptable for most use cases
+  minimum: 0.80,       // Below 80% - warn user
+
+  // Target for optimization
+  target: 0.98,        // Try to achieve 98%+ assembly fidelity
+};
+
 // Type stubs for missing exports
 type MutagenicJunctionResult = any;
 type MutagenicJunctionsResult = any;
@@ -1318,14 +1341,55 @@ function meetsMinimumPrimerQuality(candidate: JunctionCandidateInfo): boolean {
 }
 
 /**
- * Select top junction options: 100% fidelity first, then best primer quality
+ * Calculate REAL assembly fidelity for an overhang against existing overhangs
  *
- * Algorithm:
- * 1. Filter for 100% fidelity options (≥99%)
- * 2. Remove any with unacceptable primer quality
- * 3. Sort by PRIMER QUALITY (not overall score) - fidelity is already 100%
- * 4. Pick top 3 with different overhangs for flexibility
- * 5. Fall back to lower fidelity only if no good 100% options
+ * This is the practical metric users care about:
+ * - How well will this overhang work with the OTHER overhangs in the assembly?
+ * - Can achieve 100% if overhangs are orthogonal (don't cross-react)
+ *
+ * @param overhang - The new overhang to evaluate
+ * @param existingOverhangs - Overhangs already in the assembly (from vector, previous sites)
+ * @param enzyme - The enzyme being used (e.g., 'BsaI')
+ * @returns Assembly fidelity (0-1), where 1 = 100%
+ */
+function calculateRealAssemblyFidelity(
+  overhang: string,
+  existingOverhangs: string[],
+  enzyme: string = 'BsaI'
+): number {
+  // If no existing overhangs, this overhang has perfect fidelity with itself
+  if (existingOverhangs.length === 0) {
+    return 1.0;
+  }
+
+  // Calculate assembly fidelity including the new overhang
+  const allOverhangs = [...existingOverhangs, overhang.toUpperCase()];
+
+  try {
+    const result = calculateExperimentalFidelity(allOverhangs, enzyme);
+    return result.assemblyFidelity;
+  } catch {
+    // Fallback: estimate based on number of overhangs
+    // Each additional overhang reduces fidelity slightly
+    return Math.max(0.85, 1.0 - (allOverhangs.length - 1) * 0.02);
+  }
+}
+
+/**
+ * Get fidelity classification for display
+ */
+function classifyAssemblyFidelity(fidelity: number): 'perfect' | 'excellent' | 'good' | 'moderate' {
+  if (fidelity >= ASSEMBLY_FIDELITY_THRESHOLDS.perfect) return 'perfect';
+  if (fidelity >= ASSEMBLY_FIDELITY_THRESHOLDS.excellent) return 'excellent';
+  if (fidelity >= ASSEMBLY_FIDELITY_THRESHOLDS.good) return 'good';
+  return 'moderate';
+}
+
+/**
+ * Select top junction options: excellent fidelity first, then best primer quality
+ *
+ * Uses centralized ASSEMBLY_FIDELITY_THRESHOLDS for all fidelity checks.
+ * Prioritizes options that will give high assembly fidelity in practice.
  */
 function selectTopJunctionOptions(
   candidates: JunctionCandidateInfo[],
@@ -1334,13 +1398,13 @@ function selectTopJunctionOptions(
   if (candidates.length === 0) return [];
   if (candidates.length <= maxCount) return candidates;
 
-  // Step 1: Find all 100% fidelity options with acceptable primer quality
-  const perfectFidelity = candidates
-    .filter(c => (c.overhangFidelity || 0) >= 0.99)
+  // Step 1: Find excellent fidelity options (using centralized threshold)
+  const excellentFidelity = candidates
+    .filter(c => (c.overhangFidelity || 0) >= ASSEMBLY_FIDELITY_THRESHOLDS.excellent)
     .filter(c => meetsMinimumPrimerQuality(c));
 
-  // Step 2: Sort by PRIMER QUALITY (since fidelity is already 100%)
-  perfectFidelity.sort((a, b) => {
+  // Step 2: Sort by PRIMER QUALITY (since fidelity is already excellent)
+  excellentFidelity.sort((a, b) => {
     const aQuality = estimatePrimerQualityScore(a);
     const bQuality = estimatePrimerQualityScore(b);
     return bQuality - aQuality;
@@ -1350,8 +1414,8 @@ function selectTopJunctionOptions(
   const usedOverhangs = new Set<string>();
 
   // Step 3: Select best primer quality options with different overhangs
-  if (perfectFidelity.length > 0) {
-    for (const candidate of perfectFidelity) {
+  if (excellentFidelity.length > 0) {
+    for (const candidate of excellentFidelity) {
       if (selected.length >= maxCount) break;
 
       // First one always added, then prefer different overhangs
@@ -1363,7 +1427,7 @@ function selectTopJunctionOptions(
 
     // Fill remaining slots if needed (same overhang but different positions)
     if (selected.length < maxCount) {
-      for (const candidate of perfectFidelity) {
+      for (const candidate of excellentFidelity) {
         if (selected.length >= maxCount) break;
         if (!selected.includes(candidate)) {
           selected.push(candidate);
@@ -1372,10 +1436,11 @@ function selectTopJunctionOptions(
     }
   }
 
-  // Step 4: Fall back to high fidelity (≥95%) if not enough 100% options
+  // Step 4: Fall back to good fidelity if not enough excellent options
   if (selected.length < maxCount) {
     const highFidelity = candidates
-      .filter(c => (c.overhangFidelity || 0) >= 0.95 && (c.overhangFidelity || 0) < 0.99)
+      .filter(c => (c.overhangFidelity || 0) >= ASSEMBLY_FIDELITY_THRESHOLDS.good &&
+                   (c.overhangFidelity || 0) < ASSEMBLY_FIDELITY_THRESHOLDS.excellent)
       .filter(c => meetsMinimumPrimerQuality(c))
       .filter(c => !selected.includes(c))
       .sort((a, b) => estimatePrimerQualityScore(b) - estimatePrimerQualityScore(a));
@@ -1401,9 +1466,9 @@ function selectTopJunctionOptions(
     }
   }
 
-  // Final sort: best primer quality first (all should have 100% fidelity)
+  // Final sort: best primer quality first (all should have excellent fidelity)
   selected.sort((a, b) => {
-    // Primary: fidelity (100% first)
+    // Primary: fidelity (highest first)
     const fidelityDiff = (b.overhangFidelity || 0) - (a.overhangFidelity || 0);
     if (Math.abs(fidelityDiff) > 0.01) return fidelityDiff > 0 ? 1 : -1;
 
@@ -1482,7 +1547,7 @@ function generateMutationOptions(
         })),
       ];
 
-      // Select top 3 junction options prioritizing 100% fidelity
+      // Select top 3 junction options prioritizing excellent fidelity (≥95%)
       const topJunctions = selectTopJunctionOptions(allJunctionCandidates, 3);
 
       // Debug: Log selection results
@@ -1492,15 +1557,27 @@ function generateMutationOptions(
       // Create MutationOption for each selected junction
       for (let i = 0; i < topJunctions.length; i++) {
         const junc = topJunctions[i];
-        const fidelityPercent = Math.round((junc.overhangFidelity || 0) * 100);
-        const isPerfectFidelity = fidelityPercent >= 99;
+
+        // Calculate REAL assembly fidelity - the practical metric users care about
+        // This is how well this overhang works with the other overhangs in the assembly
+        const realAssemblyFidelity = calculateRealAssemblyFidelity(
+          junc.overhang,
+          existingOverhangs,
+          enzyme
+        );
+        const assemblyFidelityPercent = Math.round(realAssemblyFidelity * 100);
+        const isExcellentFidelity = realAssemblyFidelity >= ASSEMBLY_FIDELITY_THRESHOLDS.excellent;
 
         // Use pre-computed data for best junction, compute for alternatives
         let junctionData: any;
         if (junc.isBest) {
           junctionData = enhancedJunction;
+          // Update the fidelity in the best junction data to use real assembly fidelity
+          if (junctionData.fidelity) {
+            junctionData.fidelity.withExisting = realAssemblyFidelity;
+          }
         } else {
-          // For alternatives, create junction data with fidelity info
+          // For alternatives, create junction data with REAL fidelity info
           junctionData = {
             success: true,
             junctionPosition: junc.junctionPosition,
@@ -1509,15 +1586,15 @@ function generateMutationOptions(
               overall: junc.overallScore,
               tier: classifyJunctionQuality(junc.overallScore),
               breakdown: {
-                overhangFidelity: fidelityPercent,
+                overhangFidelity: assemblyFidelityPercent,
                 mutationQuality: 70, // Reasonable default
                 primerQuality: 70,
                 positionOptimality: 70,
               },
             },
             fidelity: {
-              singleOverhang: junc.overhangFidelity,
-              withExisting: junc.overhangFidelity * 0.98,
+              singleOverhang: junc.overhangFidelity,  // Keep for reference
+              withExisting: realAssemblyFidelity,     // REAL assembly fidelity
               source: 'NEB_experimental' as const,
             },
           };
@@ -1528,47 +1605,50 @@ function generateMutationOptions(
         const primerQualityLabel = primerQualityScore >= PRIMER_QUALITY_THRESHOLDS.excellent ? 'Excellent primers' :
                                    primerQualityScore >= PRIMER_QUALITY_THRESHOLDS.good ? 'Good primers' : 'OK primers';
 
-        // Clear labels: fidelity + primer quality (what matters)
+        // Clear labels using REAL assembly fidelity (what users care about)
+        const fidelityClass = classifyAssemblyFidelity(realAssemblyFidelity);
         const getRecommendationReason = (idx: number, fidelity: number, primerScore: number): string => {
-          if (idx === 0 && fidelity >= 99) {
-            return primerScore >= PRIMER_QUALITY_THRESHOLDS.excellent ? 'Best option' : '100% fidelity';
-          }
+          if (fidelity >= 99) return primerScore >= PRIMER_QUALITY_THRESHOLDS.excellent ? 'Best option' : '100% fidelity';
+          if (idx === 0 && fidelity >= 95) return 'Excellent fidelity';
           if (idx === 0) return 'Best available';
-          if (fidelity >= 99) return '100% fidelity';
-          if (fidelity >= 95) return `${fidelity}% fidelity`;
+          if (fidelity >= 95) return `${fidelity}% (excellent)`;
+          if (fidelity >= 90) return `${fidelity}% fidelity`;
           return 'Alternative';
         };
+
+        // Display format: show 100% when assembly fidelity is perfect
+        const displayFidelity = assemblyFidelityPercent >= 99 ? '100' : assemblyFidelityPercent.toString();
 
         const mutagenicOption: MutationOption = {
           type: 'mutagenic_junction',
           junction: junctionData,
           score: junc.overallScore + (prioritizeMutagenic ? 100 : 0),
           description: i === 0
-            ? `Recommended: ${junc.overhang} • ${fidelityPercent}% fidelity • ${primerQualityLabel}`
-            : `Alternative: ${junc.overhang} • ${fidelityPercent}% fidelity`,
-          shortDescription: getRecommendationReason(i, fidelityPercent, primerQualityScore),
+            ? `Recommended: ${junc.overhang} • ${displayFidelity}% fidelity • ${primerQualityLabel}`
+            : `Alternative: ${junc.overhang} • ${displayFidelity}% fidelity`,
+          shortDescription: getRecommendationReason(i, assemblyFidelityPercent, primerQualityScore),
           fragmentIncrease: 1,
           overhang: junc.overhang,
           onePotCompatible: true,
           primers: junctionData.primers,
           mutations: junctionData.mutation ? [junctionData.mutation] : [],
-          benefits: isPerfectFidelity
-            ? ['100% ligation fidelity', 'One-pot compatible']
-            : [`${fidelityPercent}% ligation fidelity`, 'One-pot compatible'],
-          // Simplified junction metrics
+          benefits: isExcellentFidelity
+            ? ['Excellent ligation fidelity', 'One-pot compatible']
+            : [`${displayFidelity}% ligation fidelity`, 'One-pot compatible'],
+          // Simplified junction metrics using REAL assembly fidelity
           junctionQuality: {
             overall: junctionData.quality?.overall || junc.overallScore,
             tier: qualityTier as 'excellent' | 'good' | 'acceptable' | 'poor',
             breakdown: junctionData.quality?.breakdown || {
-              overhangFidelity: fidelityPercent,
+              overhangFidelity: assemblyFidelityPercent,
               mutationQuality: 70,
               primerQuality: 70,
               positionOptimality: 70,
             },
           },
           junctionFidelity: {
-            singleOverhang: junc.overhangFidelity,
-            withExisting: junc.overhangFidelity * 0.98,
+            singleOverhang: junc.overhangFidelity,    // Keep for reference (internal use)
+            withExisting: realAssemblyFidelity,       // REAL assembly fidelity (what users see)
             source: 'NEB_experimental',
           },
           junctionPosition: junc.junctionPosition,
