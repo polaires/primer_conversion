@@ -2642,8 +2642,15 @@ export function designOptimizedGoldenGateAssembly(parts: any, options: any = {})
     circular = true,               // NEW: circular vs linear assembly
     targetFidelity = GG_OPTIMIZER_DEFAULTS.targetFidelity,
     requiredOverhangIndices = [],
-    requiredPatterns = {},         // NEW: pattern requirements for overhangs
+    requiredOverhangPatterns = [], // Array of specific overhangs that must be included
+    requiredPatterns = [],         // Alias for requiredOverhangPatterns (for backwards compatibility)
   } = options;
+
+  // Merge required patterns from both sources
+  const allRequiredPatterns = [
+    ...(Array.isArray(requiredOverhangPatterns) ? requiredOverhangPatterns : []),
+    ...(Array.isArray(requiredPatterns) ? requiredPatterns : []),
+  ];
 
   // Input validation
   if (!Array.isArray(parts) || parts.length === 0) {
@@ -2670,7 +2677,7 @@ export function designOptimizedGoldenGateAssembly(parts: any, options: any = {})
     // This searches the ligation matrix for combinations with zero cross-reactivity
     const optimalResult = findOptimalOverhangSet(numJunctions, enzyme, {
       minCorrectFreq: 300,
-      requiredOverhangs: requiredPatterns || [],
+      requiredOverhangs: allRequiredPatterns,
     });
 
     initialOverhangs = optimalResult.overhangs;
@@ -2695,7 +2702,7 @@ export function designOptimizedGoldenGateAssembly(parts: any, options: any = {})
     overhangOptimization = autoOptimizeOverhangs(initialOverhangs, {
       enzyme,
       requiredIndices: requiredOverhangIndices,
-      requiredPatterns,
+      requiredPatterns: allRequiredPatterns,
       minFidelity: targetFidelity,
     });
     finalOverhangs = overhangOptimization.optimized;
@@ -2905,6 +2912,8 @@ export function designOptimizedGoldenGateAssemblyForUI(parts: any, options: any 
     useStandardOverhangs = true,
     autoOptimize = true,
     autoDomestication = false, // If true, parts have been auto-domesticated
+    requiredOverhangPatterns = [], // Domestication overhangs that must be preserved
+    requiredOverhangIndices = [],  // Positions where required overhangs must be placed
   } = options;
 
   // Call the optimized assembly function
@@ -2913,6 +2922,8 @@ export function designOptimizedGoldenGateAssemblyForUI(parts: any, options: any 
     circular,
     autoOptimize,
     overhangs: useStandardOverhangs ? null : options.customOverhangs,
+    requiredOverhangPatterns,
+    requiredOverhangIndices,
   });
 
   // Handle error case
