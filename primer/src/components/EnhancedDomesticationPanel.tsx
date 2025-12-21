@@ -855,35 +855,35 @@ function AnalyzeStep({ sequence, enzyme, internalSites, orfDetection, onContinue
       </p>
 
       <div className="analysis-summary">
-        <div className="summary-card">
-          <div className="card-icon warning">{Icons.warning}</div>
+        <div className="summary-card warning">
+          <div className="card-icon">{Icons.warning}</div>
           <div className="card-content">
-            <div className="card-title">Internal Sites</div>
+            <div className="card-label">INTERNAL SITES</div>
             <div className="card-value">{internalSites.count}</div>
             <div className="card-detail">
-              Position{internalSites.count !== 1 ? 's' : ''}: {internalSites.sites.map(s => s.position + 1).join(', ')}
+              at position{internalSites.count !== 1 ? 's' : ''} {internalSites.sites.map(s => s.position + 1).join(', ')}
             </div>
           </div>
         </div>
 
-        <div className="summary-card">
-          <div className="card-icon info">{Icons.dna}</div>
+        <div className="summary-card info">
+          <div className="card-icon">{Icons.dna}</div>
           <div className="card-content">
-            <div className="card-title">Sequence Length</div>
+            <div className="card-label">SEQUENCE LENGTH</div>
             <div className="card-value">{sequence.length.toLocaleString()}</div>
             <div className="card-detail">base pairs</div>
           </div>
         </div>
 
-        <div className="summary-card">
-          <div className="card-icon success">{orfDetection?.hasOrfs ? Icons.check : Icons.info}</div>
+        <div className="summary-card success">
+          <div className="card-icon">{orfDetection?.hasOrfs ? Icons.check : Icons.info}</div>
           <div className="card-content">
-            <div className="card-title">ORF Detection</div>
+            <div className="card-label">ORF DETECTION</div>
             <div className="card-value">{orfDetection?.totalFound || 0}</div>
             <div className="card-detail">
               {orfDetection?.hasOrfs
-                ? `Best: Frame ${orfDetection.bestOrf?.frame}, ${orfDetection.bestOrf?.proteinLength} aa`
-                : 'No significant ORFs'}
+                ? `best in frame ${orfDetection.bestOrf?.frame} (${orfDetection.bestOrf?.proteinLength} aa)`
+                : 'no significant ORFs found'}
             </div>
           </div>
         </div>
@@ -1081,41 +1081,53 @@ function StrategySelectionStep({
       </p>
 
       <div className="strategy-options">
-        {strategies.map(strategy => (
-          <div
-            key={strategy.id}
-            className={`strategy-card ${selectedStrategy === strategy.id ? 'selected' : ''} ${!strategy.feasible ? 'disabled' : ''} ${strategy.id === ENHANCED_CONFIG.strategies.MUTAGENIC_JUNCTION ? 'recommended' : ''}`}
-            onClick={() => strategy.feasible && onStrategySelect(strategy.id)}
-          >
-            {/* Radio indicator */}
-            <div className="strategy-radio" />
+        {strategies.map(strategy => {
+          // ONE-POT is only for Mutagenic Junction and Alternative Enzyme (NOT Silent Mutation)
+          const isOnePot = strategy.id === ENHANCED_CONFIG.strategies.MUTAGENIC_JUNCTION ||
+                           strategy.id === ENHANCED_CONFIG.strategies.ALTERNATIVE_ENZYME;
+          const isSelected = selectedStrategy === strategy.id;
 
-            <div className="strategy-content">
-              <div className="strategy-header">
-                <span className="strategy-title">{strategy.name}</span>
-                {strategy.id === ENHANCED_CONFIG.strategies.MUTAGENIC_JUNCTION && (
-                  <span className="strategy-badge recommended">Recommended</span>
-                )}
-                {strategy.details && 'fragments' in strategy.details && (
-                  <span className="strategy-badge one-pot">One-pot</span>
-                )}
+          return (
+            <div
+              key={strategy.id}
+              className={`strategy-card ${isSelected ? 'selected' : ''} ${!strategy.feasible ? 'disabled' : ''} ${strategy.id === ENHANCED_CONFIG.strategies.MUTAGENIC_JUNCTION ? 'recommended' : ''}`}
+              onClick={() => strategy.feasible && onStrategySelect(strategy.id)}
+            >
+              <div className="strategy-content">
+                <div className="strategy-header">
+                  <span className="strategy-title">{strategy.name}</span>
+                  <div className="strategy-badges">
+                    {strategy.id === ENHANCED_CONFIG.strategies.MUTAGENIC_JUNCTION && (
+                      <span className="strategy-badge recommended">Recommended</span>
+                    )}
+                    {isOnePot && strategy.feasible && (
+                      <span className="strategy-badge one-pot">One-pot</span>
+                    )}
+                  </div>
+                </div>
+
+                <p className="strategy-description">{strategy.description}</p>
+
+                <div className="strategy-meta">
+                  <div className="meta-benefits">
+                    {strategy.benefits.slice(0, 2).map((b, i) => (
+                      <span key={i} className="meta-item benefit">✓ {b}</span>
+                    ))}
+                  </div>
+                  <div className="meta-tradeoffs">
+                    {strategy.tradeoffs.slice(0, 1).map((t, i) => (
+                      <span key={i} className="meta-item tradeoff">⚠ {t}</span>
+                    ))}
+                  </div>
+                </div>
               </div>
 
-              <p className="strategy-description">{strategy.description}</p>
-
-              <div className="strategy-meta">
-                {strategy.benefits.slice(0, 2).map((b, i) => (
-                  <span key={i} className="meta-item benefit">✓ {b}</span>
-                ))}
-                {strategy.tradeoffs.slice(0, 1).map((t, i) => (
-                  <span key={i} className="meta-item tradeoff">• {t}</span>
-                ))}
+              <div className="strategy-icon-container">
+                <div className="strategy-icon">{strategy.icon}</div>
               </div>
             </div>
-
-            <div className="strategy-icon">{strategy.icon}</div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Enzyme Selection Section - shown when Alternative Enzyme is selected */}
@@ -1309,11 +1321,14 @@ function FrameSelectionStep({
                 <code>{opt.proteinPreview}...</code>
               </div>
 
-              {stopCount > 0 && (
-                <div className={`frame-warning ${stopCount > 5 ? 'severe' : 'moderate'}`}>
-                  {Icons.warning} {stopCount} internal stop{stopCount !== 1 ? 's' : ''} — {stopCount > 5 ? 'Avoid this frame' : 'Use with caution'}
-                </div>
-              )}
+              {/* Status indicator - always show for consistent card heights */}
+              <div className={`frame-status ${stopCount === 0 ? 'success' : stopCount <= 5 ? 'warning' : 'danger'}`}>
+                {stopCount === 0 ? (
+                  <>{Icons.check} No internal stops — Recommended</>
+                ) : (
+                  <>{Icons.warning} {stopCount} internal stop{stopCount !== 1 ? 's' : ''} — {stopCount > 5 ? 'Avoid this frame' : 'Use with caution'}</>
+                )}
+              </div>
             </div>
           );
         })}
@@ -1506,56 +1521,74 @@ function MutationSelectionStep({
               </div>
 
               <div className="mutation-options">
-                {displayOptions.map((option: MutationOption, optIndex: number) => (
-                  <div
-                    key={optIndex}
-                    className={`mutation-option ${isSelected(option) ? 'selected' : ''} ${option === siteOption.recommended ? 'recommended' : ''}`}
-                    onClick={() => onMutationSelect(siteKey, option)}
-                  >
-                    <div className="option-header">
-                      <span className="option-type">
-                        {option.type === 'silent_mutation' ? 'Silent Mutation' : 'Mutagenic Junction'}
-                      </span>
-                      <span className={`option-badge ${option.type === 'silent_mutation' ? 'silent' : 'junction'}`}>
-                        {option.type === 'silent_mutation' ? 'No fragments' : '+1 fragment'}
-                      </span>
-                    </div>
+                {displayOptions.map((option: MutationOption, optIndex: number) => {
+                  const isRecommended = option === siteOption.recommended;
+                  const isOptionSelected = isSelected(option);
 
-                    <div className="option-details">
-                      {option.type === 'silent_mutation' ? (
-                        <>
-                          <div className="detail">
-                            <span className="label">Codon:</span>
-                            <code>{option.codonChange}</code>
-                            <span className="aa">({option.aminoAcid})</span>
-                          </div>
-                          <div className="detail">
-                            <span className="label">Frequency:</span>
-                            <span>{option.frequencyChange}</span>
-                          </div>
-                          {option.warnings && option.warnings.length > 0 && (
-                            <div className="warnings">
-                              {option.warnings.map((w: string, i: number) => (
-                                <span key={i} className="warning-badge">{w}</span>
-                              ))}
-                            </div>
+                  // Format warnings nicely
+                  const formatWarning = (w: string) => {
+                    if (w === 'RARE_CODON' || w.includes('rare') || w.includes('Rare')) {
+                      return '⚠️ Low frequency';
+                    }
+                    return `⚠️ ${w}`;
+                  };
+
+                  return (
+                    <div
+                      key={optIndex}
+                      className={`mutation-option ${isOptionSelected ? 'selected' : ''} ${isRecommended ? 'recommended' : ''}`}
+                      onClick={() => onMutationSelect(siteKey, option)}
+                    >
+                      <div className="option-header">
+                        <span className="option-type">
+                          {option.type === 'silent_mutation' ? 'Silent Mutation' : 'Mutagenic Junction'}
+                        </span>
+                        <div className="option-badges">
+                          {isRecommended && (
+                            <span className="option-badge recommended">Recommended</span>
                           )}
-                        </>
-                      ) : (
-                        <>
-                          <div className="detail">
-                            <span className="label">Junction at:</span>
-                            <span>position {option.junction?.junctionPosition}</span>
-                          </div>
-                          <div className="detail">
-                            <span className="label">Overhang:</span>
-                            <code>{option.overhang}</code>
-                          </div>
-                        </>
-                      )}
+                          <span className={`option-badge ${option.type === 'silent_mutation' ? 'silent' : 'junction'}`}>
+                            {option.type === 'silent_mutation' ? 'No fragments' : '+1 fragment'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="option-details">
+                        {option.type === 'silent_mutation' ? (
+                          <>
+                            <div className="detail">
+                              <span className="label">Codon:</span>
+                              <code>{option.codonChange}</code>
+                              <span className="aa">({option.aminoAcid})</span>
+                            </div>
+                            <div className="detail">
+                              <span className="label">Frequency:</span>
+                              <span>{option.frequencyChange}</span>
+                            </div>
+                            {option.warnings && option.warnings.length > 0 && (
+                              <div className="warnings">
+                                {option.warnings.map((w: string, i: number) => (
+                                  <span key={i} className="warning-tag">{formatWarning(w)}</span>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <div className="detail">
+                              <span className="label">Junction at:</span>
+                              <span>position {option.junction?.junctionPosition}</span>
+                            </div>
+                            <div className="detail">
+                              <span className="label">Overhang:</span>
+                              <code>{option.overhang}</code>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           );
@@ -1664,40 +1697,30 @@ function PreviewStep({
         contextSize={18}
       />
 
-      {/* Validation Status */}
-      <div className="validation-status">
-        <div className={`validation-item ${preview.validation.proteinPreserved ? 'passed' : 'failed'}`}>
-          <span className="status-icon">{preview.validation.proteinPreserved ? Icons.check : Icons.close}</span>
-          <span className="status-text">Protein Sequence Preserved</span>
-        </div>
-        <div className={`validation-item ${preview.validation.noRemainingSites ? 'passed' : 'failed'}`}>
-          <span className="status-icon">{preview.validation.noRemainingSites ? Icons.check : Icons.close}</span>
-          <span className="status-text">No Remaining Internal Sites</span>
-        </div>
-      </div>
-
-      {/* Protein Alignment */}
-      <div className="protein-alignment">
-        <h3>Protein Alignment</h3>
-        <div className="alignment-container">
-          <div className="alignment-row">
-            <span className="row-label">Original:</span>
-            <code className="protein-sequence">{preview.original.protein}</code>
-            <span className="length">({preview.original.proteinLength} aa)</span>
-          </div>
-          <div className="alignment-row">
-            <span className="row-label">Domesticated:</span>
-            <code className="protein-sequence">{preview.domesticated.protein}</code>
-            <span className="length">({preview.domesticated.proteinLength} aa)</span>
-          </div>
-          <div className="alignment-status">
+      {/* Protein Verification - Compact Display */}
+      <div className="protein-verification">
+        <div className="verification-header">
+          <h3>Protein Verification</h3>
+          <div className={`verification-result ${preview.comparison?.proteinIdentical ? 'success' : 'error'}`}>
             {preview.comparison?.proteinIdentical ? (
-              <span className="identical">{Icons.check} Proteins are IDENTICAL</span>
+              <>{Icons.check} Identical — No amino acid changes</>
             ) : (
-              <span className="different">
-                {Icons.close} {preview.comparison?.differences?.length || 0} difference(s) detected!
-              </span>
+              <>{Icons.warning} {preview.comparison?.differences?.length || 0} difference(s) detected</>
             )}
+          </div>
+        </div>
+        <div className="protein-stats">
+          <div className="stat">
+            <span className="stat-label">Original</span>
+            <span className="stat-value">{preview.original.proteinLength} aa</span>
+          </div>
+          <div className="stat">
+            <span className="stat-label">Domesticated</span>
+            <span className="stat-value">{preview.domesticated.proteinLength} aa</span>
+          </div>
+          <div className="stat">
+            <span className="stat-label">Identity</span>
+            <span className="stat-value">{preview.comparison?.proteinIdentical ? '100%' : '<100%'}</span>
           </div>
         </div>
       </div>
@@ -1710,20 +1733,37 @@ function PreviewStep({
             <thead>
               <tr>
                 <th>Position</th>
-                <th>Change</th>
-                <th>Codon</th>
+                <th>Context</th>
+                <th>Codon Change</th>
                 <th>Amino Acid</th>
               </tr>
             </thead>
             <tbody>
-              {preview.mutations.map((mut, i) => (
-                <tr key={i}>
-                  <td>{mut.position + 1}</td>
-                  <td><code>{mut.change}</code></td>
-                  <td><code>{mut.codon}</code></td>
-                  <td>{mut.aminoAcid}</td>
-                </tr>
-              ))}
+              {preview.mutations.map((mut, i) => {
+                // Show mutation in sequence context
+                const pos = mut.position;
+                const before = sequence.slice(Math.max(0, pos - 3), pos);
+                const after = sequence.slice(pos + 1, Math.min(sequence.length, pos + 4));
+                const oldNt = mut.change?.split('→')[0] || '';
+                const newNt = mut.change?.split('→')[1] || '';
+
+                return (
+                  <tr key={i}>
+                    <td className="pos-col">{pos + 1}</td>
+                    <td className="context-col">
+                      <code className="mutation-context">
+                        <span className="ctx-before">{before}</span>
+                        <span className="ctx-old">{oldNt}</span>
+                        <span className="ctx-arrow">→</span>
+                        <span className="ctx-new">{newNt}</span>
+                        <span className="ctx-after">{after}</span>
+                      </code>
+                    </td>
+                    <td><code className="codon-change">{mut.codon}</code></td>
+                    <td className="aa-col">{mut.aminoAcid}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
