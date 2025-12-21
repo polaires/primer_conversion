@@ -284,6 +284,11 @@ const Icons = {
       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
     </svg>
   ),
+  download: (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+      <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+    </svg>
+  ),
 };
 
 // ============================================================================
@@ -653,15 +658,18 @@ function AnalyzeStep({ sequence, enzyme, internalSites, orfDetection, onContinue
   return (
     <div className="step-content analyze-step">
       <h2>Sequence Analysis</h2>
+      <p className="step-description">
+        Your sequence contains internal {enzyme} recognition sites that need to be removed for Golden Gate assembly.
+      </p>
 
       <div className="analysis-summary">
         <div className="summary-card">
           <div className="card-icon warning">{Icons.warning}</div>
           <div className="card-content">
-            <div className="card-title">{internalSites.count} Internal Site{internalSites.count !== 1 ? 's' : ''}</div>
+            <div className="card-title">Internal Sites</div>
+            <div className="card-value">{internalSites.count}</div>
             <div className="card-detail">
-              {enzyme} recognition sites found at positions:{' '}
-              {internalSites.sites.map(s => s.position + 1).join(', ')}
+              Position{internalSites.count !== 1 ? 's' : ''}: {internalSites.sites.map(s => s.position + 1).join(', ')}
             </div>
           </div>
         </div>
@@ -670,21 +678,23 @@ function AnalyzeStep({ sequence, enzyme, internalSites, orfDetection, onContinue
           <div className="card-icon info">{Icons.dna}</div>
           <div className="card-content">
             <div className="card-title">Sequence Length</div>
-            <div className="card-detail">{sequence.length.toLocaleString()} bp</div>
+            <div className="card-value">{sequence.length.toLocaleString()}</div>
+            <div className="card-detail">base pairs</div>
           </div>
         </div>
 
-        {orfDetection && orfDetection.hasOrfs && (
-          <div className="summary-card">
-            <div className="card-icon success">{Icons.check}</div>
-            <div className="card-content">
-              <div className="card-title">{orfDetection.totalFound} ORF{orfDetection.totalFound !== 1 ? 's' : ''} Detected</div>
-              <div className="card-detail">
-                Best: Frame {orfDetection.bestOrf?.frame}, {orfDetection.bestOrf?.proteinLength} aa
-              </div>
+        <div className="summary-card">
+          <div className="card-icon success">{orfDetection?.hasOrfs ? Icons.check : Icons.info}</div>
+          <div className="card-content">
+            <div className="card-title">ORF Detection</div>
+            <div className="card-value">{orfDetection?.totalFound || 0}</div>
+            <div className="card-detail">
+              {orfDetection?.hasOrfs
+                ? `Best: Frame ${orfDetection.bestOrf?.frame}, ${orfDetection.bestOrf?.proteinLength} aa`
+                : 'No significant ORFs'}
             </div>
           </div>
-        )}
+        </div>
       </div>
 
       <div className="site-details">
@@ -877,47 +887,33 @@ function StrategySelectionStep({
             className={`strategy-card ${selectedStrategy === strategy.id ? 'selected' : ''} ${!strategy.feasible ? 'disabled' : ''} ${strategy.id === ENHANCED_CONFIG.strategies.MUTAGENIC_JUNCTION ? 'recommended' : ''}`}
             onClick={() => strategy.feasible && onStrategySelect(strategy.id)}
           >
-            <div className="strategy-header">
-              <span className="strategy-icon">{strategy.icon}</span>
-              <div className="strategy-title">
-                <h3>{strategy.name}</h3>
-                <span className="strategy-tagline">{strategy.tagline}</span>
-              </div>
-              {strategy.id === ENHANCED_CONFIG.strategies.MUTAGENIC_JUNCTION && (
-                <span className="recommended-badge">Recommended</span>
-              )}
-              {selectedStrategy === strategy.id && (
-                <span className="selected-badge">{Icons.check}</span>
-              )}
-            </div>
+            {/* Radio indicator */}
+            <div className="strategy-radio" />
 
-            <p className="strategy-description">{strategy.description}</p>
-
-            <div className="strategy-details">
-              <div className="benefits">
-                <h4>Benefits</h4>
-                <ul>
-                  {strategy.benefits.map((b, i) => (
-                    <li key={i} className="benefit">{Icons.check} {b}</li>
-                  ))}
-                </ul>
+            <div className="strategy-content">
+              <div className="strategy-header">
+                <span className="strategy-title">{strategy.name}</span>
+                {strategy.id === ENHANCED_CONFIG.strategies.MUTAGENIC_JUNCTION && (
+                  <span className="strategy-badge recommended">Recommended</span>
+                )}
+                {strategy.details && 'fragments' in strategy.details && (
+                  <span className="strategy-badge one-pot">One-pot</span>
+                )}
               </div>
 
-              <div className="tradeoffs">
-                <h4>Trade-offs</h4>
-                <ul>
-                  {strategy.tradeoffs.map((t, i) => (
-                    <li key={i} className="tradeoff">• {t}</li>
-                  ))}
-                </ul>
+              <p className="strategy-description">{strategy.description}</p>
+
+              <div className="strategy-meta">
+                {strategy.benefits.slice(0, 2).map((b, i) => (
+                  <span key={i} className="meta-item benefit">✓ {b}</span>
+                ))}
+                {strategy.tradeoffs.slice(0, 1).map((t, i) => (
+                  <span key={i} className="meta-item tradeoff">• {t}</span>
+                ))}
               </div>
             </div>
 
-            {!strategy.feasible && (
-              <div className="strategy-unavailable">
-                Not available for this sequence
-              </div>
-            )}
+            <div className="strategy-icon">{strategy.icon}</div>
           </div>
         ))}
       </div>
@@ -1067,17 +1063,10 @@ function FrameSelectionStep({
       </p>
 
       <div className="frame-options">
-        {frameOptions.map(opt => (
-          <div
-            key={opt.frame}
-            className={`frame-option ${selectedFrame === opt.frame ? 'selected' : ''} ${opt.isRecommended ? 'recommended' : ''}`}
-            onClick={() => onFrameSelect(opt.frame)}
-          >
-            <div className="frame-header">
-              <div className="frame-number">Frame {opt.frame}</div>
-              {opt.isRecommended && <span className="recommended-badge">Recommended</span>}
-              {selectedFrame === opt.frame && <span className="selected-badge">{Icons.check} Selected</span>}
-            </div>
+        {frameOptions.map(opt => {
+          // Determine severity based on stop codons
+          const stopCount = opt.validation?.internalStops?.length || 0;
+          const severityClass = stopCount === 0 ? 'severity-ok' : stopCount <= 5 ? 'severity-warning' : 'severity-danger';
 
             <div className="frame-details">
               {opt.bestOrf ? (
@@ -1099,21 +1088,39 @@ function FrameSelectionStep({
                 <div className="detail-row">
                   <span className="label">No significant ORF</span>
                 </div>
-              )}
+              </div>
+
+              <div className="frame-stats">
+                {opt.bestOrf ? (
+                  <>
+                    <div className="frame-stat">
+                      <span className="label">ORF Length</span>
+                      <span className="value">{opt.bestOrf.proteinLength} aa</span>
+                    </div>
+                    <div className="frame-stat">
+                      <span className="label">Codon Usage</span>
+                      <span className="value">{opt.bestOrf.avgCodonUsage.toFixed(0)}/1000</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="frame-stat">
+                    <span className="label">No significant ORF detected</span>
+                  </div>
+                )}
+              </div>
 
               <div className="protein-preview">
-                <span className="label">Protein:</span>
                 <code>{opt.proteinPreview}...</code>
               </div>
 
-              {opt.validation?.internalStops?.length > 0 && (
-                <div className="warning-row">
-                  {Icons.warning} {opt.validation.internalStops.length} internal stop codon(s)
+              {stopCount > 0 && (
+                <div className={`frame-warning ${stopCount > 5 ? 'severe' : 'moderate'}`}>
+                  {Icons.warning} {stopCount} internal stop{stopCount !== 1 ? 's' : ''} — {stopCount > 5 ? 'Avoid this frame' : 'Use with caution'}
                 </div>
               )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="codon-mode-section">
@@ -1243,11 +1250,28 @@ function MutationSelectionStep({
           const effectiveSelected = displayOptions.includes(selected) ? selected : displayOptions[0];
           const isSelected = (option: MutationOption) => option === effectiveSelected;
 
+          // Create color-coded sequence display
+          const siteSeq = siteOption.site.sequence || '';
+          const coloredSeq = siteSeq.split('').map((nt, i) => (
+            <span key={i} className={`nt-${nt}`}>{nt}</span>
+          ));
+
           return (
             <div key={siteIndex} className="site-mutation-card">
               <div className="site-header">
                 <span className="site-position">Site at position {siteOption.site.position + 1}</span>
                 <code className="site-sequence">{siteOption.site.sequence}</code>
+              </div>
+
+              {/* Sequence minimap showing the site in context */}
+              <div className="sequence-minimap">
+                <div className="minimap-label">Recognition Site</div>
+                <div className="minimap-sequence">
+                  <span className="site-highlight">{coloredSeq}</span>
+                  {effectiveSelected?.type === 'mutagenic_junction' && effectiveSelected.junction && (
+                    <span className="junction-marker"> ← junction at {effectiveSelected.junction.junctionPosition}</span>
+                  )}
+                </div>
               </div>
 
               <div className="mutation-options">
@@ -1258,20 +1282,12 @@ function MutationSelectionStep({
                     onClick={() => onMutationSelect(siteKey, option)}
                   >
                     <div className="option-header">
-                      {option.type === 'silent_mutation' ? (
-                        <>
-                          <span className="option-type">Silent Mutation</span>
-                          <span className="option-score">Score: {option.score.toFixed(0)}</span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="option-type">Mutagenic Junction</span>
-                          <span className="option-score">+1 fragment</span>
-                        </>
-                      )}
-                      {option === siteOption.recommended && (
-                        <span className="recommended-tag">Recommended</span>
-                      )}
+                      <span className="option-type">
+                        {option.type === 'silent_mutation' ? 'Silent Mutation' : 'Mutagenic Junction'}
+                      </span>
+                      <span className={`option-badge ${option.type === 'silent_mutation' ? 'silent' : 'junction'}`}>
+                        {option.type === 'silent_mutation' ? 'No fragments' : '+1 fragment'}
+                      </span>
                     </div>
 
                     <div className="option-details">
@@ -1351,12 +1367,36 @@ function PreviewStep({
     return <div>Generating preview...</div>;
   }
 
+  const allPassed = preview.validation.proteinPreserved && preview.validation.noRemainingSites;
+
   return (
     <div className="step-content preview-step">
       <h2>Pre-Flight Check</h2>
-      <p className="step-description">
-        Review the changes before applying. Ensure the protein sequence is preserved.
-      </p>
+
+      {/* Success/Warning Banner */}
+      <div className={`status-banner ${allPassed ? 'success' : 'warning'}`}>
+        <div className="status-icon">
+          {allPassed ? Icons.checkCircle : Icons.warning}
+        </div>
+        <div className="status-content">
+          <div className="status-title">
+            {allPassed ? 'All Checks Passed!' : 'Review Required'}
+          </div>
+          <div className="status-subtitle">
+            {allPassed
+              ? 'Your domestication preserves the protein sequence and removes all internal sites.'
+              : 'Some checks did not pass. Please review before proceeding.'}
+          </div>
+        </div>
+        <div className="status-checks">
+          <span className={`status-check ${preview.validation.proteinPreserved ? '' : 'failed'}`}>
+            {preview.validation.proteinPreserved ? '✓' : '✗'} Protein preserved
+          </span>
+          <span className={`status-check ${preview.validation.noRemainingSites ? '' : 'failed'}`}>
+            {preview.validation.noRemainingSites ? '✓' : '✗'} Sites removed
+          </span>
+        </div>
+      </div>
 
       {/* Validation Status */}
       <div className="validation-status">
@@ -1492,6 +1532,37 @@ function PreviewStep({
 }
 
 /**
+ * Calculate GC% for a sequence
+ */
+function calculateGC(seq: string): number {
+  if (!seq) return 0;
+  const gc = (seq.match(/[GCgc]/g) || []).length;
+  return (gc / seq.length) * 100;
+}
+
+/**
+ * Copy text to clipboard with visual feedback
+ */
+function copyToClipboard(text: string, setCopied: (id: string) => void, id: string) {
+  navigator.clipboard.writeText(text);
+  setCopied(id);
+  setTimeout(() => setCopied(''), 2000);
+}
+
+/**
+ * Render colored nucleotide sequence
+ */
+function ColoredSequence({ seq }: { seq: string }) {
+  return (
+    <span className="colored-sequence">
+      {seq.split('').map((nt, i) => (
+        <span key={i} className={`nt-${nt.toUpperCase()}`}>{nt}</span>
+      ))}
+    </span>
+  );
+}
+
+/**
  * Reusable primer card component for displaying primer pairs
  */
 interface PrimerCardProps {
@@ -1503,6 +1574,7 @@ interface PrimerCardProps {
 }
 
 function PrimerCard({ primerPair, index, expandedPrimer, setExpandedPrimer, primerType }: PrimerCardProps) {
+  const [copiedId, setCopiedId] = useState<string>('');
   const isExpanded = expandedPrimer === index;
   const isPCR = primerType === 'pcr';
 
@@ -1520,84 +1592,126 @@ function PrimerCard({ primerPair, index, expandedPrimer, setExpandedPrimer, prim
     }
   }
 
-  return (
-    <div className={`primer-card ${isExpanded ? 'expanded' : ''} ${primerType}`}>
-      <div className="primer-header" onClick={() => setExpandedPrimer(isExpanded ? null : index)}>
-        <span className="primer-name">{pairName}</span>
-        {primerPair.codonChange && (
-          <span className="primer-badge mutation">{primerPair.codonChange}</span>
-        )}
-        {primerPair.overhang && (
-          <span className="primer-badge overhang">{primerPair.overhang}</span>
-        )}
-        {primerPair.pairQuality !== undefined && (
-          <span className={`quality-indicator ${primerPair.pairQuality >= 80 ? 'excellent' : primerPair.pairQuality >= 65 ? 'good' : 'acceptable'}`}>
-            {primerPair.pairQuality.toFixed(0)}
+  // Helper to render a single primer row
+  const renderPrimer = (primer: any, direction: 'forward' | 'reverse', label: string) => {
+    if (!primer) return null;
+    const seq = primer.sequence || '';
+    const gcPercent = calculateGC(seq);
+    const tm = primer.homologyTm || primer.tm;
+    const copyId = `${index}-${direction}`;
+    const isCopied = copiedId === copyId;
+
+    return (
+      <div className={`primer-row ${direction}`}>
+        <div className="primer-row-header">
+          <span className={`primer-direction-badge ${direction}`}>
+            {direction === 'forward' ? 'FWD' : 'REV'}
           </span>
-        )}
-        <button className="expand-btn">{isExpanded ? '−' : '+'}</button>
+          <span className="primer-label">{label}</span>
+          <div className="primer-metrics-inline">
+            <span className="metric"><strong>{seq.length}</strong> nt</span>
+            <span className="metric-sep">·</span>
+            <span className="metric">Tm <strong>{tm?.toFixed(1) || '—'}°C</strong></span>
+            <span className="metric-sep">·</span>
+            <span className={`metric ${gcPercent < 40 || gcPercent > 60 ? 'warn' : ''}`}>
+              GC <strong>{gcPercent.toFixed(0)}%</strong>
+            </span>
+          </div>
+        </div>
+        <div className="primer-sequence-row">
+          <code className="primer-sequence-box">
+            {isPCR && primer.components ? (
+              <>
+                <span className="seq-segment fiveprime">{primer.components.fivePrime}</span>
+                <span className="seq-segment mutation-highlight">{primer.components.mutation}</span>
+                <span className="seq-segment threeprime">{primer.components.threePrime}</span>
+              </>
+            ) : (
+              <ColoredSequence seq={seq} />
+            )}
+          </code>
+          <button
+            className={`btn-copy-inline ${isCopied ? 'copied' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              copyToClipboard(seq, setCopiedId, copyId);
+            }}
+            title="Copy sequence"
+          >
+            {isCopied ? Icons.check : Icons.copy}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className={`primer-card-v2 ${isExpanded ? 'expanded' : ''} ${primerType}`}>
+      <div className="primer-card-header-v2" onClick={() => setExpandedPrimer(isExpanded ? null : index)}>
+        <div className="primer-card-title-section">
+          <span className="primer-pair-icon">{Icons.dna}</span>
+          <span className="primer-pair-name">{pairName}</span>
+          {primerPair.codonChange && (
+            <span className="primer-tag mutation">{primerPair.codonChange}</span>
+          )}
+          {primerPair.overhang && (
+            <span className="primer-tag overhang">{primerPair.overhang}</span>
+          )}
+        </div>
+        <div className="primer-card-actions">
+          {primerPair.pairQuality !== undefined && (
+            <span className={`quality-badge ${primerPair.pairQuality >= 80 ? 'excellent' : primerPair.pairQuality >= 65 ? 'good' : 'acceptable'}`}>
+              {primerPair.pairQuality >= 80 ? '★' : primerPair.pairQuality >= 65 ? '●' : '○'} {primerPair.pairQuality.toFixed(0)}%
+            </span>
+          )}
+          <button className="expand-toggle">{isExpanded ? '▲' : '▼'}</button>
+        </div>
+      </div>
+
+      {/* Always show primer sequences */}
+      <div className="primer-sequences-preview">
+        {renderPrimer(primerPair.forward, 'forward', `${pairName}_F`)}
+        {renderPrimer(primerPair.reverse, 'reverse', `${pairName}_R`)}
       </div>
 
       {isExpanded && (
-        <div className="primer-details">
+        <div className="primer-expanded-details">
           {/* Instructions for PCR primers */}
           {isPCR && primerPair.instructions && (
-            <div className="primer-instructions">
-              <strong>Protocol:</strong> {primerPair.instructions}
-            </div>
-          )}
-
-          {primerPair.forward && (
-            <div className="individual-primer">
-              <div className="primer-direction">
-                <span className="direction-label">Forward (5' → 3')</span>
-                <span className="primer-metrics">
-                  {primerPair.forward.length} nt | Tm: {primerPair.forward.homologyTm?.toFixed(1) || 'N/A'}°C
-                </span>
-              </div>
-              <div className="sequence-display">
-                {isPCR && primerPair.forward.components ? (
-                  <code>
-                    <span className="seq-segment fiveprime">{primerPair.forward.components.fivePrime}</span>
-                    <span className="seq-segment mutation-highlight">{primerPair.forward.components.mutation}</span>
-                    <span className="seq-segment threeprime">{primerPair.forward.components.threePrime}</span>
-                  </code>
-                ) : (
-                  <code>{primerPair.forward.sequence}</code>
-                )}
-              </div>
-            </div>
-          )}
-
-          {primerPair.reverse && (
-            <div className="individual-primer">
-              <div className="primer-direction">
-                <span className="direction-label">Reverse (5' → 3')</span>
-                <span className="primer-metrics">
-                  {primerPair.reverse.length} nt | Tm: {primerPair.reverse.homologyTm?.toFixed(1) || 'N/A'}°C
-                </span>
-              </div>
-              <div className="sequence-display">
-                {isPCR && primerPair.reverse.components ? (
-                  <code>
-                    <span className="seq-segment fiveprime">{primerPair.reverse.components.fivePrime}</span>
-                    <span className="seq-segment mutation-highlight">{primerPair.reverse.components.mutation}</span>
-                    <span className="seq-segment threeprime">{primerPair.reverse.components.threePrime}</span>
-                  </code>
-                ) : (
-                  <code>{primerPair.reverse.sequence}</code>
-                )}
-              </div>
+            <div className="primer-protocol-note">
+              <span className="protocol-icon">{Icons.info}</span>
+              <span><strong>Protocol:</strong> {primerPair.instructions}</span>
             </div>
           )}
 
           {/* PCR protocol info */}
           {isPCR && primerPair.pcrProtocol && (
-            <div className="pcr-protocol">
-              <span className="protocol-label">Annealing:</span> {primerPair.pcrProtocol.annealingTemp}°C |
-              <span className="protocol-label">Extension:</span> {primerPair.pcrProtocol.extensionTime}
+            <div className="pcr-conditions">
+              <span className="condition">
+                <span className="condition-label">Annealing:</span>
+                <span className="condition-value">{primerPair.pcrProtocol.annealingTemp}°C</span>
+              </span>
+              <span className="condition">
+                <span className="condition-label">Extension:</span>
+                <span className="condition-value">{primerPair.pcrProtocol.extensionTime}</span>
+              </span>
             </div>
           )}
+
+          {/* Copy Both Button */}
+          <button
+            className="btn-copy-both"
+            onClick={(e) => {
+              e.stopPropagation();
+              const text = [
+                primerPair.forward ? `>${pairName}_F\n${primerPair.forward.sequence}` : '',
+                primerPair.reverse ? `>${pairName}_R\n${primerPair.reverse.sequence}` : ''
+              ].filter(Boolean).join('\n');
+              copyToClipboard(text, setCopiedId, `${index}-both`);
+            }}
+          >
+            {copiedId === `${index}-both` ? <>{Icons.check} Copied!</> : <>{Icons.copy} Copy Both (FASTA)</>}
+          </button>
         </div>
       )}
     </div>
@@ -1614,6 +1728,33 @@ interface PrimersStepProps {
 
 function PrimersStep({ executionResult, primerDesign, onContinue, onBack }: PrimersStepProps) {
   const [expandedPrimer, setExpandedPrimer] = useState<number | null>(null);
+  const [copiedState, setCopiedState] = useState<string>('');
+
+  // Download helper functions
+  const downloadFile = (content: string, filename: string, type: string) => {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const generateFASTA = (orderList: any[]) => {
+    return orderList.map(p => `>${p.name}\n${p.sequence}`).join('\n\n');
+  };
+
+  const generateCSV = (orderList: any[]) => {
+    const header = 'Name,Sequence,Length,Tm,GC%';
+    const rows = orderList.map(p => {
+      const gc = calculateGC(p.sequence);
+      return `${p.name},${p.sequence},${p.length},${p.tm?.toFixed(1) || 'N/A'},${gc.toFixed(1)}`;
+    });
+    return [header, ...rows].join('\n');
+  };
 
   if (!executionResult) {
     return (
@@ -1632,40 +1773,54 @@ function PrimersStep({ executionResult, primerDesign, onContinue, onBack }: Prim
   const { primers, primerSummary } = primerDesign || {};
   const hasJunctions = executionResult.junctions && executionResult.junctions.length > 0;
   const hasMutations = executionResult.mutations && executionResult.mutations.length > 0;
+  const totalPrimers = primerSummary?.totalPrimers || 0;
 
   return (
-    <div className="step-content primers-step">
-      <h2>Designed Primers</h2>
-      <p className="step-description">
-        {hasJunctions
-          ? `Primers designed for ${executionResult.junctions.length} mutagenic junction(s). These primers carry the mutations and create assembly fragments.`
-          : hasMutations
-          ? `${executionResult.mutations.length} silent mutation(s) applied to template. Use standard primers for amplification.`
-          : 'Domestication strategy applied successfully.'}
-      </p>
+    <div className="step-content primers-step-v2">
+      {/* Success Header */}
+      <div className="primers-header">
+        <div className="primers-title-section">
+          <div className="primers-icon">{Icons.dna}</div>
+          <div>
+            <h2>Primers Ready</h2>
+            <p className="primers-subtitle">
+              {hasJunctions
+                ? `${executionResult.junctions.length} junction primer pair${executionResult.junctions.length !== 1 ? 's' : ''} designed`
+                : hasMutations
+                ? `${executionResult.mutations.length} silent mutation${executionResult.mutations.length !== 1 ? 's' : ''} applied`
+                : 'Domestication complete'}
+            </p>
+          </div>
+        </div>
+        {totalPrimers > 0 && (
+          <div className="primers-quick-stats">
+            <div className="quick-stat">
+              <span className="quick-stat-value">{totalPrimers}</span>
+              <span className="quick-stat-label">Primers</span>
+            </div>
+            <div className="quick-stat">
+              <span className="quick-stat-value">{primerSummary?.totalLength || 0}</span>
+              <span className="quick-stat-label">Total nt</span>
+            </div>
+            {primerSummary?.estimatedCost && (
+              <div className="quick-stat highlight">
+                <span className="quick-stat-value">${primerSummary.estimatedCost.toFixed(0)}</span>
+                <span className="quick-stat-label">Est. Cost</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
-      {/* Strategy Summary */}
-      <div className="strategy-summary-card">
-        <div className="summary-header">
-          <span className="strategy-icon">{hasJunctions ? Icons.scissors : Icons.dna}</span>
-          <span className="strategy-name">
-            {hasJunctions ? 'Mutagenic Junction Strategy' : 'Silent Mutation Strategy'}
-          </span>
-        </div>
-        <div className="summary-details">
-          {hasJunctions && (
-            <div className="detail-item">
-              <span className="label">Fragments:</span>
-              <span className="value">{executionResult.junctions.length + 1} total</span>
-            </div>
-          )}
-          {hasMutations && (
-            <div className="detail-item">
-              <span className="label">Mutations:</span>
-              <span className="value">{executionResult.mutations.length} applied</span>
-            </div>
-          )}
-        </div>
+      {/* Strategy Badge */}
+      <div className="strategy-badge-inline">
+        <span className="strategy-badge-icon">{hasJunctions ? Icons.scissors : Icons.dna}</span>
+        <span className="strategy-badge-text">
+          {hasJunctions ? 'Mutagenic Junction Strategy' : 'Silent Mutation Strategy'}
+        </span>
+        {hasJunctions && (
+          <span className="strategy-badge-detail">• {executionResult.junctions.length + 1} fragments</span>
+        )}
       </div>
 
       {/* Primer List - Group by step for silent mutation strategy */}
@@ -1771,63 +1926,106 @@ function PrimersStep({ executionResult, primerDesign, onContinue, onBack }: Prim
         </div>
       )}
 
-      {/* Ordering Summary */}
-      {primerSummary && primerSummary.totalPrimers > 0 && (
-        <div className="ordering-summary">
-          <h3>Ordering Summary</h3>
-          <div className="summary-stats">
-            <div className="stat">
-              <span className="stat-value">{primerSummary.totalPrimers}</span>
-              <span className="stat-label">Primers</span>
-            </div>
-            <div className="stat">
-              <span className="stat-value">{primerSummary.totalLength} nt</span>
-              <span className="stat-label">Total Length</span>
-            </div>
-            {primerSummary.estimatedCost && (
-              <div className="stat">
-                <span className="stat-value">${primerSummary.estimatedCost.toFixed(2)}</span>
-                <span className="stat-label">Est. Cost</span>
-              </div>
-            )}
-          </div>
-
-          {primerSummary.orderList && primerSummary.orderList.length > 0 && (
-            <div className="order-table-container">
-              <h4>Ready-to-Order</h4>
-              <table className="order-table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Sequence</th>
-                    <th>Length</th>
-                    <th>Tm</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {primerSummary.orderList.map((item, i) => (
-                    <tr key={i}>
-                      <td>{item.name}</td>
-                      <td><code className="primer-seq">{item.sequence}</code></td>
-                      <td>{item.length} nt</td>
-                      <td>{item.tm?.toFixed(1) || 'N/A'}°C</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      {/* Order & Export Section */}
+      {primerSummary && primerSummary.orderList && primerSummary.orderList.length > 0 && (
+        <div className="order-export-section">
+          <div className="order-section-header">
+            <h3>{Icons.download} Ready to Order</h3>
+            <div className="export-buttons">
               <button
-                className="btn-copy"
+                className={`btn-export ${copiedState === 'clipboard' ? 'copied' : ''}`}
                 onClick={() => {
                   const text = primerSummary.orderList!
                     .map(p => `${p.name}\t${p.sequence}`)
                     .join('\n');
                   navigator.clipboard.writeText(text);
+                  setCopiedState('clipboard');
+                  setTimeout(() => setCopiedState(''), 2000);
                 }}
               >
-                {Icons.copy} Copy for Ordering
+                {copiedState === 'clipboard' ? <>{Icons.check} Copied!</> : <>{Icons.copy} Copy All</>}
+              </button>
+              <button
+                className="btn-export"
+                onClick={() => {
+                  const csv = generateCSV(primerSummary.orderList!);
+                  downloadFile(csv, 'domestication_primers.csv', 'text/csv');
+                }}
+              >
+                {Icons.download} CSV
+              </button>
+              <button
+                className="btn-export"
+                onClick={() => {
+                  const fasta = generateFASTA(primerSummary.orderList!);
+                  downloadFile(fasta, 'domestication_primers.fasta', 'text/plain');
+                }}
+              >
+                {Icons.download} FASTA
               </button>
             </div>
-          )}
+          </div>
+
+          <div className="order-table-v2">
+            <table>
+              <thead>
+                <tr>
+                  <th className="col-name">Name</th>
+                  <th className="col-sequence">Sequence (5' → 3')</th>
+                  <th className="col-length">Length</th>
+                  <th className="col-tm">Tm</th>
+                  <th className="col-gc">GC%</th>
+                  <th className="col-copy"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {primerSummary.orderList.map((item, i) => {
+                  const gc = calculateGC(item.sequence);
+                  const rowCopyId = `row-${i}`;
+                  return (
+                    <tr key={i} className={i % 2 === 0 ? 'even' : 'odd'}>
+                      <td className="col-name">
+                        <span className="primer-name-cell">{item.name}</span>
+                      </td>
+                      <td className="col-sequence">
+                        <code className="sequence-mono">
+                          <ColoredSequence seq={item.sequence} />
+                        </code>
+                      </td>
+                      <td className="col-length">{item.length} nt</td>
+                      <td className="col-tm">{item.tm?.toFixed(1) || '—'}°C</td>
+                      <td className={`col-gc ${gc < 40 || gc > 60 ? 'warn' : ''}`}>{gc.toFixed(0)}%</td>
+                      <td className="col-copy">
+                        <button
+                          className={`btn-copy-row ${copiedState === rowCopyId ? 'copied' : ''}`}
+                          onClick={() => {
+                            navigator.clipboard.writeText(item.sequence);
+                            setCopiedState(rowCopyId);
+                            setTimeout(() => setCopiedState(''), 2000);
+                          }}
+                          title="Copy sequence"
+                        >
+                          {copiedState === rowCopyId ? Icons.check : Icons.copy}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="order-summary-footer">
+            <span className="footer-stat">{primerSummary.totalPrimers} primers</span>
+            <span className="footer-sep">•</span>
+            <span className="footer-stat">{primerSummary.totalLength} nt total</span>
+            {primerSummary.estimatedCost && (
+              <>
+                <span className="footer-sep">•</span>
+                <span className="footer-stat highlight">~${primerSummary.estimatedCost.toFixed(2)} estimated</span>
+              </>
+            )}
+          </div>
         </div>
       )}
 
