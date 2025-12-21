@@ -1180,6 +1180,259 @@ function FidelityGauge({ overhangs, enzyme, staticFidelity }: FidelityGaugeProps
   );
 }
 
+// ============================================================================
+// GG PRIMER CARD - Clean card-based primer display (adapted from Isothermal)
+// ============================================================================
+interface GGPrimerCardProps {
+  primer: any;
+  direction: 'Forward' | 'Reverse';
+  partId: string;
+  overhang?: string;
+  onCopy: (text: string, label: string) => void;
+  copiedId: string | null;
+}
+
+function GGPrimerCard({ primer, direction, partId, overhang, onCopy, copiedId }: GGPrimerCardProps) {
+  const [showDetails, setShowDetails] = useState(false);
+  const safePrimer = primer || {};
+  const structure = safePrimer.structure || {};
+
+  const isForward = direction === 'Forward';
+  const dirColor = isForward ? '#3b82f6' : '#8b5cf6';
+  const copyId = `${partId}-${isForward ? 'fwd' : 'rev'}`;
+
+  // Calculate segment lengths for structure bar
+  const extraLen = structure.extra?.length || 0;
+  const enzymeLen = (structure.bsaISite || structure.recognitionSite)?.length || 0;
+  const spacerLen = structure.spacer?.length || 0;
+  const overhangLen = structure.overhang?.length || 0;
+  const homologyLen = structure.homology?.length || 0;
+  const annealingLen = structure.annealing?.length || 0;
+  const totalLen = safePrimer.length || (extraLen + enzymeLen + spacerLen + overhangLen + homologyLen + annealingLen);
+
+  // Get quality color
+  const getQualityColor = (score: number) => {
+    if (score >= 85) return '#22c55e';
+    if (score >= 70) return '#3b82f6';
+    if (score >= 55) return '#f59e0b';
+    return '#ef4444';
+  };
+
+  // Check for issues
+  const homology = structure.homology || '';
+  const last2 = homology.slice(-2).toUpperCase();
+  const gcClamp = (last2.match(/[GC]/g) || []).length;
+  const hasGGGG = /GGGG/i.test(homology);
+
+  const breakdown = safePrimer.breakdown;
+
+  return (
+    <div className="gg-primer-card">
+      {/* Header */}
+      <div className="gg-primer-card-header">
+        <span className="gg-primer-direction" style={{ backgroundColor: dirColor }}>
+          {isForward ? '5′→3′' : '3′←5′'}
+        </span>
+        <span className="gg-primer-name">{partId}_{isForward ? 'F' : 'R'}</span>
+        {safePrimer.qualityScore != null && (
+          <span className="gg-primer-quality" style={{
+            backgroundColor: getQualityColor(safePrimer.qualityScore) + '15',
+            color: getQualityColor(safePrimer.qualityScore),
+            borderColor: getQualityColor(safePrimer.qualityScore) + '40'
+          }}>
+            {safePrimer.qualityScore}/100
+          </span>
+        )}
+        <button
+          className={`gg-primer-copy ${copiedId === copyId ? 'copied' : ''}`}
+          onClick={() => onCopy(safePrimer.sequence || '', copyId)}
+          title="Copy sequence"
+        >
+          {copiedId === copyId ? (
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="#22c55e">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+              <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+            </svg>
+          )}
+        </button>
+      </div>
+
+      {/* Structure Visualization Bar */}
+      <div className="gg-primer-structure">
+        <div className="gg-structure-bar">
+          {extraLen > 0 && (
+            <div className="gg-segment extra" style={{ flex: extraLen }} title={`Extra: ${extraLen}bp`} />
+          )}
+          {enzymeLen > 0 && (
+            <div className="gg-segment enzyme" style={{ flex: enzymeLen }} title={`BsaI site: ${enzymeLen}bp`} />
+          )}
+          {spacerLen > 0 && (
+            <div className="gg-segment spacer" style={{ flex: spacerLen }} title={`Spacer: ${spacerLen}bp`} />
+          )}
+          {overhangLen > 0 && (
+            <div className="gg-segment overhang" style={{ flex: overhangLen }} title={`Overhang: ${overhangLen}bp`} />
+          )}
+          {homologyLen > 0 && (
+            <div className="gg-segment homology" style={{ flex: homologyLen }} title={`Homology: ${homologyLen}bp`} />
+          )}
+          {annealingLen > 0 && (
+            <div className="gg-segment annealing" style={{ flex: annealingLen }} title={`Annealing: ${annealingLen}bp`} />
+          )}
+        </div>
+        <div className="gg-structure-legend">
+          {enzymeLen > 0 && <span className="legend-item enzyme">BsaI</span>}
+          {overhangLen > 0 && <span className="legend-item overhang">{overhang || 'OH'}</span>}
+          <span className="legend-item annealing">{annealingLen}bp anneal</span>
+        </div>
+      </div>
+
+      {/* Sequence Display */}
+      <div className="gg-primer-sequence">
+        <code>
+          {structure.extra && <span className="seq-extra">{structure.extra}</span>}
+          {(structure.bsaISite || structure.recognitionSite) && (
+            <span className="seq-enzyme">{structure.bsaISite || structure.recognitionSite}</span>
+          )}
+          {structure.spacer && <span className="seq-spacer">{structure.spacer}</span>}
+          {structure.overhang && <span className="seq-overhang">{structure.overhang}</span>}
+          {structure.homology && <span className="seq-homology">{structure.homology}</span>}
+          {structure.annealing && <span className="seq-annealing">{structure.annealing}</span>}
+        </code>
+      </div>
+
+      {/* Metrics Grid */}
+      <div className="gg-primer-metrics">
+        <div className="gg-metric">
+          <span className="gg-metric-value">{totalLen}</span>
+          <span className="gg-metric-label">bp</span>
+        </div>
+        <div className="gg-metric">
+          <span className="gg-metric-value">{safePrimer.tm?.toFixed(1) || '—'}</span>
+          <span className="gg-metric-label">Tm °C</span>
+        </div>
+        <div className="gg-metric">
+          <span className="gg-metric-value">{safePrimer.gc?.toFixed(0) || '—'}</span>
+          <span className="gg-metric-label">% GC</span>
+        </div>
+        <div className="gg-metric">
+          <span className={`gg-metric-value ${gcClamp >= 1 ? 'good' : 'warning'}`}>{last2 || '—'}</span>
+          <span className="gg-metric-label">3′ end</span>
+        </div>
+        {breakdown?.hairpin && (
+          <div className="gg-metric">
+            <span className={`gg-metric-value ${breakdown.hairpin.score >= 70 ? 'good' : breakdown.hairpin.score >= 50 ? 'warning' : 'bad'}`}>
+              {breakdown.hairpin.value?.toFixed(1) || '—'}
+            </span>
+            <span className="gg-metric-label">Hairpin</span>
+          </div>
+        )}
+        {hasGGGG && (
+          <div className="gg-metric warning">
+            <span className="gg-metric-value bad">G4</span>
+            <span className="gg-metric-label">Risk</span>
+          </div>
+        )}
+      </div>
+
+      {/* Expandable Details */}
+      {breakdown && (
+        <button className="gg-details-toggle" onClick={() => setShowDetails(!showDetails)}>
+          {showDetails ? '▼ Hide details' : '▶ Thermodynamics'}
+        </button>
+      )}
+
+      {showDetails && breakdown && (
+        <div className="gg-primer-details">
+          <div className="gg-detail-row">
+            <span>Hairpin ΔG</span>
+            <span className={breakdown.hairpin?.score >= 70 ? 'good' : breakdown.hairpin?.score >= 50 ? 'warning' : 'bad'}>
+              {breakdown.hairpin?.value?.toFixed(1) || '0.0'} kcal/mol
+            </span>
+          </div>
+          <div className="gg-detail-row">
+            <span>Self-dimer ΔG</span>
+            <span className={breakdown.homodimer?.score >= 70 ? 'good' : breakdown.homodimer?.score >= 50 ? 'warning' : 'bad'}>
+              {breakdown.homodimer?.value?.toFixed(1) || '0.0'} kcal/mol
+            </span>
+          </div>
+          {breakdown.terminal3DG && (
+            <div className="gg-detail-row">
+              <span>3′ Duplex ΔG</span>
+              <span className={breakdown.terminal3DG?.score >= 70 ? 'good' : 'warning'}>
+                {breakdown.terminal3DG?.value?.toFixed(1) || '—'} kcal/mol
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Pair Quality Panel for Golden Gate
+interface GGPairQualityProps {
+  pairQuality: any;
+  fwdTm?: number;
+  revTm?: number;
+}
+
+function GGPairQualityPanel({ pairQuality, fwdTm, revTm }: GGPairQualityProps) {
+  if (!pairQuality) return null;
+
+  const tmDiff = pairQuality.tmDifference?.value || Math.abs((fwdTm || 0) - (revTm || 0));
+  const heterodimer = pairQuality.heterodimer;
+
+  const getQualityColor = (quality: string) => {
+    if (quality === 'excellent') return '#22c55e';
+    if (quality === 'good') return '#3b82f6';
+    if (quality === 'acceptable') return '#f59e0b';
+    return '#ef4444';
+  };
+
+  return (
+    <div className="gg-pair-panel">
+      <div className="gg-pair-header">
+        <span>Primer Pair Quality</span>
+        {pairQuality.score != null && (
+          <span className="gg-pair-score" style={{
+            backgroundColor: getQualityColor(pairQuality.quality) + '15',
+            color: getQualityColor(pairQuality.quality)
+          }}>
+            {pairQuality.score}/100 • {pairQuality.quality}
+          </span>
+        )}
+      </div>
+      <div className="gg-pair-metrics">
+        <div className="gg-pair-metric">
+          <span className="gg-pair-label">ΔTm</span>
+          <span className={`gg-pair-value ${tmDiff <= 2 ? 'good' : tmDiff <= 5 ? 'warning' : 'bad'}`}>
+            {tmDiff.toFixed(1)}°C
+          </span>
+        </div>
+        {heterodimer && (
+          <div className="gg-pair-metric">
+            <span className="gg-pair-label">Heterodimer</span>
+            <span className={`gg-pair-value ${heterodimer.score >= 70 ? 'good' : heterodimer.score >= 50 ? 'warning' : 'bad'}`}>
+              {heterodimer.fullPrimers?.toFixed(1) || '—'} kcal/mol
+            </span>
+          </div>
+        )}
+      </div>
+      {heterodimer && heterodimer.fullPrimers < -8 && (
+        <div className="gg-pair-warning">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="#f59e0b">
+            <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+          </svg>
+          Strong heterodimer may cause primer-dimer artifacts
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Enhanced Primer Results with better contrast and CSV export
 function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenGateProp }: PrimerResultsProps) {
   // Use prop if provided, otherwise derive from method
@@ -1785,449 +2038,55 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                 </div>
               </div>
             )}
-            {result.parts.filter((part: Part) => part.primers).map((part: Part, i: number) => {
-              // Extract quality data
-              const fwdQuality = part.primers?.forward.qualityScore;
-              const revQuality = part.primers?.reverse.qualityScore;
-              const fwdTier = part.primers?.forward.qualityTier;
-              const revTier = part.primers?.reverse.qualityTier;
-              const pairQuality = part.primers?.pairQuality;
-              const fwdBreakdown = part.primers?.forward.breakdown;
-              const revBreakdown = part.primers?.reverse.breakdown;
 
-              // Helper to get quality color
-              const getQualityColor = (tier: string) => {
-                if (tier === 'excellent') return '#22c55e';
-                if (tier === 'good') return '#3b82f6';
-                if (tier === 'acceptable') return '#f59e0b';
-                return '#ef4444';
-              };
-
-              // Helper to get score color
-              const getScoreColor = (score: number) => {
-                if (score >= 85) return '#22c55e';
-                if (score >= 70) return '#3b82f6';
-                if (score >= 55) return '#f59e0b';
-                return '#ef4444';
-              };
-
-              // Check for 3' GC clamp
-              const fwdHomology = part.primers?.forward.structure?.homology || '';
-              const revHomology = part.primers?.reverse.structure?.homology || '';
-              const fwdLast2 = fwdHomology.slice(-2).toUpperCase();
-              const revLast2 = revHomology.slice(-2).toUpperCase();
-              const fwdGCClamp = (fwdLast2.match(/[GC]/g) || []).length;
-              const revGCClamp = (revLast2.match(/[GC]/g) || []).length;
-
-              // Check for G-Quadruplex risk
-              const fwdG4 = fwdBreakdown?.ggSpecific?.issues?.find((i: any) => i.type === 'g_quadruplex');
-              const revG4 = revBreakdown?.ggSpecific?.issues?.find((i: any) => i.type === 'g_quadruplex');
-              const fwdHasGGGG = /GGGG/i.test(fwdHomology);
-              const revHasGGGG = /GGGG/i.test(revHomology);
-
-              // Get heterodimer info
-              const heterodimer = pairQuality?.heterodimer;
-
-              return (
-                <div key={i} className="primer-block enhanced">
-                  {/* Enhanced Header with Quality Score */}
-                  <div className="primer-block-header">
-                    <div className="header-left">
-                      <span className="part-tag" style={{ backgroundColor: PART_TYPES[part.type]?.color || '#6b7280' }}>
-                        {PART_TYPES[part.type]?.icon || 'O'}
-                      </span>
-                      <span className="part-name-label">{part.id}</span>
-                      <span className="overhang-info">
-                        <code>{part.leftOverhang}</code> → <code>{part.rightOverhang}</code>
-                      </span>
-                    </div>
-                    {/* Quality Score Badge */}
-                    {pairQuality?.score != null && (
-                      <div className="quality-badge-container">
-                        <span
-                          className={`quality-score-badge ${pairQuality.quality}`}
-                          style={{
-                            backgroundColor: getQualityColor(pairQuality.quality) + '20',
-                            color: getQualityColor(pairQuality.quality),
-                            border: `1px solid ${getQualityColor(pairQuality.quality)}40`
-                          }}
-                          title={`Pair quality: ${pairQuality.quality}`}
-                        >
-                          {pairQuality.score}/100 • {pairQuality.quality}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Quick Status Summary */}
-                  {(fwdBreakdown || revBreakdown || pairQuality) && (
-                    <div className="primer-status-summary">
-                      {/* Tm Difference */}
-                      <span className={`status-chip ${(pairQuality?.tmDifference?.value || 0) <= 2 ? 'pass' : (pairQuality?.tmDifference?.value || 0) <= 5 ? 'warning' : 'fail'}`}
-                        title={`Tm difference: ≤2°C ideal, 2-5°C acceptable, >5°C problematic`}>
-                        {(pairQuality?.tmDifference?.value || 0) <= 2 ? '✓' : (pairQuality?.tmDifference?.value || 0) <= 5 ? '⚠' : '✕'} ΔTm {(pairQuality?.tmDifference?.value || Math.abs((part.primers?.forward.tm || 0) - (part.primers?.reverse.tm || 0))).toFixed(1)}°C
-                      </span>
-                      {/* GC Clamp */}
-                      <span className={`status-chip ${fwdGCClamp >= 1 && revGCClamp >= 1 ? 'pass' : 'warning'}`}
-                        title="G or C at 3' end improves specificity">
-                        {fwdGCClamp >= 1 && revGCClamp >= 1 ? '✓' : '⚠'} GC Clamp {fwdGCClamp >= 1 && revGCClamp >= 1 ? 'Both' : fwdGCClamp >= 1 || revGCClamp >= 1 ? 'Partial' : 'None'}
-                      </span>
-                      {/* Hairpin */}
-                      {(fwdBreakdown?.hairpin || revBreakdown?.hairpin) && (
-                        <span className={`status-chip ${Math.min(fwdBreakdown?.hairpin?.score || 100, revBreakdown?.hairpin?.score || 100) >= 70 ? 'pass' : Math.min(fwdBreakdown?.hairpin?.score || 100, revBreakdown?.hairpin?.score || 100) >= 50 ? 'warning' : 'fail'}`}
-                          title={`Hairpin ΔG: FWD ${fwdBreakdown?.hairpin?.value?.toFixed(1) || 'N/A'}, REV ${revBreakdown?.hairpin?.value?.toFixed(1) || 'N/A'} kcal/mol`}>
-                          {Math.min(fwdBreakdown?.hairpin?.score || 100, revBreakdown?.hairpin?.score || 100) >= 70 ? '✓' : Math.min(fwdBreakdown?.hairpin?.score || 100, revBreakdown?.hairpin?.score || 100) >= 50 ? '⚠' : '✕'} Hairpin
-                        </span>
-                      )}
-                      {/* Self-Dimer */}
-                      {(fwdBreakdown?.homodimer || revBreakdown?.homodimer) && (
-                        <span className={`status-chip ${Math.min(fwdBreakdown?.homodimer?.score || 100, revBreakdown?.homodimer?.score || 100) >= 70 ? 'pass' : Math.min(fwdBreakdown?.homodimer?.score || 100, revBreakdown?.homodimer?.score || 100) >= 50 ? 'warning' : 'fail'}`}
-                          title={`Self-dimer ΔG: FWD ${fwdBreakdown?.homodimer?.value?.toFixed(1) || 'N/A'}, REV ${revBreakdown?.homodimer?.value?.toFixed(1) || 'N/A'} kcal/mol`}>
-                          {Math.min(fwdBreakdown?.homodimer?.score || 100, revBreakdown?.homodimer?.score || 100) >= 70 ? '✓' : Math.min(fwdBreakdown?.homodimer?.score || 100, revBreakdown?.homodimer?.score || 100) >= 50 ? '⚠' : '✕'} Dimer
-                        </span>
-                      )}
-                      {/* Heterodimer */}
-                      {heterodimer && (
-                        <span className={`status-chip ${heterodimer.score >= 70 ? 'pass' : heterodimer.score >= 50 ? 'warning' : 'fail'}`}
-                          title={`Heterodimer ΔG: ${heterodimer.fullPrimers?.toFixed(1) || 'N/A'} kcal/mol`}>
-                          {heterodimer.score >= 70 ? '✓' : heterodimer.score >= 50 ? '⚠' : '✕'} Hetero
-                        </span>
-                      )}
-                      {/* G-Quadruplex warning */}
-                      {(fwdHasGGGG || revHasGGGG) && (
-                        <span className="status-chip fail" title="GGGG run detected - may cause polymerase pausing">
-                          ⚠ G4 Risk
-                        </span>
-                      )}
-                      {/* Thermo Details Toggle */}
-                      {(fwdBreakdown || revBreakdown) && (
-                        <button
-                          className={`thermo-toggle-btn ${expandedThermo[part.id] ? 'expanded' : ''}`}
-                          onClick={() => toggleThermo(part.id)}
-                          title={expandedThermo[part.id] ? 'Hide thermodynamic details' : 'Show thermodynamic details'}
-                        >
-                          {expandedThermo[part.id] ? '▼' : '▶'} Details
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Critical Heterodimer Warning */}
-                  {heterodimer && heterodimer.fullPrimers < -8 && (
-                    <div className="critical-warning-banner">
-                      ⚠️ Strong heterodimer formation ({heterodimer.fullPrimers?.toFixed(1)} kcal/mol) - may cause primer-dimer artifacts
-                    </div>
-                  )}
-
-                  {/* Forward Primer */}
-                  <div className="primer-row-enhanced">
-                    <span className="direction-badge fwd">FWD</span>
-                    <div className="primer-sequence-display">
-                      <code>
-                        <span className="seq-segment extra" title="Extra bases for cutting">{part.primers?.forward.structure?.extra}</span>
-                        <span className="seq-segment enzyme" title="Enzyme recognition site">{part.primers?.forward.structure?.bsaISite || part.primers?.forward.structure?.recognitionSite}</span>
-                        <span className="seq-segment spacer" title="Spacer">{part.primers?.forward.structure?.spacer}</span>
-                        <span className="seq-segment overhang" title="Overhang sequence">{part.primers?.forward.structure?.overhang}</span>
-                        <span className="seq-segment homology" title="Homology tail (overlap region)">{part.primers?.forward.structure?.homology}</span>
-                        <span className="seq-segment annealing" title="Template annealing region">{part.primers?.forward.structure?.annealing}</span>
-                      </code>
-                    </div>
-                    <div className="primer-stats-inline">
-                      <span>{part.primers?.forward.length}bp</span>
-                      <span>Tm {part.primers?.forward.tm?.toFixed(1) || '?'}°C</span>
-                      <span>{part.primers?.forward.gc?.toFixed(0) || '?'}% GC</span>
-                      {/* Individual primer quality */}
-                      {fwdQuality != null && (
-                        <span className="primer-score" style={{ color: getScoreColor(fwdQuality) }}>
-                          {fwdQuality}
-                        </span>
-                      )}
-                    </div>
-                    {/* 3' End indicator */}
-                    <span className={`gc-clamp-indicator ${fwdGCClamp >= 1 ? 'good' : 'weak'}`} title={`3' end: ${fwdLast2} (${fwdGCClamp} G/C)`}>
-                      3': {fwdLast2}
+            {/* Part Primers - Card Layout */}
+            <div className="gg-primers-list">
+              {result.parts.filter((part: Part) => part.primers).map((part: Part, i: number) => (
+                <div key={i} className="gg-part-primers">
+                  {/* Part Header */}
+                  <div className="gg-part-header">
+                    <span className="gg-part-badge" style={{ backgroundColor: (PART_TYPES as Record<string, {color: string}>)[part.type]?.color || '#6b7280' }}>
+                      {i + 1}
                     </span>
-                    {fwdHasGGGG && <span className="g4-warning-badge" title="GGGG run - G-quadruplex risk">G4</span>}
-                    <button
-                      className={`copy-btn-small ${copiedId === `${part.id}-fwd` ? 'copied' : ''}`}
-                      onClick={() => copyToClipboard(part.primers?.forward.sequence || '', `${part.id}-fwd`)}
-                    >
-                      {copiedId === `${part.id}-fwd` ? '✓' : 'Copy'}
-                    </button>
+                    <span className="gg-part-name">{part.id}</span>
+                    <span className="gg-part-length">{(part.length || part.seq?.length || 0).toLocaleString()} bp</span>
+                    <div className="gg-part-overhangs">
+                      <code>{part.leftOverhang}</code>
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="#9ca3af">
+                        <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+                      </svg>
+                      <code>{part.rightOverhang}</code>
+                    </div>
                   </div>
 
-                  {/* Forward Thermodynamics - Enhanced Display (collapsible) */}
-                  {fwdBreakdown && expandedThermo[part.id] && (
-                    <div className="primer-thermo-section compact">
-                      <div className="thermo-section-label">Forward Primer Analysis</div>
-                      <div className="thermo-grid compact">
-                        {/* Secondary Structure */}
-                        <div className="thermo-card">
-                          <div className="thermo-card-header">Secondary Structure</div>
-                          <div className="thermo-card-body">
-                            <div className="thermo-metric">
-                              <span className="metric-label">Hairpin</span>
-                              <span className={`metric-value ${fwdBreakdown.hairpin?.score >= 70 ? 'good' : fwdBreakdown.hairpin?.score >= 50 ? 'warning' : 'bad'}`}>
-                                {fwdBreakdown.hairpin?.value?.toFixed(1) || '0.0'} <small>kcal/mol</small>
-                              </span>
-                              <div className="metric-bar">
-                                <div className="metric-fill" style={{ width: `${fwdBreakdown.hairpin?.score || 0}%`, backgroundColor: fwdBreakdown.hairpin?.score >= 70 ? '#22c55e' : fwdBreakdown.hairpin?.score >= 50 ? '#f59e0b' : '#ef4444' }} />
-                              </div>
-                            </div>
-                            <div className="thermo-metric">
-                              <span className="metric-label">Self-dimer</span>
-                              <span className={`metric-value ${fwdBreakdown.homodimer?.score >= 70 ? 'good' : fwdBreakdown.homodimer?.score >= 50 ? 'warning' : 'bad'}`}>
-                                {fwdBreakdown.homodimer?.value?.toFixed(1) || '0.0'} <small>kcal/mol</small>
-                              </span>
-                              <div className="metric-bar">
-                                <div className="metric-fill" style={{ width: `${fwdBreakdown.homodimer?.score || 0}%`, backgroundColor: fwdBreakdown.homodimer?.score >= 70 ? '#22c55e' : fwdBreakdown.homodimer?.score >= 50 ? '#f59e0b' : '#ef4444' }} />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        {/* 3' End Analysis */}
-                        <div className="thermo-card">
-                          <div className="thermo-card-header">3' End Quality</div>
-                          <div className="thermo-card-body">
-                            <div className="thermo-metric">
-                              <span className="metric-label">3' Duplex ΔG</span>
-                              <span className={`metric-value ${fwdBreakdown.terminal3DG?.score >= 70 ? 'good' : fwdBreakdown.terminal3DG?.score >= 50 ? 'warning' : 'bad'}`}>
-                                {fwdBreakdown.terminal3DG?.value?.toFixed(1) || '-8.0'} <small>kcal/mol</small>
-                              </span>
-                              <small className="metric-hint">Optimal: -11 to -6</small>
-                            </div>
-                            <div className="thermo-metric">
-                              <span className="metric-label">3' Composition</span>
-                              <span className={`metric-value ${fwdBreakdown.composition3Prime?.score >= 70 ? 'good' : fwdBreakdown.composition3Prime?.score >= 50 ? 'warning' : 'bad'}`}>
-                                {fwdBreakdown.composition3Prime?.score || 0}%
-                              </span>
-                              {fwdBreakdown.composition3Prime?.details && (
-                                <small className="metric-hint">
-                                  {fwdBreakdown.composition3Prime.details.last5 || ''} •
-                                  GC clamp: {fwdBreakdown.composition3Prime.details.gcClampStatus || 'N/A'}
-                                </small>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        {/* G-Quadruplex */}
-                        {fwdBreakdown.gQuadruplex && (
-                          <div className="thermo-card compact">
-                            <div className="thermo-card-header">G-Quadruplex</div>
-                            <div className="thermo-card-body">
-                              <span className={`g4-status ${fwdBreakdown.gQuadruplex.score >= 80 ? 'safe' : fwdBreakdown.gQuadruplex.score >= 50 ? 'warning' : 'risk'}`}>
-                                {fwdBreakdown.gQuadruplex.score >= 80 ? '✓ Low Risk' : fwdBreakdown.gQuadruplex.score >= 50 ? '⚠ Moderate' : '✕ High Risk'}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Reverse Primer */}
-                  <div className="primer-row-enhanced">
-                    <span className="direction-badge rev">REV</span>
-                    <div className="primer-sequence-display">
-                      <code>
-                        <span className="seq-segment extra">{part.primers?.reverse.structure?.extra}</span>
-                        <span className="seq-segment enzyme">{part.primers?.reverse.structure?.bsaISite || part.primers?.reverse.structure?.recognitionSite}</span>
-                        <span className="seq-segment spacer">{part.primers?.reverse.structure?.spacer}</span>
-                        <span className="seq-segment overhang">{part.primers?.reverse.structure?.overhang}</span>
-                        <span className="seq-segment homology" title="Homology tail (overlap region)">{part.primers?.reverse.structure?.homology}</span>
-                        <span className="seq-segment annealing" title="Template annealing region">{part.primers?.reverse.structure?.annealing}</span>
-                      </code>
-                    </div>
-                    <div className="primer-stats-inline">
-                      <span>{part.primers?.reverse.length}bp</span>
-                      <span>Tm {part.primers?.reverse.tm?.toFixed(1) || '?'}°C</span>
-                      <span>{part.primers?.reverse.gc?.toFixed(0) || '?'}% GC</span>
-                      {/* Individual primer quality */}
-                      {revQuality != null && (
-                        <span className="primer-score" style={{ color: getScoreColor(revQuality) }}>
-                          {revQuality}
-                        </span>
-                      )}
-                    </div>
-                    {/* 3' End indicator */}
-                    <span className={`gc-clamp-indicator ${revGCClamp >= 1 ? 'good' : 'weak'}`} title={`3' end: ${revLast2} (${revGCClamp} G/C)`}>
-                      3': {revLast2}
-                    </span>
-                    {revHasGGGG && <span className="g4-warning-badge" title="GGGG run - G-quadruplex risk">G4</span>}
-                    <button
-                      className={`copy-btn-small ${copiedId === `${part.id}-rev` ? 'copied' : ''}`}
-                      onClick={() => copyToClipboard(part.primers?.reverse.sequence || '', `${part.id}-rev`)}
-                    >
-                      {copiedId === `${part.id}-rev` ? '✓' : 'Copy'}
-                    </button>
+                  {/* Primer Cards Grid */}
+                  <div className="gg-primers-grid">
+                    <GGPrimerCard
+                      primer={part.primers?.forward}
+                      direction="Forward"
+                      partId={part.id}
+                      overhang={part.leftOverhang}
+                      onCopy={copyToClipboard}
+                      copiedId={copiedId}
+                    />
+                    <GGPrimerCard
+                      primer={part.primers?.reverse}
+                      direction="Reverse"
+                      partId={part.id}
+                      overhang={part.rightOverhang}
+                      onCopy={copyToClipboard}
+                      copiedId={copiedId}
+                    />
                   </div>
 
-                  {/* Reverse Thermodynamics - Enhanced Display (collapsible) */}
-                  {revBreakdown && expandedThermo[part.id] && (
-                    <div className="primer-thermo-section compact">
-                      <div className="thermo-section-label">Reverse Primer Analysis</div>
-                      <div className="thermo-grid compact">
-                        {/* Secondary Structure */}
-                        <div className="thermo-card">
-                          <div className="thermo-card-header">Secondary Structure</div>
-                          <div className="thermo-card-body">
-                            <div className="thermo-metric">
-                              <span className="metric-label">Hairpin</span>
-                              <span className={`metric-value ${revBreakdown.hairpin?.score >= 70 ? 'good' : revBreakdown.hairpin?.score >= 50 ? 'warning' : 'bad'}`}>
-                                {revBreakdown.hairpin?.value?.toFixed(1) || '0.0'} <small>kcal/mol</small>
-                              </span>
-                              <div className="metric-bar">
-                                <div className="metric-fill" style={{ width: `${revBreakdown.hairpin?.score || 0}%`, backgroundColor: revBreakdown.hairpin?.score >= 70 ? '#22c55e' : revBreakdown.hairpin?.score >= 50 ? '#f59e0b' : '#ef4444' }} />
-                              </div>
-                            </div>
-                            <div className="thermo-metric">
-                              <span className="metric-label">Self-dimer</span>
-                              <span className={`metric-value ${revBreakdown.homodimer?.score >= 70 ? 'good' : revBreakdown.homodimer?.score >= 50 ? 'warning' : 'bad'}`}>
-                                {revBreakdown.homodimer?.value?.toFixed(1) || '0.0'} <small>kcal/mol</small>
-                              </span>
-                              <div className="metric-bar">
-                                <div className="metric-fill" style={{ width: `${revBreakdown.homodimer?.score || 0}%`, backgroundColor: revBreakdown.homodimer?.score >= 70 ? '#22c55e' : revBreakdown.homodimer?.score >= 50 ? '#f59e0b' : '#ef4444' }} />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        {/* 3' End Analysis */}
-                        <div className="thermo-card">
-                          <div className="thermo-card-header">3' End Quality</div>
-                          <div className="thermo-card-body">
-                            <div className="thermo-metric">
-                              <span className="metric-label">3' Duplex ΔG</span>
-                              <span className={`metric-value ${revBreakdown.terminal3DG?.score >= 70 ? 'good' : revBreakdown.terminal3DG?.score >= 50 ? 'warning' : 'bad'}`}>
-                                {revBreakdown.terminal3DG?.value?.toFixed(1) || '-8.0'} <small>kcal/mol</small>
-                              </span>
-                              <small className="metric-hint">Optimal: -11 to -6</small>
-                            </div>
-                            <div className="thermo-metric">
-                              <span className="metric-label">3' Composition</span>
-                              <span className={`metric-value ${revBreakdown.composition3Prime?.score >= 70 ? 'good' : revBreakdown.composition3Prime?.score >= 50 ? 'warning' : 'bad'}`}>
-                                {revBreakdown.composition3Prime?.score || 0}%
-                              </span>
-                              {revBreakdown.composition3Prime?.details && (
-                                <small className="metric-hint">
-                                  {revBreakdown.composition3Prime.details.last5 || ''} •
-                                  GC clamp: {revBreakdown.composition3Prime.details.gcClampStatus || 'N/A'}
-                                </small>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        {/* G-Quadruplex */}
-                        {revBreakdown.gQuadruplex && (
-                          <div className="thermo-card compact">
-                            <div className="thermo-card-header">G-Quadruplex</div>
-                            <div className="thermo-card-body">
-                              <span className={`g4-status ${revBreakdown.gQuadruplex.score >= 80 ? 'safe' : revBreakdown.gQuadruplex.score >= 50 ? 'warning' : 'risk'}`}>
-                                {revBreakdown.gQuadruplex.score >= 80 ? '✓ Low Risk' : revBreakdown.gQuadruplex.score >= 50 ? '⚠ Moderate' : '✕ High Risk'}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* PCR Conditions */}
-                  {part.primers?.pcr && (
-                    <div className="pcr-conditions-bar">
-                      <span className="pcr-label">PCR:</span>
-                      <span>Ta = {part.primers.pcr.annealingTemp}°C</span>
-                      <span>Ext: {part.primers.pcr.extensionTime}s</span>
-                      {(part.primers.pcr.tmDifference || Math.abs((part.primers?.forward.tm || 0) - (part.primers?.reverse.tm || 0))) > 3 && (
-                        <span className="pcr-warning">⚠ ΔTm = {(part.primers.pcr.tmDifference || Math.abs((part.primers?.forward.tm || 0) - (part.primers?.reverse.tm || 0))).toFixed(1)}°C</span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Expandable Score Breakdown */}
-                  {(fwdBreakdown || revBreakdown) && (
-                    <details className="score-breakdown-details">
-                      <summary className="score-breakdown-summary">
-                        <span>Score Breakdown</span>
-                        <span className="breakdown-toggle">▶</span>
-                      </summary>
-                      <div className="score-breakdown-content">
-                        <div className="breakdown-columns">
-                          {/* Forward Breakdown */}
-                          {fwdBreakdown && (
-                            <div className="breakdown-column">
-                              <div className="breakdown-title">Forward ({fwdQuality || '?'})</div>
-                              {Object.entries(fwdBreakdown).filter(([k]) => !['ggSpecific'].includes(k)).map(([key, data]) => (
-                                <div key={key} className="breakdown-item">
-                                  <span className="breakdown-label">{key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}</span>
-                                  <div className="breakdown-bar-container">
-                                    <div
-                                      className="breakdown-bar"
-                                      style={{
-                                        width: `${(data as any).score || 0}%`,
-                                        backgroundColor: getScoreColor((data as any).score || 0)
-                                      }}
-                                    />
-                                  </div>
-                                  <span className="breakdown-value">{(data as any).score || 0}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          {/* Reverse Breakdown */}
-                          {revBreakdown && (
-                            <div className="breakdown-column">
-                              <div className="breakdown-title">Reverse ({revQuality || '?'})</div>
-                              {Object.entries(revBreakdown).filter(([k]) => !['ggSpecific'].includes(k)).map(([key, data]) => (
-                                <div key={key} className="breakdown-item">
-                                  <span className="breakdown-label">{key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}</span>
-                                  <div className="breakdown-bar-container">
-                                    <div
-                                      className="breakdown-bar"
-                                      style={{
-                                        width: `${(data as any).score || 0}%`,
-                                        backgroundColor: getScoreColor((data as any).score || 0)
-                                      }}
-                                    />
-                                  </div>
-                                  <span className="breakdown-value">{(data as any).score || 0}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </details>
-                  )}
+                  {/* Pair Quality Panel */}
+                  <GGPairQualityPanel
+                    pairQuality={part.primers?.pairQuality}
+                    fwdTm={part.primers?.forward?.tm}
+                    revTm={part.primers?.reverse?.tm}
+                  />
                 </div>
-              );
-            })}
-
-            {/* Legend - conditionally show relevant items based on method */}
-            <div className="primer-legend-bar">
-              <span className="legend-label">Primer structure:</span>
-              {isGoldenGate ? (
-                <>
-                  <span className="legend-item"><span className="seq-segment extra">GG</span> Extra</span>
-                  <span className="legend-item"><span className="seq-segment enzyme">GGTCTC</span> Enzyme</span>
-                  <span className="legend-item"><span className="seq-segment spacer">N</span> Spacer</span>
-                  <span className="legend-item"><span className="seq-segment overhang">NNNN</span> Overhang</span>
-                  <span className="legend-item"><span className="seq-segment homology">...</span> Homology</span>
-                </>
-              ) : (
-                <>
-                  <span className="legend-item"><span className="seq-segment homology">...</span> Overlap Tail</span>
-                  <span className="legend-item"><span className="seq-segment annealing">...</span> Annealing</span>
-                </>
-              )}
-            </div>
-
-            {/* Quality Legend */}
-            <div className="quality-legend-bar">
-              <span className="legend-label">Quality tiers:</span>
-              <span className="legend-item"><span className="quality-dot excellent"></span> Excellent (≥85)</span>
-              <span className="legend-item"><span className="quality-dot good"></span> Good (70-84)</span>
-              <span className="legend-item"><span className="quality-dot acceptable"></span> Acceptable (55-69)</span>
-              <span className="legend-item"><span className="quality-dot poor"></span> Poor (&lt;55)</span>
+              ))}
             </div>
           </div>
         )}
