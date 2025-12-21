@@ -20360,10 +20360,10 @@ body {
 }
 
 .gg-overview-header {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 1.5rem;
-  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  align-items: flex-start;
 }
 
 /* Quality Gauge */
@@ -20373,6 +20373,7 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
+  flex-shrink: 0;
 }
 
 .gg-gauge-svg {
@@ -20425,11 +20426,11 @@ body {
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.08));
   border: 1px solid rgba(99, 102, 241, 0.2);
   border-radius: 12px;
-  padding: 1rem;
+  padding: 0.75rem 1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  min-width: 180px;
+  gap: 0.5rem;
+  flex-shrink: 0;
 }
 
 .gg-export-title {
@@ -20478,18 +20479,20 @@ body {
 /* Summary Cards */
 .gg-summary-cards {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
+  flex: 1;
+  justify-content: flex-end;
 }
 
 .gg-summary-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.75rem 1rem;
+  gap: 0.15rem;
+  padding: 0.5rem 0.75rem;
   background: var(--bg-hover);
-  border-radius: 10px;
-  min-width: 80px;
+  border-radius: 8px;
+  min-width: 70px;
 }
 
 .gg-summary-card svg {
@@ -20767,17 +20770,14 @@ body {
 /* Responsive adjustments for Overview */
 @media (max-width: 992px) {
   .gg-overview-header {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-
-  .gg-quality-gauge {
-    order: -1;
+    justify-content: center;
   }
 
   .gg-summary-cards {
     flex-wrap: wrap;
     justify-content: center;
+    flex: none;
+    width: 100%;
   }
 }
 
