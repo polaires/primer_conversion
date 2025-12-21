@@ -910,17 +910,180 @@ export function findOptimalOverhangSetExhaustive(
 }
 
 /**
- * Greedy search for optimal overhang set (fast, for larger assemblies)
+ * Extended search options for greedy optimization
+ */
+interface ExtendedSearchOptions extends OverhangSearchOptions {
+  /** Enable 2-opt local search improvement (default: true) */
+  enable2Opt?: boolean;
+  /** Maximum 2-opt iterations (default: 50) */
+  max2OptIterations?: number;
+  /** Enable random restarts (default: true) */
+  enableRandomRestarts?: boolean;
+  /** Number of random restarts (default: 3) */
+  numRandomRestarts?: number;
+}
+
+/**
+ * 2-opt local search for improving an overhang set
+ *
+ * Tries swapping each overhang (except required ones) with candidates
+ * from the pool to find improvements in fidelity.
+ */
+function twoOptLocalSearch(
+  initialSet: string[],
+  candidates: { overhang: string; correctFreq: number; wc: string }[],
+  requiredOverhangs: Set<string>,
+  enzyme: string,
+  matrix: Record<string, Record<string, number>>,
+  maxIterations: number = 50
+): { set: string[]; fidelity: number; improved: boolean } {
+  let currentSet = [...initialSet];
+  let bestFidelity = calculateExperimentalFidelity(currentSet, enzyme).assemblyFidelity;
+  let totalImproved = false;
+
+  const hasZeroCrossLigation = (existingSet: string[], newOh: string) => {
+    const newWc = reverseComplement(newOh);
+    for (const existing of existingSet) {
+      const existingWc = reverseComplement(existing);
+      if ((matrix[newOh]?.[existingWc] || 0) > 0) return false;
+      if ((matrix[existing]?.[newWc] || 0) > 0) return false;
+    }
+    return true;
+  };
+
+  const hasRCConflict = (set: string[], candidate: string, excludeIndex: number) => {
+    const candidateRC = reverseComplement(candidate);
+    for (let i = 0; i < set.length; i++) {
+      if (i === excludeIndex) continue;
+      if (set[i] === candidate || set[i] === candidateRC) return true;
+    }
+    return false;
+  };
+
+  let iterations = 0;
+  let improved = true;
+
+  while (improved && iterations < maxIterations) {
+    improved = false;
+    iterations++;
+
+    // Try swapping each non-required overhang
+    for (let i = 0; i < currentSet.length; i++) {
+      const current = currentSet[i];
+
+      // Don't swap required overhangs
+      if (requiredOverhangs.has(current)) continue;
+
+      // Try replacing with each candidate
+      for (const candidate of candidates) {
+        const { overhang } = candidate;
+
+        // Skip if already in set
+        if (currentSet.includes(overhang)) continue;
+
+        // Skip if RC conflict
+        if (hasRCConflict(currentSet, overhang, i)) continue;
+
+        // Build test set
+        const testSet = [...currentSet];
+        testSet[i] = overhang;
+
+        // Check zero cross-ligation
+        const othersInSet = testSet.filter((_, j) => j !== i);
+        if (!hasZeroCrossLigation(othersInSet, overhang)) continue;
+
+        // Calculate fidelity
+        const testFidelity = calculateExperimentalFidelity(testSet, enzyme).assemblyFidelity;
+
+        if (testFidelity > bestFidelity) {
+          currentSet = testSet;
+          bestFidelity = testFidelity;
+          improved = true;
+          totalImproved = true;
+
+          // If we found 100% fidelity, we're done
+          if (bestFidelity >= 0.9999) {
+            return { set: currentSet, fidelity: bestFidelity, improved: totalImproved };
+          }
+
+          break; // Restart from beginning
+        }
+      }
+
+      if (improved) break;
+    }
+  }
+
+  return { set: currentSet, fidelity: bestFidelity, improved: totalImproved };
+}
+
+/**
+ * Generate a random valid overhang set for random restart
+ */
+function generateRandomValidSet(
+  numJunctions: number,
+  candidates: { overhang: string; correctFreq: number; wc: string }[],
+  requiredOverhangs: string[],
+  matrix: Record<string, Record<string, number>>
+): string[] {
+  const hasZeroCrossLigation = (existingSet: string[], newOh: string) => {
+    const newWc = reverseComplement(newOh);
+    for (const existing of existingSet) {
+      const existingWc = reverseComplement(existing);
+      if ((matrix[newOh]?.[existingWc] || 0) > 0) return false;
+      if ((matrix[existing]?.[newWc] || 0) > 0) return false;
+    }
+    return true;
+  };
+
+  const resultSet: string[] = [...requiredOverhangs.map(o => o.toUpperCase())];
+  const usedOverhangs = new Set(resultSet);
+  const usedWcs = new Set(resultSet.map(o => reverseComplement(o)));
+
+  // Shuffle candidates for randomness
+  const shuffled = [...candidates].sort(() => Math.random() - 0.5);
+
+  for (const candidate of shuffled) {
+    if (resultSet.length >= numJunctions) break;
+    const { overhang, wc } = candidate;
+
+    if (usedOverhangs.has(overhang)) continue;
+    if (usedWcs.has(overhang)) continue;
+    if (usedOverhangs.has(wc)) continue;
+    if (usedWcs.has(wc)) continue;
+
+    if (hasZeroCrossLigation(resultSet, overhang)) {
+      resultSet.push(overhang);
+      usedOverhangs.add(overhang);
+      usedWcs.add(wc);
+    }
+  }
+
+  return resultSet;
+}
+
+/**
+ * Greedy search for optimal overhang set with 2-opt improvement and random restarts
+ *
+ * Algorithm:
+ * 1. Build initial set greedily (highest ligation frequency first)
+ * 2. Apply 2-opt local search to improve fidelity
+ * 3. Try random restarts to escape local optima
+ * 4. Return best result found
  */
 function findOptimalOverhangSetGreedy(
   numJunctions: number,
   enzyme: string = 'BsaI',
-  options: OverhangSearchOptions = {}
+  options: ExtendedSearchOptions = {}
 ): OptimalOverhangSearchResult {
   const {
     minCorrectFreq = 300,
     requiredOverhangs: reqOh = [],
     excludeOverhangs: exclOh = [],
+    enable2Opt = true,
+    max2OptIterations = 50,
+    enableRandomRestarts = true,
+    numRandomRestarts = 3,
   } = options;
 
   const requiredOverhangs = Array.isArray(reqOh) ? reqOh : [];
@@ -998,6 +1161,8 @@ function findOptimalOverhangSetGreedy(
     }
   }
 
+  // Fallback: if we didn't get enough with zero cross-ligation,
+  // allow some cross-ligation but validate the set
   if (resultSet.length < numJunctions) {
     for (const candidate of candidates) {
       if (resultSet.length >= numJunctions) break;
@@ -1017,24 +1182,79 @@ function findOptimalOverhangSetGreedy(
     }
   }
 
-  const fidelityResult = calculateExperimentalFidelity(resultSet, enzyme);
+  // Track best result
+  let bestSet = resultSet;
+  let bestFidelity = calculateExperimentalFidelity(resultSet, enzyme).assemblyFidelity;
+  let searchType = 'greedy';
+
+  // Step 2: Apply 2-opt local search if enabled
+  if (enable2Opt && resultSet.length >= numJunctions) {
+    const requiredSet = new Set(requiredOverhangs.map(o => o.toUpperCase()));
+    const improved = twoOptLocalSearch(
+      resultSet,
+      candidates,
+      requiredSet,
+      enzyme,
+      matrix,
+      max2OptIterations
+    );
+
+    if (improved.fidelity > bestFidelity) {
+      bestSet = improved.set;
+      bestFidelity = improved.fidelity;
+      searchType = improved.improved ? 'greedy+2opt' : 'greedy';
+    }
+  }
+
+  // Step 3: Try random restarts if enabled and not already perfect
+  if (enableRandomRestarts && bestFidelity < 0.9999) {
+    const requiredSet = new Set(requiredOverhangs.map(o => o.toUpperCase()));
+
+    for (let r = 0; r < numRandomRestarts; r++) {
+      // Generate random starting point
+      const randomSet = generateRandomValidSet(
+        numJunctions,
+        candidates,
+        requiredOverhangs,
+        matrix
+      );
+
+      if (randomSet.length < numJunctions) continue;
+
+      // Apply 2-opt to random start
+      const improved = enable2Opt
+        ? twoOptLocalSearch(randomSet, candidates, requiredSet, enzyme, matrix, max2OptIterations)
+        : { set: randomSet, fidelity: calculateExperimentalFidelity(randomSet, enzyme).assemblyFidelity, improved: false };
+
+      if (improved.fidelity > bestFidelity) {
+        bestSet = improved.set;
+        bestFidelity = improved.fidelity;
+        searchType = 'greedy+restart';
+
+        // If we found 100% fidelity, we're done
+        if (bestFidelity >= 0.9999) break;
+      }
+    }
+  }
+
+  const fidelityResult = calculateExperimentalFidelity(bestSet, enzyme);
 
   return {
     enzyme,
     numJunctions,
     requestedJunctions: numJunctions,
-    foundJunctions: resultSet.length,
-    overhangs: resultSet,
+    foundJunctions: bestSet.length,
+    overhangs: bestSet,
     fidelity: fidelityResult.assemblyFidelity,
     fidelityPercent: fidelityResult.assemblyFidelityPercent,
     isPerfect: fidelityResult.assemblyFidelity >= 0.9999,
     junctions: fidelityResult.junctions,
     warnings: fidelityResult.warnings,
-    source: 'greedy-search',
+    source: searchType,
     searchStats: {
       candidatesConsidered: candidates.length,
       requiredOverhangs: requiredOverhangs.length,
-      searchType: 'greedy',
+      searchType,
     },
   };
 }

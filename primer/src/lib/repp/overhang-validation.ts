@@ -718,6 +718,192 @@ export function setHasZeroCrossLigation(
 }
 
 // ============================================================================
+// SITE RECREATION CHECK
+// ============================================================================
+
+/**
+ * Recognition sites for common Golden Gate enzymes
+ */
+const ENZYME_RECOGNITION_SITES: Record<string, { recognition: string; overhangLen: number }> = {
+  'BsaI': { recognition: 'GGTCTC', overhangLen: 4 },
+  'BsaI-HFv2': { recognition: 'GGTCTC', overhangLen: 4 },
+  'BsmBI': { recognition: 'CGTCTC', overhangLen: 4 },
+  'BsmBI-v2': { recognition: 'CGTCTC', overhangLen: 4 },
+  'BbsI': { recognition: 'GAAGAC', overhangLen: 4 },
+  'BbsI-HF': { recognition: 'GAAGAC', overhangLen: 4 },
+  'Esp3I': { recognition: 'CGTCTC', overhangLen: 4 },
+  'SapI': { recognition: 'GCTCTTC', overhangLen: 3 },
+};
+
+export interface SiteRecreationResult {
+  /** Whether the junction would recreate a recognition site */
+  recreatesSite: boolean;
+
+  /** Direction of the recreated site (if any) */
+  direction?: 'forward' | 'reverse';
+
+  /** Position in the scar context where site would appear */
+  position?: number;
+
+  /** The junction/scar context that was analyzed */
+  context: string;
+
+  /** The specific recognition site found */
+  siteFound?: string;
+
+  /** Risk level */
+  risk: 'none' | 'low' | 'medium' | 'high';
+
+  /** Recommendation */
+  recommendation: string;
+}
+
+/**
+ * Comprehensive check if assembling with a junction would recreate a recognition site
+ *
+ * This checks the full junction context (upstream + overhang + downstream)
+ * for any occurrence of the enzyme's recognition site.
+ *
+ * @param upstreamSeq - Sequence upstream of the junction
+ * @param downstreamSeq - Sequence downstream of the junction
+ * @param overhang - The 4bp overhang at the junction
+ * @param enzyme - Enzyme name
+ * @returns Comprehensive site recreation analysis
+ */
+export function checkSiteRecreation(
+  upstreamSeq: string,
+  downstreamSeq: string,
+  overhang: string,
+  enzyme: string
+): SiteRecreationResult {
+  const enzymeInfo = ENZYME_RECOGNITION_SITES[enzyme] || ENZYME_RECOGNITION_SITES['BsaI'];
+  const recognition = enzymeInfo.recognition.toUpperCase();
+  const recognitionRC = reverseComplement(recognition);
+
+  // Build context: need enough sequence to span a recognition site
+  const contextSize = recognition.length + 4;
+  const upstream = (upstreamSeq || '').toUpperCase().slice(-contextSize);
+  const downstream = (downstreamSeq || '').toUpperCase().slice(0, contextSize);
+  const oh = (overhang || '').toUpperCase();
+
+  // The assembled scar region
+  // In Golden Gate, the overhang is shared between fragments
+  // The scar context is: [end of upstream] + [overhang] + [start of downstream]
+  const scarContext = upstream + oh + downstream;
+
+  // Check for forward recognition site
+  const fwdMatch = scarContext.indexOf(recognition);
+
+  // Check for reverse recognition site
+  const revMatch = scarContext.indexOf(recognitionRC);
+
+  if (fwdMatch >= 0) {
+    // Determine risk level based on position
+    // If site is entirely in upstream or downstream, it's existing (not created by junction)
+    const siteStart = fwdMatch;
+    const siteEnd = fwdMatch + recognition.length;
+    const ohStart = upstream.length;
+    const ohEnd = upstream.length + oh.length;
+
+    // High risk: site spans the junction
+    const spansJunction = siteStart < ohEnd && siteEnd > ohStart;
+
+    return {
+      recreatesSite: true,
+      direction: 'forward',
+      position: fwdMatch,
+      context: scarContext,
+      siteFound: recognition,
+      risk: spansJunction ? 'high' : 'medium',
+      recommendation: spansJunction
+        ? 'Junction would recreate recognition site - choose different junction position'
+        : 'Recognition site near junction - verify it does not span the junction',
+    };
+  }
+
+  if (revMatch >= 0) {
+    const siteStart = revMatch;
+    const siteEnd = revMatch + recognitionRC.length;
+    const ohStart = upstream.length;
+    const ohEnd = upstream.length + oh.length;
+    const spansJunction = siteStart < ohEnd && siteEnd > ohStart;
+
+    return {
+      recreatesSite: true,
+      direction: 'reverse',
+      position: revMatch,
+      context: scarContext,
+      siteFound: recognitionRC,
+      risk: spansJunction ? 'high' : 'medium',
+      recommendation: spansJunction
+        ? 'Junction would recreate reverse recognition site - choose different junction position'
+        : 'Reverse recognition site near junction - verify it does not span the junction',
+    };
+  }
+
+  // Check for partial site at junction boundaries (could create site with next fragment)
+  let partialRisk: 'none' | 'low' = 'none';
+  let partialRecommendation = 'No site recreation detected - junction is safe';
+
+  // Check if end of context could form site with next fragment
+  for (let i = 2; i < recognition.length; i++) {
+    const ending = scarContext.slice(-i);
+    if (recognition.startsWith(ending) || recognitionRC.startsWith(ending)) {
+      partialRisk = 'low';
+      partialRecommendation = 'Partial recognition site at junction end - verify next fragment does not complete it';
+      break;
+    }
+  }
+
+  return {
+    recreatesSite: false,
+    context: scarContext,
+    risk: partialRisk,
+    recommendation: partialRecommendation,
+  };
+}
+
+/**
+ * Batch check multiple junctions for site recreation
+ */
+export function checkMultipleJunctions(
+  junctions: Array<{
+    upstreamSeq: string;
+    downstreamSeq: string;
+    overhang: string;
+  }>,
+  enzyme: string
+): {
+  results: SiteRecreationResult[];
+  hasHighRisk: boolean;
+  hasMediumRisk: boolean;
+  summary: string;
+} {
+  const results = junctions.map(j =>
+    checkSiteRecreation(j.upstreamSeq, j.downstreamSeq, j.overhang, enzyme)
+  );
+
+  const hasHighRisk = results.some(r => r.risk === 'high');
+  const hasMediumRisk = results.some(r => r.risk === 'medium');
+
+  let summary = 'All junctions are safe';
+  if (hasHighRisk) {
+    const count = results.filter(r => r.risk === 'high').length;
+    summary = `${count} junction(s) would recreate recognition site - must fix before assembly`;
+  } else if (hasMediumRisk) {
+    const count = results.filter(r => r.risk === 'medium').length;
+    summary = `${count} junction(s) have recognition sites nearby - review carefully`;
+  }
+
+  return {
+    results,
+    hasHighRisk,
+    hasMediumRisk,
+    summary,
+  };
+}
+
+// ============================================================================
 // EXPORTS
 // ============================================================================
 
