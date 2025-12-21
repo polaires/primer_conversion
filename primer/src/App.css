@@ -2216,13 +2216,13 @@ body {
 /* Enzyme Selector */
 .enzyme-selector {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  flex-wrap: nowrap;
+  gap: 0.4rem;
 }
 
 .enzyme-btn {
   position: relative;
-  padding: 0.5rem 0.85rem;
+  padding: 0.4rem 0.6rem;
   background: var(--card-bg);
   border: 1.5px solid var(--border-color);
   border-radius: 8px;
@@ -2231,15 +2231,16 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 70px;
+  flex: 1;
+  min-width: 0;
 }
 
 .enzyme-btn small {
-  font-size: 0.65rem;
+  font-size: 0.58rem;
   color: var(--text-light);
   font-family: 'Monaco', 'Menlo', monospace;
-  letter-spacing: 0.02em;
-  margin-top: 0.15rem;
+  letter-spacing: 0.01em;
+  margin-top: 0.1rem;
 }
 
 .enzyme-btn:hover {
@@ -9333,6 +9334,9 @@ body {
 }
 
 .part-block-name {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
   font-size: 0.78rem;
   font-weight: 600;
   white-space: nowrap;
@@ -9344,6 +9348,24 @@ body {
 .part-block-info {
   font-size: 0.58rem;
   color: var(--text-light);
+}
+
+/* Domestication indicator in assembly diagram */
+.part-block.domesticated {
+  border-style: solid;
+  background: linear-gradient(135deg, white, rgba(34, 197, 94, 0.05));
+}
+
+.domestication-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  background: #22c55e;
+  color: white;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .circular-indicator-badge {
@@ -23984,6 +24006,34 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+/* Domestication Workflow Button */
+.domestication-workflow-btn {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.6rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-dark);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.domestication-workflow-btn:hover {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: white;
+}
+
+.domestication-workflow-btn svg {
+  flex-shrink: 0;
 }
 
 /* Enhanced Workflow Toggle */
