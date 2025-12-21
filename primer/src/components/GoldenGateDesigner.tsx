@@ -1018,6 +1018,8 @@ function LinearAssemblyDiagram({ parts, overhangs }: LinearAssemblyDiagramProps)
           const typeInfo = PART_TYPES[part.type] || PART_TYPES.other;
           const leftOH = overhangs[i];
           const rightOH = overhangs[i + 1];
+          const hasDomestication = part._domesticationApproved;
+          const mutationCount = part._domesticationMutations?.length || 0;
 
           return (
             <React.Fragment key={i}>
@@ -1031,10 +1033,19 @@ function LinearAssemblyDiagram({ parts, overhangs }: LinearAssemblyDiagramProps)
               </div>
 
               {/* Part block */}
-              <div className="part-block" style={{ borderColor: typeInfo.color }}>
+              <div className={`part-block ${hasDomestication ? 'domesticated' : ''}`} style={{ borderColor: typeInfo.color }}>
                 <div className="part-color-stripe" style={{ backgroundColor: typeInfo.color }}></div>
                 <div className="part-block-content">
-                  <span className="part-block-name">{part.id || `Part ${i + 1}`}</span>
+                  <span className="part-block-name">
+                    {part.id || `Part ${i + 1}`}
+                    {hasDomestication && (
+                      <span className="domestication-badge" title={`${mutationCount} silent mutation${mutationCount !== 1 ? 's' : ''} configured`}>
+                        <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor">
+                          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                        </svg>
+                      </span>
+                    )}
+                  </span>
                   <span className="part-block-info">{typeInfo.name} • {part.seq?.length || 0} bp</span>
                 </div>
               </div>
@@ -2805,10 +2816,17 @@ export default function GoldenGateDesigner() {
   const handlePartChange = useCallback((index: number, newPart: Part) => {
     setParts(prev => {
       const updated = [...prev];
+      const oldPart = updated[index];
       updated[index] = newPart;
+
+      // Only clear results if sequence changed (not just type/id metadata)
+      // This preserves results when user just changes part type dropdown
+      if (oldPart.seq !== newPart.seq) {
+        setResult(null);
+      }
+
       return updated;
     });
-    setResult(null);
   }, []);
 
   const addPart = useCallback(() => {
