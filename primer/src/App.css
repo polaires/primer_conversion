@@ -20806,6 +20806,359 @@ body {
   }
 }
 
+/* ============================================
+   Golden Gate Primer Card Styles (New Layout)
+   ============================================ */
+
+.gg-primers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.gg-part-primers {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.gg-part-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.gg-part-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: white;
+}
+
+.gg-part-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-dark);
+}
+
+.gg-part-length {
+  font-size: 0.75rem;
+  color: var(--text-light);
+  margin-left: auto;
+}
+
+.gg-part-overhangs {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.gg-part-overhangs code {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.35rem;
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+/* Primers Grid */
+.gg-primers-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+@media (max-width: 768px) {
+  .gg-primers-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Individual Primer Card */
+.gg-primer-card {
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0.75rem;
+}
+
+.gg-primer-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.gg-primer-direction {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: white;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+}
+
+.gg-primer-name {
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--text-dark);
+}
+
+.gg-primer-quality {
+  margin-left: auto;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  border: 1px solid;
+}
+
+.gg-primer-copy {
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+  color: var(--text-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.gg-primer-copy:hover {
+  background: var(--bg-card);
+  color: var(--primary-color);
+}
+
+.gg-primer-copy.copied {
+  color: #22c55e;
+}
+
+/* Structure Visualization */
+.gg-primer-structure {
+  margin-bottom: 0.5rem;
+}
+
+.gg-structure-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.25rem;
+}
+
+.gg-segment {
+  min-width: 4px;
+}
+
+.gg-segment.extra { background: #9ca3af; }
+.gg-segment.enzyme { background: #ef4444; }
+.gg-segment.spacer { background: #f59e0b; }
+.gg-segment.overhang { background: #8b5cf6; }
+.gg-segment.homology { background: #3b82f6; }
+.gg-segment.annealing { background: #22c55e; }
+
+.gg-structure-legend {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.gg-structure-legend .legend-item {
+  font-size: 0.6rem;
+  color: var(--text-light);
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+}
+
+.gg-structure-legend .legend-item.enzyme { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+.gg-structure-legend .legend-item.overhang { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; }
+.gg-structure-legend .legend-item.annealing { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+
+/* Sequence Display */
+.gg-primer-sequence {
+  background: var(--bg-card);
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
+  margin-bottom: 0.5rem;
+  overflow-x: auto;
+}
+
+.gg-primer-sequence code {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.gg-primer-sequence .seq-extra { color: #9ca3af; }
+.gg-primer-sequence .seq-enzyme { color: #ef4444; font-weight: 600; }
+.gg-primer-sequence .seq-spacer { color: #f59e0b; }
+.gg-primer-sequence .seq-overhang { color: #8b5cf6; font-weight: 600; }
+.gg-primer-sequence .seq-homology { color: #3b82f6; }
+.gg-primer-sequence .seq-annealing { color: #22c55e; }
+
+/* Metrics Grid */
+.gg-primer-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.gg-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.25rem 0.4rem;
+  background: var(--bg-card);
+  border-radius: 4px;
+  min-width: 40px;
+}
+
+.gg-metric-value {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.gg-metric-value.good { color: #22c55e; }
+.gg-metric-value.warning { color: #f59e0b; }
+.gg-metric-value.bad { color: #ef4444; }
+
+.gg-metric-label {
+  font-size: 0.55rem;
+  color: var(--text-light);
+  text-transform: uppercase;
+}
+
+.gg-metric.warning {
+  background: rgba(245, 158, 11, 0.1);
+}
+
+/* Details Toggle */
+.gg-details-toggle {
+  display: block;
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.35rem;
+  background: none;
+  border: 1px dashed var(--border-color);
+  border-radius: 4px;
+  font-size: 0.7rem;
+  color: var(--text-light);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s;
+}
+
+.gg-details-toggle:hover {
+  background: var(--bg-card);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.gg-primer-details {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: var(--bg-card);
+  border-radius: 6px;
+}
+
+.gg-detail-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.gg-detail-row:last-child {
+  border-bottom: none;
+}
+
+.gg-detail-row span:first-child {
+  color: var(--text-light);
+}
+
+.gg-detail-row .good { color: #22c55e; }
+.gg-detail-row .warning { color: #f59e0b; }
+.gg-detail-row .bad { color: #ef4444; }
+
+/* Pair Quality Panel */
+.gg-pair-panel {
+  margin: 0 1rem 1rem;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(139, 92, 246, 0.05));
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 8px;
+}
+
+.gg-pair-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.gg-pair-header span:first-child {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.gg-pair-score {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+}
+
+.gg-pair-metrics {
+  display: flex;
+  gap: 1rem;
+}
+
+.gg-pair-metric {
+  display: flex;
+  flex-direction: column;
+}
+
+.gg-pair-label {
+  font-size: 0.65rem;
+  color: var(--text-light);
+}
+
+.gg-pair-value {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.gg-pair-value.good { color: #22c55e; }
+.gg-pair-value.warning { color: #f59e0b; }
+.gg-pair-value.bad { color: #ef4444; }
+
+.gg-pair-warning {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background: rgba(245, 158, 11, 0.1);
+  border-radius: 4px;
+  font-size: 0.7rem;
+  color: #d97706;
+}
+
 /* ========================================
    Enhanced Primer Quality Display
    ======================================== */
