@@ -286,6 +286,201 @@ const Icons = {
 };
 
 // ============================================================================
+// SEQUENCE RULER COMPONENT - Visual sequence context
+// ============================================================================
+
+interface SequenceAnnotation {
+  start: number;
+  end: number;
+  label: string;
+  type: 'site' | 'mutation' | 'highlight';
+  orientation?: string;
+  details?: string;
+}
+
+interface SequenceRulerProps {
+  sequence: string;
+  annotations: SequenceAnnotation[];
+  title?: string;
+  showFullSequence?: boolean;
+  contextSize?: number;
+}
+
+function SequenceRuler({
+  sequence,
+  annotations,
+  title = 'Sequence Map',
+  showFullSequence = false,
+  contextSize = 25
+}: SequenceRulerProps) {
+  if (!sequence || !annotations.length) return null;
+
+  // For full sequence view, show segments around each annotation
+  const segments = useMemo(() => {
+    if (showFullSequence) {
+      // Show entire sequence with annotations
+      return [{
+        start: 0,
+        end: sequence.length,
+        annotations: annotations
+      }];
+    }
+
+    // Create focused segments around each annotation
+    return annotations.map((ann, idx) => {
+      const start = Math.max(0, ann.start - contextSize);
+      const end = Math.min(sequence.length, ann.end + contextSize);
+      return {
+        start,
+        end,
+        annotations: [ann],
+        index: idx
+      };
+    });
+  }, [sequence, annotations, showFullSequence, contextSize]);
+
+  // Generate position markers for a segment
+  const getPositionMarkers = (start: number, end: number) => {
+    const markers: { pos: number; label: string }[] = [];
+    const firstMarker = Math.ceil((start + 1) / 10) * 10;
+    for (let pos = firstMarker; pos <= end; pos += 10) {
+      markers.push({ pos: pos - 1, label: String(pos) });
+    }
+    return markers;
+  };
+
+  // Render a single segment
+  const renderSegment = (segment: typeof segments[0], segIndex: number) => {
+    const { start, end, annotations: segAnnotations } = segment;
+    const segmentSeq = sequence.slice(start, end);
+    const markers = getPositionMarkers(start, end);
+
+    return (
+      <div key={segIndex} className="sequence-segment">
+        {/* Position ruler */}
+        <div className="position-ruler">
+          <span className="ruler-prefix">{start > 0 ? '...' : ''}</span>
+          <span className="ruler-track">
+            {segmentSeq.split('').map((_, i) => {
+              const absPos = start + i;
+              const marker = markers.find(m => m.pos === absPos);
+              return (
+                <span key={i} className="ruler-tick">
+                  {marker ? <span className="ruler-marker">{marker.label}</span> : ''}
+                </span>
+              );
+            })}
+          </span>
+          <span className="ruler-suffix">{end < sequence.length ? '...' : ''}</span>
+        </div>
+
+        {/* Tick marks */}
+        <div className="tick-row">
+          <span className="ruler-prefix"></span>
+          <span className="tick-track">
+            {segmentSeq.split('').map((_, i) => {
+              const absPos = start + i;
+              const isMajor = (absPos + 1) % 10 === 0;
+              const isMinor = (absPos + 1) % 5 === 0;
+              return (
+                <span key={i} className={`tick ${isMajor ? 'major' : isMinor ? 'minor' : ''}`}>
+                  {isMajor ? '|' : isMinor ? '·' : ' '}
+                </span>
+              );
+            })}
+          </span>
+          <span className="ruler-suffix"></span>
+        </div>
+
+        {/* Sequence with highlights */}
+        <div className="sequence-row">
+          <span className="seq-prefix">{start > 0 ? '...' : '   '}</span>
+          <code className="sequence-track">
+            {segmentSeq.split('').map((nt, i) => {
+              const absPos = start + i;
+              // Check if this position is within any annotation
+              const matchingAnn = segAnnotations.find(
+                a => absPos >= a.start && absPos < a.end
+              );
+              const isHighlight = !!matchingAnn;
+              const highlightClass = matchingAnn ? `highlight-${matchingAnn.type}` : '';
+
+              return (
+                <span
+                  key={i}
+                  className={`nt nt-${nt.toUpperCase()} ${isHighlight ? highlightClass : ''}`}
+                >
+                  {nt}
+                </span>
+              );
+            })}
+          </code>
+          <span className="seq-suffix">{end < sequence.length ? '...' : '   '}</span>
+        </div>
+
+        {/* Annotation indicators */}
+        <div className="annotation-row">
+          <span className="ann-prefix"></span>
+          <span className="annotation-track">
+            {segmentSeq.split('').map((_, i) => {
+              const absPos = start + i;
+              const matchingAnn = segAnnotations.find(
+                a => absPos >= a.start && absPos < a.end
+              );
+              if (!matchingAnn) return <span key={i} className="ann-space"> </span>;
+
+              // Show caret at center of annotation
+              const annCenter = Math.floor((matchingAnn.start + matchingAnn.end) / 2);
+              if (absPos === annCenter) {
+                return <span key={i} className="ann-caret">↑</span>;
+              }
+              if (absPos >= matchingAnn.start && absPos < matchingAnn.end) {
+                return <span key={i} className="ann-underline">─</span>;
+              }
+              return <span key={i} className="ann-space"> </span>;
+            })}
+          </span>
+          <span className="ann-suffix"></span>
+        </div>
+
+        {/* Annotation labels */}
+        {segAnnotations.map((ann, annIdx) => (
+          <div key={annIdx} className={`annotation-label type-${ann.type}`}>
+            <span className="ann-icon">
+              {ann.type === 'site' ? '◆' : ann.type === 'mutation' ? '→' : '●'}
+            </span>
+            <span className="ann-text">
+              <strong>{ann.label}</strong>
+              {ann.orientation && <span className="ann-orient"> ({ann.orientation})</span>}
+              {ann.details && <span className="ann-details"> — {ann.details}</span>}
+            </span>
+            <span className="ann-pos">pos {ann.start + 1}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <div className="sequence-ruler">
+      <div className="ruler-header">
+        <span className="ruler-icon">{Icons.dna}</span>
+        <span className="ruler-title">{title}</span>
+        <span className="ruler-legend">
+          <span className="legend-item nt-A">A</span>
+          <span className="legend-item nt-T">T</span>
+          <span className="legend-item nt-G">G</span>
+          <span className="legend-item nt-C">C</span>
+        </span>
+      </div>
+      <div className="ruler-content">
+        {segments.map((seg, idx) => renderSegment(seg, idx))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
@@ -563,6 +758,8 @@ export function EnhancedDomesticationPanel({
 
       {step === 'mutations' && plan && (
         <MutationSelectionStep
+          sequence={sequence}
+          enzyme={enzyme}
           plan={plan}
           selectedStrategy={selectedStrategy}
           mutationSelections={mutationSelections}
@@ -576,6 +773,7 @@ export function EnhancedDomesticationPanel({
         <PreviewStep
           plan={plan}
           sequence={sequence}
+          enzyme={enzyme}
           frame={selectedFrame}
           mutationSelections={mutationSelections}
           onApprove={executePlan}
@@ -691,33 +889,41 @@ function AnalyzeStep({ sequence, enzyme, internalSites, orfDetection, onContinue
         </div>
       </div>
 
+      {/* Sequence Map Visualization */}
+      <SequenceRuler
+        sequence={sequence}
+        annotations={internalSites.sites.map((site, i) => ({
+          start: site.position,
+          end: site.position + (site.sequence?.length || 6),
+          label: `${enzyme} site ${i + 1}`,
+          type: 'site' as const,
+          orientation: site.orientation,
+          details: site.sequence
+        }))}
+        title={`Internal ${enzyme} Sites`}
+        contextSize={20}
+      />
+
       <div className="site-details">
-        <h3>Internal Sites</h3>
+        <h3>Site Details</h3>
         <table className="sites-table">
           <thead>
             <tr>
+              <th>#</th>
               <th>Position</th>
-              <th>Sequence</th>
+              <th>Recognition Sequence</th>
               <th>Orientation</th>
-              <th>Context</th>
             </tr>
           </thead>
           <tbody>
             {internalSites.sites.map((site, i) => {
               const siteSeq = site.sequence || '';
-              const siteLen = siteSeq.length || 6; // Default to typical recognition site length
               return (
                 <tr key={i}>
+                  <td className="site-num">{i + 1}</td>
                   <td>{site.position + 1}</td>
-                  <td><code>{siteSeq}</code></td>
-                  <td>{site.orientation}</td>
-                  <td>
-                    <code className="context">
-                      ...{sequence.slice(Math.max(0, site.position - 5), site.position)}
-                      <span className="highlight">{siteSeq}</span>
-                      {sequence.slice(site.position + siteLen, site.position + siteLen + 5)}...
-                    </code>
-                  </td>
+                  <td><code className="site-seq">{siteSeq}</code></td>
+                  <td className={`orient-${site.orientation?.toLowerCase()}`}>{site.orientation}</td>
                 </tr>
               );
             })}
@@ -1175,6 +1381,8 @@ function FrameSelectionStep({
 }
 
 interface MutationSelectionStepProps {
+  sequence: string;
+  enzyme: string;
   plan: DomesticationPlan;
   selectedStrategy: string;
   mutationSelections: Record<string, MutationOption>;
@@ -1184,6 +1392,8 @@ interface MutationSelectionStepProps {
 }
 
 function MutationSelectionStep({
+  sequence,
+  enzyme,
   plan,
   selectedStrategy,
   mutationSelections,
@@ -1192,6 +1402,29 @@ function MutationSelectionStep({
   onBack,
 }: MutationSelectionStepProps) {
   const mutationStep = plan.steps.find((s: MutationStep) => s.step === 'MUTATION_OPTIONS');
+
+  // Build annotations for the sequence ruler
+  const rulerAnnotations: SequenceAnnotation[] = useMemo(() => {
+    if (!mutationStep) return [];
+    return mutationStep.siteOptions.map((siteOption: SiteOption, i: number) => {
+      const siteKey = `site_${siteOption.site.position}`;
+      const selected = mutationSelections[siteKey];
+      const siteSeq = siteOption.site.sequence || '';
+
+      return {
+        start: siteOption.site.position,
+        end: siteOption.site.position + siteSeq.length,
+        label: `Site ${i + 1}`,
+        type: selected?.type === 'silent_mutation' ? 'mutation' as const : 'site' as const,
+        orientation: siteOption.site.orientation,
+        details: selected?.type === 'silent_mutation'
+          ? `${selected.codonChange} (silent)`
+          : selected?.type === 'mutagenic_junction'
+          ? 'junction'
+          : siteSeq
+      };
+    });
+  }, [mutationStep, mutationSelections]);
 
   // Determine which option type matches the selected strategy
   const isMutagenicStrategy = selectedStrategy === ENHANCED_CONFIG.strategies.MUTAGENIC_JUNCTION;
@@ -1225,6 +1458,14 @@ function MutationSelectionStep({
           ? 'Each site will be handled by a mutagenic junction (one-pot Golden Gate compatible).'
           : 'Each site will be handled by a silent mutation applied to the template sequence.'}
       </p>
+
+      {/* Sequence overview showing all sites */}
+      <SequenceRuler
+        sequence={sequence}
+        annotations={rulerAnnotations}
+        title={`All ${enzyme} Sites to Modify`}
+        contextSize={15}
+      />
 
       <div className="site-mutations">
         {mutationStep.siteOptions.map((siteOption: SiteOption, siteIndex: number) => {
@@ -1338,6 +1579,7 @@ function MutationSelectionStep({
 interface PreviewStepProps {
   plan: DomesticationPlan;
   sequence: string;
+  enzyme: string;
   frame: number | null;
   mutationSelections: Record<string, MutationOption>;
   onApprove: () => void;
@@ -1347,11 +1589,37 @@ interface PreviewStepProps {
 
 function PreviewStep({
   plan,
+  sequence,
+  enzyme,
+  mutationSelections,
   onApprove,
   onBack,
   isProcessing,
 }: PreviewStepProps) {
   const preview = plan.preview;
+  const mutationStep = plan.steps.find((s: MutationStep) => s.step === 'MUTATION_OPTIONS');
+
+  // Build annotations showing what will be modified
+  const previewAnnotations: SequenceAnnotation[] = useMemo(() => {
+    if (!mutationStep) return [];
+    return mutationStep.siteOptions.map((siteOption: SiteOption, i: number) => {
+      const siteKey = `site_${siteOption.site.position}`;
+      const selected = mutationSelections[siteKey];
+      const siteSeq = siteOption.site.sequence || '';
+
+      return {
+        start: siteOption.site.position,
+        end: siteOption.site.position + siteSeq.length,
+        label: selected?.type === 'silent_mutation'
+          ? `${selected.codonChange}`
+          : selected?.type === 'mutagenic_junction'
+          ? `Junction ${i + 1}`
+          : `Site ${i + 1}`,
+        type: 'mutation' as const,
+        details: selected?.type === 'silent_mutation' ? 'silent mutation' : 'mutagenic junction'
+      };
+    });
+  }, [mutationStep, mutationSelections]);
 
   if (!preview) {
     return <div>Generating preview...</div>;
@@ -1387,6 +1655,14 @@ function PreviewStep({
           </span>
         </div>
       </div>
+
+      {/* Sequence Map showing modifications */}
+      <SequenceRuler
+        sequence={sequence}
+        annotations={previewAnnotations}
+        title="Modifications to Apply"
+        contextSize={18}
+      />
 
       {/* Validation Status */}
       <div className="validation-status">
