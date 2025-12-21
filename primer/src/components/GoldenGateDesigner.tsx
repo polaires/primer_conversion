@@ -875,7 +875,8 @@ function CircularPlasmidView({ parts, overhangs, totalLength }: CircularPlasmidV
         {partAngles.map((part: PartWithAngles, i: number) => {
           const typeInfo = PART_TYPES[part.type as keyof typeof PART_TYPES] || PART_TYPES.other;
           const isHovered = hoveredPart === i;
-          const isSubFragment = (part as any)._isSubFragment;
+          // Detect sub-fragment by property or name pattern (e.g., GFP_cds_frag1)
+          const isSubFragment = (part as any)._isSubFragment || /_frag\d+$/.test(part.id || '');
           return (
             <g key={i}>
               <path
@@ -903,8 +904,13 @@ function CircularPlasmidView({ parts, overhangs, totalLength }: CircularPlasmidV
           // Check if this is an internal domestication junction
           const currentPart = part as any;
           const prevPart = i > 0 ? partAngles[i - 1] as any : null;
-          const isInternalJunction = currentPart._isSubFragment && prevPart?._isSubFragment &&
-            currentPart._parentIndex === prevPart._parentIndex;
+          // Check by _parentIndex or by name pattern (auto-domestication)
+          const fragPattern = /^(.+)_frag(\d+)$/;
+          const currentMatch = (currentPart.id || '').match(fragPattern);
+          const prevMatch = (prevPart?.id || '').match(fragPattern);
+          const isInternalJunction = (currentPart._isSubFragment && prevPart?._isSubFragment &&
+            currentPart._parentIndex === prevPart._parentIndex) ||
+            (currentMatch && prevMatch && currentMatch[1] === prevMatch[1]);
 
           return (
             <g
@@ -1000,7 +1006,8 @@ function CircularPlasmidView({ parts, overhangs, totalLength }: CircularPlasmidV
       <div className="plasmid-legend">
         {parts.map((part: Part, i: number) => {
           const typeInfo = PART_TYPES[part.type as keyof typeof PART_TYPES] || PART_TYPES.other;
-          const isSubFragment = (part as any)._isSubFragment;
+          // Detect sub-fragment by property or name pattern (e.g., GFP_cds_frag1)
+          const isSubFragment = (part as any)._isSubFragment || /_frag\d+$/.test(part.id || '');
           return (
             <div
               key={i}
@@ -1033,8 +1040,24 @@ function LinearAssemblyDiagram({ parts, overhangs }: LinearAssemblyDiagramProps)
     if (index === 0) return false;
     const currentPart = parts[index] as any;
     const prevPart = parts[index - 1] as any;
-    return currentPart._isSubFragment && prevPart._isSubFragment &&
-           currentPart._parentIndex === prevPart._parentIndex;
+
+    // Check by _parentIndex (manual domestication)
+    if (currentPart._isSubFragment && prevPart._isSubFragment &&
+        currentPart._parentIndex === prevPart._parentIndex) {
+      return true;
+    }
+
+    // Check by part name pattern (auto-domestication: GFP_cds_frag1, GFP_cds_frag2)
+    const currentId = currentPart.id || '';
+    const prevId = prevPart.id || '';
+    const fragPattern = /^(.+)_frag(\d+)$/;
+    const currentMatch = currentId.match(fragPattern);
+    const prevMatch = prevId.match(fragPattern);
+    if (currentMatch && prevMatch && currentMatch[1] === prevMatch[1]) {
+      return true;
+    }
+
+    return false;
   };
 
   return (
@@ -1046,7 +1069,8 @@ function LinearAssemblyDiagram({ parts, overhangs }: LinearAssemblyDiagramProps)
           const rightOH = overhangs[i + 1];
           const hasDomestication = part._domesticationApproved;
           const mutationCount = part._domesticationMutations?.length || 0;
-          const isSubFragment = (part as any)._isSubFragment;
+          // Detect sub-fragment by property or name pattern (e.g., GFP_cds_frag1)
+          const isSubFragment = (part as any)._isSubFragment || /_frag\d+$/.test(part.id || '');
           const isInternal = isInternalJunction(i);
 
           return (
@@ -2814,12 +2838,37 @@ export default function GoldenGateDesigner() {
   }, [parts]);
 
   // Expand parts to include domestication sub-fragments in assembly diagram
+  // Uses result.parts when auto-domestication has been applied (shows actual fragments)
   const assemblyViewData = useMemo(() => {
     if (!isGoldenGate) {
       return {
         parts: parts.filter(p => p.seq),
         overhangs: parts.filter(p => p.seq).map((_, i) => `J${i + 1}`)
       };
+    }
+
+    // If we have result with auto-domestication, use the expanded parts from result
+    if (result && result._autoDomestication?.applied && result.parts?.length > 0) {
+      const resultParts = result.parts.map((p: any, i: number) => ({
+        ...p,
+        seq: p.sequence || p.seq || '',
+        type: p.type || 'other',
+        _isSubFragment: p._isSubFragment || (p.id && p.id.includes('_frag')),
+        _parentIndex: p._parentPartIndex,
+      }));
+
+      // Build overhangs from result parts
+      const resultOverhangs: string[] = [];
+      resultParts.forEach((p: any, i: number) => {
+        if (i === 0 && p.leftOverhang) {
+          resultOverhangs.push(p.leftOverhang);
+        }
+        if (p.rightOverhang) {
+          resultOverhangs.push(p.rightOverhang);
+        }
+      });
+
+      return { parts: resultParts, overhangs: resultOverhangs };
     }
 
     const expandedParts: Part[] = [];
@@ -2863,7 +2912,7 @@ export default function GoldenGateDesigner() {
     });
 
     return { parts: expandedParts, overhangs: expandedOverhangs };
-  }, [parts, isGoldenGate, recommendedOverhangs.overhangs]);
+  }, [parts, isGoldenGate, recommendedOverhangs.overhangs, result]);
 
   const handlePartChange = useCallback((index: number, newPart: Part) => {
     setParts(prev => {
