@@ -2215,28 +2215,27 @@ body {
 
 /* Enzyme Selector */
 .enzyme-selector {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 0.4rem;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.35rem;
 }
 
 .enzyme-btn {
   position: relative;
-  padding: 0.4rem 0.6rem;
+  padding: 0.35rem 0.4rem;
   background: var(--card-bg);
   border: 1.5px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
   flex-direction: column;
   align-items: center;
-  flex: 1;
   min-width: 0;
 }
 
 .enzyme-btn small {
-  font-size: 0.58rem;
+  font-size: 0.52rem;
   color: var(--text-light);
   font-family: 'Monaco', 'Menlo', monospace;
   letter-spacing: 0.01em;
@@ -5333,14 +5332,7 @@ body {
    Golden Gate Enzyme Selection & Fidelity
    ======================================== */
 
-/* Enzyme selector enhancements */
-.enzyme-selector .enzyme-btn {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0.5rem 0.75rem;
-}
+/* Enzyme selector enhancements - styles now in main .enzyme-btn rule */
 
 .enzyme-selector .enzyme-btn .enzyme-name {
   font-weight: 600;
@@ -9301,6 +9293,25 @@ body {
   box-shadow: 0 1px 3px rgba(99, 102, 241, 0.3);
 }
 
+/* Domestication/internal junction styling */
+.junction-seq.domestication {
+  background: linear-gradient(135deg, #10b981, #059669);
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.3);
+}
+
+.junction-node.internal-junction {
+  position: relative;
+}
+
+.junction-node.internal-junction::before {
+  content: '⚡';
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.5rem;
+}
+
 .part-block {
   position: relative;
   background: white;
@@ -9354,6 +9365,11 @@ body {
 .part-block.domesticated {
   border-style: solid;
   background: linear-gradient(135deg, white, rgba(34, 197, 94, 0.05));
+}
+
+.part-block.sub-fragment {
+  border-style: dashed;
+  background: linear-gradient(135deg, white, rgba(16, 185, 129, 0.08));
 }
 
 .domestication-badge {
