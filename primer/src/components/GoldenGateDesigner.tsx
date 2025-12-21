@@ -1616,7 +1616,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
 
   return (
     <div className="results-panel-enhanced">
-      {/* Results Header */}
+      {/* Results Header - Compact summary only */}
       <div className="results-header-card">
         <div className="success-badge">
           <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
@@ -1634,41 +1634,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
             )}
           </p>
         </div>
-        <div className="export-buttons">
-          <button className="export-btn idt" onClick={copyIDTFormat} title="Copy all primers in IDT bulk order format">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-              <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-            </svg>
-            IDT
-          </button>
-          <button className="export-btn csv" onClick={downloadCSV} title="Download all primers as CSV">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-              <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
-            </svg>
-            CSV
-          </button>
-          <button className="export-btn fasta" onClick={exportAllPrimersFasta} title="Copy all primers as FASTA">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-              <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-            </svg>
-            FASTA
-          </button>
-        </div>
       </div>
-
-      {/* Warnings */}
-      {result.warnings && result.warnings.length > 0 && (
-        <div className="warnings-card">
-          {result.warnings.map((w: string, i: number) => (
-            <div key={i} className="warning-item">
-              <svg className="warning-icon" viewBox="0 0 24 24" width="16" height="16" fill="#f59e0b">
-                <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
-              </svg>
-              {w}
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Tabs - Streamlined with Overview first */}
       <div className="results-tabs-bar">
