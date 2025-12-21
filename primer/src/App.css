@@ -27563,6 +27563,12 @@ body {
   color: white;
 }
 
+.enhanced-domestication-panel .option-badge.alternative {
+  background: var(--edp-neutral-100);
+  color: var(--edp-neutral-500);
+  font-size: 9px;
+}
+
 .enhanced-domestication-panel .warning-tag {
   display: inline-flex;
   align-items: center;
@@ -27655,8 +27661,13 @@ body {
   color: white;
 }
 
-.enhanced-domestication-panel .fidelity-badge.high {
+.enhanced-domestication-panel .fidelity-badge.excellent {
   background: linear-gradient(135deg, #0891b2 0%, #22d3ee 100%);
+  color: white;
+}
+
+.enhanced-domestication-panel .fidelity-badge.high {
+  background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
   color: white;
 }
 

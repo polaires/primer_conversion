@@ -1588,15 +1588,13 @@ function MutationSelectionStep({
                         </span>
                         <div className="option-badges">
                           {isRecommended && (
-                            <span className="option-badge recommended" title="Recommended option">★ Recommended</span>
+                            <span className="option-badge recommended" title="Recommended option">★ Best</span>
                           )}
-                          {option.shortDescription && option.type === 'mutagenic_junction' && (
-                            <span className="option-badge quality-tag" title={option.shortDescription}>
-                              {option.shortDescription}
-                            </span>
+                          {!isRecommended && option.type === 'mutagenic_junction' && (
+                            <span className="option-badge alternative">Alternative</span>
                           )}
                           <span className={`option-badge fragment-tag ${option.type === 'silent_mutation' ? 'silent' : 'junction'}`}>
-                            {option.type === 'silent_mutation' ? '○ No fragments' : '◇ +1 fragment'}
+                            {option.type === 'silent_mutation' ? '○' : '◇ +1'}
                           </span>
                         </div>
                       </div>
@@ -1630,11 +1628,10 @@ function MutationSelectionStep({
                                 <code className="overhang-code">{option.overhang}</code>
                                 {option.junctionFidelity && (
                                   <span className={`fidelity-badge ${
-                                    option.junctionFidelity.singleOverhang >= 0.99 ? 'perfect' :
-                                    option.junctionFidelity.singleOverhang >= 0.95 ? 'high' : 'moderate'
+                                    (option.junctionFidelity.withExisting || option.junctionFidelity.singleOverhang) >= 0.99 ? 'perfect' :
+                                    (option.junctionFidelity.withExisting || option.junctionFidelity.singleOverhang) >= 0.95 ? 'excellent' : 'high'
                                   }`}>
-                                    {option.junctionFidelity.singleOverhang >= 0.99 ? '100%' :
-                                     `${Math.round(option.junctionFidelity.singleOverhang * 100)}%`} fidelity
+                                    {Math.round((option.junctionFidelity.withExisting || option.junctionFidelity.singleOverhang) * 100)}%
                                   </span>
                                 )}
                               </div>

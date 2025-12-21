@@ -1318,14 +1318,14 @@ function meetsMinimumPrimerQuality(candidate: JunctionCandidateInfo): boolean {
 }
 
 /**
- * Select top junction options: 100% fidelity first, then best primer quality
+ * Select top junction options: excellent fidelity first, then best primer quality
  *
- * Algorithm:
- * 1. Filter for 100% fidelity options (≥99%)
+ * Algorithm based on NEB experimental data (highest real fidelity is ~97%):
+ * 1. Filter for excellent fidelity options (≥95% - top tier in NEB data)
  * 2. Remove any with unacceptable primer quality
- * 3. Sort by PRIMER QUALITY (not overall score) - fidelity is already 100%
+ * 3. Sort by PRIMER QUALITY (not overall score) - fidelity is already excellent
  * 4. Pick top 3 with different overhangs for flexibility
- * 5. Fall back to lower fidelity only if no good 100% options
+ * 5. Fall back to high fidelity (≥90%) only if no excellent options
  */
 function selectTopJunctionOptions(
   candidates: JunctionCandidateInfo[],
@@ -1334,13 +1334,13 @@ function selectTopJunctionOptions(
   if (candidates.length === 0) return [];
   if (candidates.length <= maxCount) return candidates;
 
-  // Step 1: Find all 100% fidelity options with acceptable primer quality
-  const perfectFidelity = candidates
-    .filter(c => (c.overhangFidelity || 0) >= 0.99)
+  // Step 1: Find all excellent fidelity options (≥95% based on NEB data - highest possible is ~97%)
+  const excellentFidelity = candidates
+    .filter(c => (c.overhangFidelity || 0) >= 0.95)
     .filter(c => meetsMinimumPrimerQuality(c));
 
-  // Step 2: Sort by PRIMER QUALITY (since fidelity is already 100%)
-  perfectFidelity.sort((a, b) => {
+  // Step 2: Sort by PRIMER QUALITY (since fidelity is already excellent)
+  excellentFidelity.sort((a, b) => {
     const aQuality = estimatePrimerQualityScore(a);
     const bQuality = estimatePrimerQualityScore(b);
     return bQuality - aQuality;
@@ -1350,8 +1350,8 @@ function selectTopJunctionOptions(
   const usedOverhangs = new Set<string>();
 
   // Step 3: Select best primer quality options with different overhangs
-  if (perfectFidelity.length > 0) {
-    for (const candidate of perfectFidelity) {
+  if (excellentFidelity.length > 0) {
+    for (const candidate of excellentFidelity) {
       if (selected.length >= maxCount) break;
 
       // First one always added, then prefer different overhangs
@@ -1363,7 +1363,7 @@ function selectTopJunctionOptions(
 
     // Fill remaining slots if needed (same overhang but different positions)
     if (selected.length < maxCount) {
-      for (const candidate of perfectFidelity) {
+      for (const candidate of excellentFidelity) {
         if (selected.length >= maxCount) break;
         if (!selected.includes(candidate)) {
           selected.push(candidate);
@@ -1372,10 +1372,10 @@ function selectTopJunctionOptions(
     }
   }
 
-  // Step 4: Fall back to high fidelity (≥95%) if not enough 100% options
+  // Step 4: Fall back to high fidelity (≥90%) if not enough excellent options
   if (selected.length < maxCount) {
     const highFidelity = candidates
-      .filter(c => (c.overhangFidelity || 0) >= 0.95 && (c.overhangFidelity || 0) < 0.99)
+      .filter(c => (c.overhangFidelity || 0) >= 0.90 && (c.overhangFidelity || 0) < 0.95)
       .filter(c => meetsMinimumPrimerQuality(c))
       .filter(c => !selected.includes(c))
       .sort((a, b) => estimatePrimerQualityScore(b) - estimatePrimerQualityScore(a));
@@ -1401,9 +1401,9 @@ function selectTopJunctionOptions(
     }
   }
 
-  // Final sort: best primer quality first (all should have 100% fidelity)
+  // Final sort: best primer quality first (all should have excellent fidelity)
   selected.sort((a, b) => {
-    // Primary: fidelity (100% first)
+    // Primary: fidelity (highest first)
     const fidelityDiff = (b.overhangFidelity || 0) - (a.overhangFidelity || 0);
     if (Math.abs(fidelityDiff) > 0.01) return fidelityDiff > 0 ? 1 : -1;
 
@@ -1482,7 +1482,7 @@ function generateMutationOptions(
         })),
       ];
 
-      // Select top 3 junction options prioritizing 100% fidelity
+      // Select top 3 junction options prioritizing excellent fidelity (≥95%)
       const topJunctions = selectTopJunctionOptions(allJunctionCandidates, 3);
 
       // Debug: Log selection results
@@ -1493,7 +1493,7 @@ function generateMutationOptions(
       for (let i = 0; i < topJunctions.length; i++) {
         const junc = topJunctions[i];
         const fidelityPercent = Math.round((junc.overhangFidelity || 0) * 100);
-        const isPerfectFidelity = fidelityPercent >= 99;
+        const isExcellentFidelity = fidelityPercent >= 95; // Based on NEB data, 95%+ is excellent
 
         // Use pre-computed data for best junction, compute for alternatives
         let junctionData: any;
@@ -1530,12 +1530,12 @@ function generateMutationOptions(
 
         // Clear labels: fidelity + primer quality (what matters)
         const getRecommendationReason = (idx: number, fidelity: number, primerScore: number): string => {
-          if (idx === 0 && fidelity >= 99) {
-            return primerScore >= PRIMER_QUALITY_THRESHOLDS.excellent ? 'Best option' : '100% fidelity';
+          if (idx === 0 && fidelity >= 95) {
+            return primerScore >= PRIMER_QUALITY_THRESHOLDS.excellent ? 'Best option' : 'Excellent fidelity';
           }
           if (idx === 0) return 'Best available';
-          if (fidelity >= 99) return '100% fidelity';
-          if (fidelity >= 95) return `${fidelity}% fidelity`;
+          if (fidelity >= 95) return `${fidelity}% (excellent)`;
+          if (fidelity >= 90) return `${fidelity}% fidelity`;
           return 'Alternative';
         };
 
@@ -1552,8 +1552,8 @@ function generateMutationOptions(
           onePotCompatible: true,
           primers: junctionData.primers,
           mutations: junctionData.mutation ? [junctionData.mutation] : [],
-          benefits: isPerfectFidelity
-            ? ['100% ligation fidelity', 'One-pot compatible']
+          benefits: isExcellentFidelity
+            ? ['Excellent ligation fidelity', 'One-pot compatible']
             : [`${fidelityPercent}% ligation fidelity`, 'One-pot compatible'],
           // Simplified junction metrics
           junctionQuality: {
