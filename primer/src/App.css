@@ -26983,8 +26983,9 @@ body {
    ========================================================================== */
 
 .enhanced-domestication-panel .frame-options {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 14px;
   margin-bottom: 24px;
 }
@@ -26997,9 +26998,11 @@ body {
   cursor: pointer;
   transition: all 0.15s ease;
   position: relative;
-  min-height: 260px;
+  min-height: 240px;
   display: flex;
   flex-direction: column;
+  width: 220px;
+  flex-shrink: 0;
 }
 
 .enhanced-domestication-panel .frame-option:hover:not(.disabled) {
@@ -27900,6 +27903,32 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  padding: 20px 24px;
+}
+
+.enhanced-domestication-panel .primer-list h3 {
+  margin: 0 0 4px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.enhanced-domestication-panel .primer-list .one-pot-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px 0;
+  padding: 10px 14px;
+  background: #ECFDF5;
+  border: 1px solid #A7F3D0;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #047857;
+}
+
+.enhanced-domestication-panel .primer-list .one-pot-note svg {
+  color: #10B981;
+  flex-shrink: 0;
 }
 
 .enhanced-domestication-panel .primer-card {
@@ -28336,7 +28365,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 18px;
+  padding: 14px 16px;
   background: white;
   border-bottom: 1px solid #F3F4F6;
   cursor: pointer;
@@ -28667,7 +28696,7 @@ body {
 
 /* Order & Export Section */
 .enhanced-domestication-panel .order-export-section {
-  margin: 20px;
+  margin: 0 24px 24px 24px;
   background: white;
   border: 1px solid var(--edp-neutral-200);
   border-radius: 12px;
@@ -28678,7 +28707,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 18px;
+  padding: 14px 16px;
   background: #FAFAFA;
   border-bottom: 1px solid #F3F4F6;
 }

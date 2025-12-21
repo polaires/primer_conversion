@@ -1316,8 +1316,8 @@ function FrameSelectionStep({
                     <div className="frame-stat">
                       <span className="label">Codon Usage</span>
                       <span className="value">
-                        {typeof opt.bestOrf.avgCodonUsage === 'number'
-                          ? `${opt.bestOrf.avgCodonUsage.toFixed(0)}/1000`
+                        {opt.bestOrf.avgCodonUsage != null && opt.bestOrf.avgCodonUsage !== ''
+                          ? `${Math.round(parseFloat(String(opt.bestOrf.avgCodonUsage)))}/1000`
                           : 'N/A'}
                       </span>
                     </div>
