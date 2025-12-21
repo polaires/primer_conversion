@@ -1184,7 +1184,7 @@ function FidelityGauge({ overhangs, enzyme, staticFidelity }: FidelityGaugeProps
 function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenGateProp }: PrimerResultsProps) {
   // Use prop if provided, otherwise derive from method
   const isGoldenGate = isGoldenGateProp !== undefined ? isGoldenGateProp : method === 'golden_gate';
-  const [activeTab, setActiveTab] = useState<string>('primers');
+  const [activeTab, setActiveTab] = useState<string>('overview');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [expandedThermo, setExpandedThermo] = useState<Record<string, boolean>>({}); // Track expanded thermo panels per part
 
@@ -1434,30 +1434,281 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
         </div>
       )}
 
-      {/* Tabs */}
+      {/* Tabs - Streamlined with Overview first */}
       <div className="results-tabs-bar">
+        <button className={`tab ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style={{ marginRight: 6 }}>
+            <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
+          </svg>
+          Overview
+        </button>
         <button className={`tab ${activeTab === 'viewer' ? 'active' : ''}`} onClick={() => setActiveTab('viewer')}>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style={{ marginRight: 6 }}>
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          </svg>
           Construct
         </button>
         <button className={`tab ${activeTab === 'primers' ? 'active' : ''}`} onClick={() => setActiveTab('primers')}>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style={{ marginRight: 6 }}>
+            <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
+          </svg>
           Primers ({result.parts.length * 2})
         </button>
         <button className={`tab ${activeTab === 'fidelity' ? 'active' : ''}`} onClick={() => setActiveTab('fidelity')}>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style={{ marginRight: 6 }}>
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+          </svg>
           Junctions
         </button>
         <button className={`tab ${activeTab === 'protocol' ? 'active' : ''}`} onClick={() => setActiveTab('protocol')}>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style={{ marginRight: 6 }}>
+            <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+          </svg>
           Protocol
-        </button>
-        <button className={`tab ${activeTab === 'simulation' ? 'active' : ''}`} onClick={() => setActiveTab('simulation')}>
-          Simulation
-        </button>
-        <button className={`tab ${activeTab === 'optimization' ? 'active' : ''}`} onClick={() => setActiveTab('optimization')}>
-          Optimization {result._optimizedData?.recommendations?.length > 0 && <span className="tab-badge">{result._optimizedData.recommendations.length}</span>}
         </button>
       </div>
 
       {/* Tab Content */}
       <div className="tab-panel">
+        {/* Overview Tab - Dashboard with all key information */}
+        {activeTab === 'overview' && (
+          <div className="gg-overview-panel">
+            {/* Top Row: Quality Gauge + Export + Summary */}
+            <div className="gg-overview-header">
+              {/* Quality Gauge */}
+              <div className="gg-quality-gauge">
+                {(() => {
+                  // Parse fidelity percentage from string like "95.2%" to decimal 0.952
+                  const fidelityValue = result.fidelity?.percentage
+                    ? parseFloat(result.fidelity.percentage.replace('%', '')) / 100
+                    : 0;
+                  const fidelityColor = fidelityValue >= 0.95 ? '#22c55e' :
+                                       fidelityValue >= 0.90 ? '#84cc16' :
+                                       fidelityValue >= 0.80 ? '#f59e0b' : '#ef4444';
+                  const fidelityStatus = fidelityValue >= 0.95 ? 'Excellent' :
+                                        fidelityValue >= 0.90 ? 'Good' :
+                                        fidelityValue >= 0.80 ? 'Moderate' : 'Low';
+                  return (
+                    <>
+                      <svg viewBox="0 0 120 120" className="gg-gauge-svg">
+                        {/* Background circle */}
+                        <circle cx="60" cy="60" r="50" fill="none" stroke="#e5e7eb" strokeWidth="10" />
+                        {/* Progress circle */}
+                        <circle
+                          cx="60" cy="60" r="50"
+                          fill="none"
+                          stroke={fidelityColor}
+                          strokeWidth="10"
+                          strokeLinecap="round"
+                          strokeDasharray={`${fidelityValue * 314.16} 314.16`}
+                          transform="rotate(-90 60 60)"
+                          style={{ transition: 'stroke-dasharray 0.5s ease' }}
+                        />
+                      </svg>
+                      <div className="gg-gauge-center">
+                        <span className="gg-gauge-value">{(fidelityValue * 100).toFixed(1)}</span>
+                        <span className="gg-gauge-unit">%</span>
+                      </div>
+                      <div className="gg-gauge-label">
+                        <span className="gg-gauge-status" style={{ color: fidelityColor }}>
+                          {fidelityStatus}
+                        </span>
+                        <span className="gg-gauge-sublabel">Assembly Fidelity</span>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+
+              {/* Export Panel */}
+              <div className="gg-export-panel">
+                <div className="gg-export-title">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                  </svg>
+                  Export Primers
+                </div>
+                <div className="gg-export-buttons">
+                  <button className="gg-export-btn" onClick={copyIDTFormat} title="Copy all primers in IDT bulk order format">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                      <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                    </svg>
+                    IDT
+                  </button>
+                  <button className="gg-export-btn" onClick={downloadCSV} title="Download all primers as CSV">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                      <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                    </svg>
+                    CSV
+                  </button>
+                  <button className="gg-export-btn" onClick={exportAllPrimersFasta} title="Copy all primers as FASTA">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                      <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+                    </svg>
+                    FASTA
+                  </button>
+                </div>
+              </div>
+
+              {/* Assembly Summary Cards */}
+              <div className="gg-summary-cards">
+                <div className="gg-summary-card">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="#6366f1">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                  </svg>
+                  <span className="gg-summary-value">{result.assembledLength?.toLocaleString() || '—'}</span>
+                  <span className="gg-summary-label">bp Total</span>
+                </div>
+                <div className="gg-summary-card">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="#8b5cf6">
+                    <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/>
+                  </svg>
+                  <span className="gg-summary-value">{result.parts?.length || 0}</span>
+                  <span className="gg-summary-label">Parts</span>
+                </div>
+                <div className="gg-summary-card">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="#06b6d4">
+                    <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
+                  </svg>
+                  <span className="gg-summary-value">{result.fidelity?.individual?.length || 0}</span>
+                  <span className="gg-summary-label">Junctions</span>
+                </div>
+                <div className="gg-summary-card">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="#10b981">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                  </svg>
+                  <span className="gg-summary-value">Circular</span>
+                  <span className="gg-summary-label">Topology</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Warnings Section */}
+            {result.warnings && result.warnings.length > 0 && (
+              <div className="gg-warnings-section">
+                <div className="gg-section-header">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b">
+                    <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                  </svg>
+                  <span>Notifications ({result.warnings.length})</span>
+                </div>
+                <div className="gg-warnings-list">
+                  {result.warnings.slice(0, 5).map((w: string, i: number) => {
+                    const isSuccess = w.startsWith('✅') || w.includes('auto-domesticated');
+                    const isWarning = w.startsWith('⚠️') || w.includes('WARNING');
+                    return (
+                      <div key={i} className={`gg-warning-item ${isSuccess ? 'success' : isWarning ? 'warning' : 'info'}`}>
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                          {isSuccess ? (
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                          ) : isWarning ? (
+                            <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                          ) : (
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                          )}
+                        </svg>
+                        <span>{w.replace(/^[✅⚠️🔴ℹ️]\s*/, '')}</span>
+                      </div>
+                    );
+                  })}
+                  {result.warnings.length > 5 && (
+                    <button className="gg-show-more" onClick={() => setActiveTab('fidelity')}>
+                      View all {result.warnings.length} notifications
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Quick Primer Reference */}
+            <div className="gg-primer-quick">
+              <div className="gg-section-header">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="#6366f1">
+                  <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
+                </svg>
+                <span>Quick Primer Reference</span>
+                <button className="gg-view-details" onClick={() => setActiveTab('primers')}>
+                  View Details
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                    <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+                  </svg>
+                </button>
+              </div>
+              <div className="gg-primer-table">
+                <div className="gg-primer-table-header">
+                  <span className="col-part">Part</span>
+                  <span className="col-fwd">Forward Primer</span>
+                  <span className="col-rev">Reverse Primer</span>
+                  <span className="col-oh">Overhangs</span>
+                </div>
+                {result.parts?.map((part: any, i: number) => (
+                  <div key={i} className="gg-primer-table-row">
+                    <span className="col-part">
+                      <span className="part-color" style={{ backgroundColor: (PART_TYPES as Record<string, { color: string }>)[part.type]?.color || '#8b5cf6' }} />
+                      {part.id || `Part ${i + 1}`}
+                    </span>
+                    <span className="col-fwd" title={part.primers?.forward?.sequence || ''}>
+                      <code>{(part.primers?.forward?.sequence || '').slice(0, 25)}...</code>
+                    </span>
+                    <span className="col-rev" title={part.primers?.reverse?.sequence || ''}>
+                      <code>{(part.primers?.reverse?.sequence || '').slice(0, 25)}...</code>
+                    </span>
+                    <span className="col-oh">
+                      <code className="overhang-badge">{part.leftOverhang || '—'}</code>
+                      <svg viewBox="0 0 24 24" width="12" height="12" fill="#9ca3af">
+                        <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+                      </svg>
+                      <code className="overhang-badge">{part.rightOverhang || '—'}</code>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Junction Fidelity Summary */}
+            <div className="gg-junction-summary">
+              <div className="gg-section-header">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="#06b6d4">
+                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+                </svg>
+                <span>Junction Fidelity</span>
+                <button className="gg-view-details" onClick={() => setActiveTab('fidelity')}>
+                  View Matrix
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                    <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+                  </svg>
+                </button>
+              </div>
+              <div className="gg-junction-bars">
+                {result.fidelity?.individual?.map((item: any, i: number) => (
+                  <div key={i} className="gg-junction-bar">
+                    <span className="junction-label">J{i + 1}</span>
+                    <code className="junction-overhang">{item.overhang}</code>
+                    <div className="junction-bar-track">
+                      <div
+                        className="junction-bar-fill"
+                        style={{
+                          width: `${item.fidelity * 100}%`,
+                          backgroundColor: item.fidelity >= 0.95 ? '#22c55e' :
+                                          item.fidelity >= 0.90 ? '#84cc16' :
+                                          item.fidelity >= 0.80 ? '#f59e0b' : '#ef4444'
+                        }}
+                      />
+                    </div>
+                    <span className="junction-pct" style={{
+                      color: item.fidelity >= 0.95 ? '#22c55e' :
+                             item.fidelity >= 0.90 ? '#84cc16' :
+                             item.fidelity >= 0.80 ? '#f59e0b' : '#ef4444'
+                    }}>
+                      {(item.fidelity * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'viewer' && (
           <AssemblyViewer result={result} />
         )}
@@ -2225,313 +2476,6 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                 {(result.protocol as any).notes.map((n: any, i: number) => <li key={i}>{n}</li>)}
               </ul>
             </div>
-          </div>
-        )}
-
-        {activeTab === 'simulation' && (
-          <div className="simulation-panel">
-            <div className="simulation-header">
-              <h4>Assembly Simulation</h4>
-              <span className="simulation-badge">
-                {result.assembledLength?.toLocaleString() || '—'} bp circular
-              </span>
-            </div>
-
-            {/* Large Circular Visualization */}
-            <div className="simulation-visualization">
-              <svg viewBox="0 0 400 400" className="simulation-svg">
-                {/* Background circle */}
-                <circle cx="200" cy="200" r="150" fill="none" stroke="#e5e7eb" strokeWidth="30" />
-
-                {/* Part arcs */}
-                {(() => {
-                  const parts = result.parts || [];
-                  const total = parts.reduce((sum: number, p: Part) => sum + (p.length || p.seq?.length || 100), 0);
-                  let currentAngle = -90;
-
-                  return parts.map((part: Part, i: number) => {
-                    const partLength = part.length || part.seq?.length || 100;
-                    const sweepAngle = (partLength / total) * 360;
-                    const startAngle = currentAngle;
-                    currentAngle += sweepAngle;
-
-                    // Convert to radians
-                    const startRad = (startAngle * Math.PI) / 180;
-                    const endRad = ((startAngle + sweepAngle - 1) * Math.PI) / 180;
-
-                    // Calculate arc path
-                    const x1 = 200 + 150 * Math.cos(startRad);
-                    const y1 = 200 + 150 * Math.sin(startRad);
-                    const x2 = 200 + 150 * Math.cos(endRad);
-                    const y2 = 200 + 150 * Math.sin(endRad);
-                    const largeArc = sweepAngle > 180 ? 1 : 0;
-
-                    const typeColor = PART_TYPES[part.type]?.color || '#8b5cf6';
-
-                    // Label position
-                    const midAngle = (startAngle + sweepAngle / 2) * Math.PI / 180;
-                    const labelR = 100;
-                    const lx = 200 + labelR * Math.cos(midAngle);
-                    const ly = 200 + labelR * Math.sin(midAngle);
-
-                    return (
-                      <g key={i}>
-                        <path
-                          d={`M ${x1} ${y1} A 150 150 0 ${largeArc} 1 ${x2} ${y2}`}
-                          fill="none"
-                          stroke={typeColor}
-                          strokeWidth="28"
-                          strokeLinecap="round"
-                        />
-                        <text
-                          x={lx}
-                          y={ly}
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                          fontSize="11"
-                          fontWeight="600"
-                          fill="#374151"
-                        >
-                          {(part.id || `Part ${i + 1}`).slice(0, 10)}
-                        </text>
-                      </g>
-                    );
-                  });
-                })()}
-
-                {/* Center info */}
-                <text x="200" y="190" textAnchor="middle" fontSize="28" fontWeight="700" fill="#1f2937">
-                  {result.assembledLength?.toLocaleString() || '—'}
-                </text>
-                <text x="200" y="215" textAnchor="middle" fontSize="12" fill="#6b7280">
-                  bp total
-                </text>
-                <text x="200" y="235" textAnchor="middle" fontSize="11" fill="#22c55e" fontWeight="600">
-                  {result.fidelity?.percentage || '—'} fidelity
-                </text>
-              </svg>
-            </div>
-
-            {/* Assembly Details */}
-            <div className="simulation-details">
-              <div className="detail-grid">
-                <div className="detail-item">
-                  <span className="detail-label">Parts</span>
-                  <span className="detail-value">{result.parts?.length || 0}</span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Junctions</span>
-                  <span className="detail-value">{result.fidelity?.individual?.length || 0}</span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Total Length</span>
-                  <span className="detail-value">{result.assembledLength?.toLocaleString() || '—'} bp</span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Topology</span>
-                  <span className="detail-value">Circular</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Parts List */}
-            <div className="simulation-parts-list">
-              <h5>Parts Order</h5>
-              <div className="parts-order">
-                {(result.parts || []).map((part: Part, i: number) => (
-                  <div key={i} className="part-order-item">
-                    <span className="part-num">{i + 1}</span>
-                    <span
-                      className="part-type-dot"
-                      style={{ backgroundColor: PART_TYPES[part.type]?.color || '#8b5cf6' }}
-                    />
-                    <span className="part-name">{part.id || `Part ${i + 1}`}</span>
-                    <span className="part-length">{part.length || part.seq?.length || 0} bp</span>
-                    {i < (result.parts?.length || 0) - 1 && (
-                      <span className="part-junction">→</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'optimization' && (
-          <div className="optimization-panel">
-            {/* Quality Summary */}
-            <div className="opt-section">
-              <h4>Assembly Quality</h4>
-              <div className="quality-metrics">
-                <div className="quality-card">
-                  <span className="quality-label">Overall Fidelity</span>
-                  <span className={`quality-value ${result._optimizedData?.quality?.rating === 'excellent' ? 'excellent' : result._optimizedData?.quality?.rating === 'good' ? 'good' : 'warning'}`}>
-                    {result.fidelity?.percentage || '—'}
-                  </span>
-                  <span className="quality-rating">{result._optimizedData?.quality?.rating || 'N/A'}</span>
-                </div>
-                <div className="quality-card">
-                  <span className="quality-label">Base Fidelity</span>
-                  <span className="quality-value">{result.fidelity?.baseFidelityPercent || '—'}</span>
-                  <span className="quality-sublabel">Before G:T adjustment</span>
-                </div>
-                <div className="quality-card">
-                  <span className="quality-label">G:T Adjusted</span>
-                  <span className="quality-value">{result.fidelity?.gtAdjusted ? 'Yes' : 'No'}</span>
-                  <span className="quality-sublabel">T4 ligase wobble pairs</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Internal Site Issues */}
-            {result.hasInternalSites && (
-              <div className="opt-section warning-section">
-                <h4>Internal Restriction Sites</h4>
-                <div className="site-issues-list">
-                  {result.internalSiteIssues?.map((issue: any, i: number) => (
-                    <div
-                      key={i}
-                      className={`site-issue-card ${issue.domesticated ? 'domesticated' : ''}`}
-                      style={issue.domesticated ? {
-                        background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
-                        borderColor: '#22c55e',
-                      } : {}}
-                    >
-                      <div className="issue-header">
-                        <span className="issue-part">{issue.partId}</span>
-                        {issue.domesticated ? (
-                          <span className="issue-status text-green-600 font-medium">
-                            ✓ Auto-domesticated
-                          </span>
-                        ) : (
-                          <span className="issue-count">{issue.sites.length} site{issue.sites.length !== 1 ? 's' : ''}</span>
-                        )}
-                      </div>
-                      {issue.domesticated ? (
-                        <div className="domestication-info text-xs text-green-800 mt-1">
-                          {issue.strategy === DOMESTICATION_STRATEGY.MUTAGENIC_JUNCTION ? (
-                            <>
-                              <div className="font-medium">Mutagenic junction strategy</div>
-                              <div>Silent mutations in primer homology region. One-pot compatible.</div>
-                              {issue.mutations && issue.mutations.length > 0 && (
-                                <div className="mt-1 font-mono text-[11px]">
-                                  Mutations: {issue.mutations.map((m: any) => `${m.originalBase}${m.position}${m.newBase}`).join(', ')}
-                                </div>
-                              )}
-                            </>
-                          ) : issue.strategy === DOMESTICATION_STRATEGY.DIRECT_PRIMER_MUTATION ? (
-                            <>
-                              <div className="font-medium">Direct primer mutation</div>
-                              <div>Site near junction, mutation in primer. One-pot compatible.</div>
-                            </>
-                          ) : issue.strategy === DOMESTICATION_STRATEGY.LEGACY_JUNCTION ? (
-                            <>
-                              <div className="font-medium text-yellow-600">Legacy junction-based</div>
-                              <div className="text-amber-700">Site broken at junction but recreated in product. NOT one-pot compatible.</div>
-                            </>
-                          ) : (
-                            <div>Site will be broken at assembly junction. Parent: {issue.parentPart || 'unknown'}</div>
-                          )}
-                        </div>
-                      ) : (
-                        <>
-                          <div className="issue-sites">
-                            {issue.sites.map((site: any, j: number) => (
-                              <div key={j} className="site-detail">
-                                <code className="site-pos">pos {site.position}</code>
-                                <code className="site-seq">{site.sequence}</code>
-                              </div>
-                            ))}
-                          </div>
-                          {issue.domestication && issue.domestication.suggestions?.length > 0 && (
-                            <div className="domestication-suggestions">
-                              <span className="dom-label">Suggested fixes:</span>
-                              {issue.domestication.suggestions.slice(0, 2).map((sug: any, k: number) => (
-                                sug.mutations?.[0] && (
-                                  <div key={k} className="dom-suggestion">
-                                    <code>{sug.mutations[0].originalBase}{sug.mutations[0].position + 1}</code>
-                                    <span className="dom-arrow">→</span>
-                                    <code>{sug.mutations[0].newBase}</code>
-                                    {sug.mutations[0].isSynonymous && <span className="dom-type">(silent)</span>}
-                                  </div>
-                                )
-                              ))}
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Overhang Optimization */}
-            {result._optimizedData?.overhangs && (
-              <div className="opt-section">
-                <h4>Overhang Optimization</h4>
-                <div className="opt-results">
-                  <div className="opt-stat">
-                    <span className="opt-label">Replacements Made</span>
-                    <span className="opt-value">{result._optimizedData.overhangs.optimization?.replacements?.length || 0}</span>
-                  </div>
-                  <div className="opt-stat">
-                    <span className="opt-label">Fidelity Improvement</span>
-                    <span className="opt-value improvement">
-                      {result._optimizedData.overhangs.optimization?.fidelityImprovement?.improvement
-                        ? `+${(result._optimizedData.overhangs.optimization.fidelityImprovement.improvement * 100).toFixed(1)}%`
-                        : 'N/A'}
-                    </span>
-                  </div>
-                </div>
-                {result._optimizedData.overhangs.optimization?.replacements?.length > 0 && (
-                  <div className="opt-replacements">
-                    <span className="repl-label">Changes:</span>
-                    {result._optimizedData.overhangs.optimization.replacements.map((r: any, i: number) => (
-                      <span key={i} className="repl-item">
-                        <code>{r.original}</code>
-                        <span className="repl-fidelity">({(r.originalFidelity * 100).toFixed(0)}%)</span>
-                        <span className="repl-arrow">→</span>
-                        <code>{r.replacement}</code>
-                        <span className="repl-fidelity">({(r.replacementFidelity * 100).toFixed(0)}%)</span>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Recommendations */}
-            {result._optimizedData?.recommendations?.length > 0 && (
-              <div className="opt-section">
-                <h4>Recommendations</h4>
-                <ul className="recommendations-list">
-                  {result._optimizedData.recommendations.map((rec: any, i: number) => (
-                    <li key={i} className={`recommendation-item rec-${rec.severity || rec.type || 'info'}`}>
-                      <span className="rec-icon">{rec.severity === 'warning' || rec.type === 'warning' ? '⚠️' : rec.severity === 'error' ? '❌' : '💡'}</span>
-                      <span className="rec-content">
-                        {rec.title && <strong>{rec.title}: </strong>}
-                        {rec.message || (typeof rec === 'string' ? rec : JSON.stringify(rec))}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Summary */}
-            {result._optimizedData?.summary && (
-              <div className="opt-section summary-section">
-                <h4>Summary</h4>
-                <div className="summary-text">
-                  <span className={`quality-badge quality-${result._optimizedData.summary.overallQuality}`}>
-                    {result._optimizedData.summary.overallQuality?.toUpperCase() || 'N/A'}
-                  </span>
-                  <span className="summary-detail">Fidelity: {result._optimizedData.summary.fidelity || 'N/A'}</span>
-                  <span className="summary-detail">Primer Quality: {result._optimizedData.summary.primerQuality || 'N/A'}</span>
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>
