@@ -20548,6 +20548,156 @@ body {
   color: white;
 }
 
+/* Multi-Step Workflow Section */
+.gg-workflow-section {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.05), rgba(99, 102, 241, 0.05));
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.gg-workflow-badge {
+  margin-left: auto;
+  padding: 0.25rem 0.6rem;
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 600;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.gg-workflow-steps {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.gg-workflow-step {
+  flex: 1;
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--card-bg);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  transition: all 0.2s;
+}
+
+.gg-workflow-step:hover {
+  border-color: var(--primary-color);
+}
+
+.gg-workflow-step.step1 {
+  border-left: 3px solid #f59e0b;
+}
+
+.gg-workflow-step.step2 {
+  border-left: 3px solid #22c55e;
+}
+
+.gg-wf-indicator {
+  flex-shrink: 0;
+}
+
+.gg-wf-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.gg-workflow-step.step1 .gg-wf-number {
+  background: rgba(245, 158, 11, 0.15);
+  color: #d97706;
+}
+
+.gg-workflow-step.step2 .gg-wf-number {
+  background: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+}
+
+.gg-wf-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.gg-wf-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 0.2rem;
+}
+
+.gg-wf-desc {
+  font-size: 0.72rem;
+  color: var(--text-light);
+  margin-bottom: 0.4rem;
+}
+
+.gg-wf-primers {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-dark);
+  padding: 0.25rem 0.5rem;
+  background: var(--bg-subtle);
+  border-radius: 4px;
+  width: fit-content;
+}
+
+.gg-workflow-step.step1 .gg-wf-primers {
+  color: #d97706;
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.gg-workflow-step.step2 .gg-wf-primers {
+  color: #16a34a;
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.gg-workflow-connector {
+  display: flex;
+  align-items: center;
+  padding: 0 0.25rem;
+}
+
+.gg-workflow-note {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(99, 102, 241, 0.08);
+  border-radius: 6px;
+  font-size: 0.72rem;
+  color: var(--text-dark);
+}
+
+.gg-link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--primary-color);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: inherit;
+}
+
+.gg-link-btn:hover {
+  color: #4f46e5;
+}
+
 /* Warnings Section */
 .gg-warnings-section {
   background: rgba(245, 158, 11, 0.05);
