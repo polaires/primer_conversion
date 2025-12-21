@@ -1248,7 +1248,7 @@ function handleAdjacentSites(
 }
 
 // ============================================================================
-// DIVERSITY-BASED JUNCTION SELECTION (STATE-OF-THE-ART)
+// FIDELITY-FIRST JUNCTION SELECTION (USER-CENTRIC)
 // ============================================================================
 
 interface JunctionCandidateInfo {
@@ -1274,98 +1274,84 @@ function classifyJunctionQuality(score: number): 'excellent' | 'good' | 'accepta
 }
 
 /**
- * Calculate diversity score between two junction candidates
- * Higher score = more different (more diverse)
- */
-function calculateJunctionDiversity(a: JunctionCandidateInfo, b: JunctionCandidateInfo): number {
-  let diversity = 0;
-
-  // Overhang diversity (most important - different overhangs = different ligation behavior)
-  const overhangDiff = a.overhang !== b.overhang ? 40 : 0;
-  diversity += overhangDiff;
-
-  // Position diversity (different positions = different primer designs)
-  const posDiff = Math.abs(a.junctionPosition - b.junctionPosition);
-  const posScore = Math.min(posDiff * 2, 30); // Max 30 points for position diversity
-  diversity += posScore;
-
-  // Fidelity diversity (offer high and moderate fidelity options)
-  const fidelityDiff = Math.abs((a.overhangFidelity || 0) - (b.overhangFidelity || 0));
-  const fidelityScore = fidelityDiff * 20; // 0.05 diff = 1 point
-  diversity += Math.min(fidelityScore, 20);
-
-  // Quality tier diversity
-  const tierA = classifyJunctionQuality(a.overallScore);
-  const tierB = classifyJunctionQuality(b.overallScore);
-  if (tierA !== tierB) diversity += 10;
-
-  return diversity;
-}
-
-/**
- * Select diverse junction options using greedy diversity maximization
+ * Select top junction options prioritizing 100% fidelity
  *
- * Algorithm:
- * 1. Always include the best overall option
- * 2. For each subsequent slot, select the candidate that maximizes
- *    minimum diversity from already-selected options
- * 3. Ensure we represent different trade-off categories when possible
+ * Algorithm (simple and effective):
+ * 1. Filter for 100% fidelity options first (≥99%)
+ * 2. If multiple 100% fidelity options, pick top 3 by overall score
+ * 3. If no 100% fidelity, fall back to highest fidelity available
+ * 4. Ensure different overhangs when possible for flexibility
  */
-function selectDiverseJunctionOptions(
+function selectTopJunctionOptions(
   candidates: JunctionCandidateInfo[],
-  count: number
+  maxCount: number = 3
 ): JunctionCandidateInfo[] {
   if (candidates.length === 0) return [];
-  if (candidates.length <= count) return candidates;
+  if (candidates.length <= maxCount) return candidates;
+
+  // Step 1: Find all 100% fidelity options (≥99% is effectively 100%)
+  const perfectFidelity = candidates.filter(c => (c.overhangFidelity || 0) >= 0.99);
+
+  // Step 2: Find high fidelity options (≥95%)
+  const highFidelity = candidates.filter(c =>
+    (c.overhangFidelity || 0) >= 0.95 && (c.overhangFidelity || 0) < 0.99
+  );
 
   const selected: JunctionCandidateInfo[] = [];
-  const remaining = [...candidates];
+  const usedOverhangs = new Set<string>();
 
-  // 1. Always include the best overall option (first candidate)
-  selected.push(remaining.shift()!);
+  // Priority 1: 100% fidelity options (pick best, then alternatives with different overhangs)
+  if (perfectFidelity.length > 0) {
+    // Sort by overall score
+    perfectFidelity.sort((a, b) => b.overallScore - a.overallScore);
 
-  // 2. Try to include highest fidelity option if different from best
-  const highestFidelity = remaining.reduce((best, curr) =>
-    (curr.overhangFidelity || 0) > (best.overhangFidelity || 0) ? curr : best
-  , remaining[0]);
+    for (const candidate of perfectFidelity) {
+      if (selected.length >= maxCount) break;
 
-  if (highestFidelity &&
-      highestFidelity.overhang !== selected[0].overhang &&
-      (highestFidelity.overhangFidelity || 0) > (selected[0].overhangFidelity || 0)) {
-    selected.push(highestFidelity);
-    remaining.splice(remaining.indexOf(highestFidelity), 1);
-  }
-
-  // 3. Greedy diversity maximization for remaining slots
-  while (selected.length < count && remaining.length > 0) {
-    let bestCandidate: JunctionCandidateInfo | null = null;
-    let bestMinDiversity = -1;
-
-    for (const candidate of remaining) {
-      // Calculate minimum diversity from all selected options
-      const minDiversity = Math.min(
-        ...selected.map(s => calculateJunctionDiversity(candidate, s))
-      );
-
-      // Bonus for different overhangs (important for assembly)
-      const hasUniqueOverhang = !selected.some(s => s.overhang === candidate.overhang);
-      const effectiveDiversity = minDiversity + (hasUniqueOverhang ? 15 : 0);
-
-      if (effectiveDiversity > bestMinDiversity) {
-        bestMinDiversity = effectiveDiversity;
-        bestCandidate = candidate;
+      // First one always added, then prefer different overhangs
+      if (selected.length === 0 || !usedOverhangs.has(candidate.overhang)) {
+        selected.push(candidate);
+        usedOverhangs.add(candidate.overhang);
       }
     }
 
-    if (bestCandidate) {
-      selected.push(bestCandidate);
-      remaining.splice(remaining.indexOf(bestCandidate), 1);
-    } else {
-      break;
+    // If we still need more and have same-overhang options, add them
+    if (selected.length < maxCount) {
+      for (const candidate of perfectFidelity) {
+        if (selected.length >= maxCount) break;
+        if (!selected.includes(candidate)) {
+          selected.push(candidate);
+        }
+      }
     }
   }
 
-  // Sort selected by score (best first) while maintaining diversity
+  // Priority 2: If not enough 100% fidelity, add high fidelity options
+  if (selected.length < maxCount && highFidelity.length > 0) {
+    highFidelity.sort((a, b) => b.overallScore - a.overallScore);
+
+    for (const candidate of highFidelity) {
+      if (selected.length >= maxCount) break;
+      if (!usedOverhangs.has(candidate.overhang)) {
+        selected.push(candidate);
+        usedOverhangs.add(candidate.overhang);
+      }
+    }
+  }
+
+  // Priority 3: Fill remaining slots with best available
+  if (selected.length < maxCount) {
+    const remaining = candidates
+      .filter(c => !selected.includes(c))
+      .sort((a, b) => b.overallScore - a.overallScore);
+
+    for (const candidate of remaining) {
+      if (selected.length >= maxCount) break;
+      selected.push(candidate);
+    }
+  }
+
+  // Final sort: best score first
   selected.sort((a, b) => b.overallScore - a.overallScore);
 
   return selected;
@@ -1411,7 +1397,7 @@ function generateMutationOptions(
 
     if (enhancedJunction.success && enhancedJunction.junctionPosition !== undefined) {
       // Collect all junction candidates: best + alternatives
-      const allJunctionCandidates = [
+      const allJunctionCandidates: JunctionCandidateInfo[] = [
         {
           junctionPosition: enhancedJunction.junctionPosition,
           overhang: enhancedJunction.overhang!,
@@ -1428,7 +1414,7 @@ function generateMutationOptions(
           overhang: alt.overhang,
           overallScore: alt.overallScore,
           overhangFidelity: alt.overhangFidelity,
-          mutation: null as any, // Will be populated if needed
+          mutation: null as any,
           quality: null as any,
           fidelity: null as any,
           primers: null as any,
@@ -1436,22 +1422,21 @@ function generateMutationOptions(
         })),
       ];
 
-      // Select 5 diverse junction options using diversity-based algorithm
-      const diverseJunctions = selectDiverseJunctionOptions(allJunctionCandidates, 5);
+      // Select top 3 junction options prioritizing 100% fidelity
+      const topJunctions = selectTopJunctionOptions(allJunctionCandidates, 3);
 
-      // Create MutationOption for each diverse junction
-      for (let i = 0; i < diverseJunctions.length; i++) {
-        const junc = diverseJunctions[i];
-        const isFirst = i === 0;
+      // Create MutationOption for each selected junction
+      for (let i = 0; i < topJunctions.length; i++) {
+        const junc = topJunctions[i];
+        const fidelityPercent = Math.round((junc.overhangFidelity || 0) * 100);
+        const isPerfectFidelity = fidelityPercent >= 99;
 
-        // For non-best junctions, we need to design primers
-        // For the best junction, use pre-computed data
+        // Use pre-computed data for best junction, compute for alternatives
         let junctionData: any;
         if (junc.isBest) {
           junctionData = enhancedJunction;
         } else {
-          // For alternatives, create a simplified junction result
-          // The enhanced junction already scored these, so we use the scores
+          // For alternatives, create junction data with fidelity info
           junctionData = {
             success: true,
             junctionPosition: junc.junctionPosition,
@@ -1460,60 +1445,63 @@ function generateMutationOptions(
               overall: junc.overallScore,
               tier: classifyJunctionQuality(junc.overallScore),
               breakdown: {
-                overhangFidelity: junc.overhangFidelity * 100,
-                mutationQuality: 0,
-                primerQuality: 0,
-                positionOptimality: 0,
+                overhangFidelity: fidelityPercent,
+                mutationQuality: 70, // Reasonable default
+                primerQuality: 70,
+                positionOptimality: 70,
               },
             },
             fidelity: {
               singleOverhang: junc.overhangFidelity,
-              withExisting: junc.overhangFidelity * 0.95,
+              withExisting: junc.overhangFidelity * 0.98,
               source: 'NEB_experimental' as const,
             },
           };
         }
 
         const qualityTier = junctionData.quality?.tier || classifyJunctionQuality(junc.overallScore);
-        const fidelityPercent = Math.round((junc.overhangFidelity || 0) * 100);
 
-        // Create descriptive labels based on characteristics
-        const getJunctionLabel = (idx: number, quality: number, fidelity: number): string => {
-          if (idx === 0) return 'Best overall';
-          if (fidelity >= 98) return 'Highest fidelity';
-          if (quality >= 90) return 'Excellent quality';
-          if (quality >= 75) return 'Good quality';
-          return 'Alternative';
+        // Clear, simple labels based on fidelity (what users care about most)
+        const getRecommendationReason = (idx: number, fidelity: number, overhang: string): string => {
+          if (idx === 0 && fidelity >= 99) return '100% fidelity';
+          if (idx === 0) return 'Best available';
+          if (fidelity >= 99) return '100% fidelity';
+          if (fidelity >= 95) return `${fidelity}% fidelity`;
+          return `Alternative (${overhang})`;
         };
 
         const mutagenicOption: MutationOption = {
           type: 'mutagenic_junction',
           junction: junctionData,
-          score: junc.overallScore + (prioritizeMutagenic ? 100 : 0) - (i * 5), // Slight penalty for non-best
-          description: `Junction at pos ${junc.junctionPosition + 1} • ${junc.overhang} • ${fidelityPercent}% fidelity`,
-          shortDescription: getJunctionLabel(i, junc.overallScore, fidelityPercent),
+          score: junc.overallScore + (prioritizeMutagenic ? 100 : 0),
+          description: i === 0
+            ? `Recommended: ${junc.overhang} overhang with ${fidelityPercent}% fidelity`
+            : `Alternative: ${junc.overhang} overhang (${fidelityPercent}% fidelity)`,
+          shortDescription: getRecommendationReason(i, fidelityPercent, junc.overhang),
           fragmentIncrease: 1,
           overhang: junc.overhang,
           onePotCompatible: true,
           primers: junctionData.primers,
           mutations: junctionData.mutation ? [junctionData.mutation] : [],
-          benefits: [
-            'One-pot Golden Gate compatible',
-            `${fidelityPercent}% ligation fidelity (NEB data)`,
-            qualityTier === 'excellent' ? 'Excellent overall quality' :
-              qualityTier === 'good' ? 'Good overall quality' : 'Acceptable quality',
-          ],
-          // Enhanced junction metrics for state-of-the-art UI
-          junctionQuality: junctionData.quality ? {
-            overall: junctionData.quality.overall,
-            tier: junctionData.quality.tier as 'excellent' | 'good' | 'acceptable' | 'poor',
-            breakdown: junctionData.quality.breakdown,
-          } : undefined,
-          junctionFidelity: junctionData.fidelity ? {
-            singleOverhang: junctionData.fidelity.singleOverhang,
-            withExisting: junctionData.fidelity.withExisting,
-            source: junctionData.fidelity.source,
-          } : undefined,
+          benefits: isPerfectFidelity
+            ? ['100% ligation fidelity', 'One-pot compatible']
+            : [`${fidelityPercent}% ligation fidelity`, 'One-pot compatible'],
+          // Simplified junction metrics
+          junctionQuality: {
+            overall: junctionData.quality?.overall || junc.overallScore,
+            tier: qualityTier as 'excellent' | 'good' | 'acceptable' | 'poor',
+            breakdown: junctionData.quality?.breakdown || {
+              overhangFidelity: fidelityPercent,
+              mutationQuality: 70,
+              primerQuality: 70,
+              positionOptimality: 70,
+            },
+          },
+          junctionFidelity: {
+            singleOverhang: junc.overhangFidelity,
+            withExisting: junc.overhangFidelity * 0.98,
+            source: 'NEB_experimental',
+          },
           junctionPosition: junc.junctionPosition,
           primerTm: junctionData.primers ? {
             fwd: junctionData.primers.fragment2?.forwardPrimer?.tm || 0,
@@ -1527,12 +1515,7 @@ function generateMutationOptions(
           } : undefined,
         };
 
-        // Add junction options
-        if (prioritizeMutagenic) {
-          siteOption.options.push(mutagenicOption);
-        } else {
-          siteOption.options.push(mutagenicOption);
-        }
+        siteOption.options.push(mutagenicOption);
       }
     }
 

@@ -1623,73 +1623,36 @@ function MutationSelectionStep({
                           </>
                         ) : (
                           <>
-                            {/* Enhanced Junction Display - State-of-the-Art */}
-                            <div className="junction-metrics">
-                              <div className="detail-row">
-                                <div className="detail">
-                                  <span className="label">Position:</span>
-                                  <span>{(option.junctionPosition ?? option.junction?.junctionPosition ?? 0) + 1}</span>
-                                </div>
-                                <div className="detail">
-                                  <span className="label">Overhang:</span>
-                                  <code className="overhang-code">{option.overhang}</code>
-                                </div>
+                            {/* Simplified Junction Display - User-Centric */}
+                            <div className="junction-metrics-simple">
+                              {/* Primary info: Overhang + Fidelity (what users care about) */}
+                              <div className="junction-primary">
+                                <code className="overhang-code">{option.overhang}</code>
+                                {option.junctionFidelity && (
+                                  <span className={`fidelity-badge ${
+                                    option.junctionFidelity.singleOverhang >= 0.99 ? 'perfect' :
+                                    option.junctionFidelity.singleOverhang >= 0.95 ? 'high' : 'moderate'
+                                  }`}>
+                                    {option.junctionFidelity.singleOverhang >= 0.99 ? '100%' :
+                                     `${Math.round(option.junctionFidelity.singleOverhang * 100)}%`} fidelity
+                                  </span>
+                                )}
                               </div>
 
-                              {/* Fidelity Score with NEB data indicator */}
-                              {option.junctionFidelity && (
-                                <div className="detail fidelity-detail">
-                                  <span className="label">Fidelity:</span>
-                                  <span className={`fidelity-score ${
-                                    option.junctionFidelity.singleOverhang >= 0.98 ? 'excellent' :
-                                    option.junctionFidelity.singleOverhang >= 0.95 ? 'good' :
-                                    option.junctionFidelity.singleOverhang >= 0.90 ? 'acceptable' : 'low'
-                                  }`}>
-                                    {Math.round(option.junctionFidelity.singleOverhang * 100)}%
+                              {/* Secondary: Position (compact) */}
+                              <div className="junction-secondary">
+                                <span className="junction-pos">
+                                  Position {(option.junctionPosition ?? option.junction?.junctionPosition ?? 0) + 1}
+                                </span>
+                                {option.mutationImpact && (
+                                  <span className="junction-mutation">
+                                    {option.mutationImpact.codonChange}
+                                    {option.mutationImpact.isWobble && (
+                                      <span className="wobble-indicator" title="Wobble position (preferred)">W</span>
+                                    )}
                                   </span>
-                                  {option.junctionFidelity.source === 'NEB_experimental' && (
-                                    <span className="neb-badge" title="Based on NEB experimental ligation data">NEB</span>
-                                  )}
-                                </div>
-                              )}
-
-                              {/* Quality Score Breakdown */}
-                              {option.junctionQuality && (
-                                <div className="quality-breakdown">
-                                  <div className="quality-bar-container">
-                                    <div
-                                      className={`quality-bar ${option.junctionQuality.tier}`}
-                                      style={{ width: `${option.junctionQuality.overall}%` }}
-                                      title={`Overall: ${option.junctionQuality.overall}/100`}
-                                    />
-                                  </div>
-                                  <span className="quality-label">{option.junctionQuality.overall}/100</span>
-                                </div>
-                              )}
-
-                              {/* Mutation Impact */}
-                              {option.mutationImpact && (
-                                <div className="detail mutation-impact">
-                                  <span className="label">Mutation:</span>
-                                  <code>{option.mutationImpact.codonChange}</code>
-                                  <span className="aa">({option.mutationImpact.aminoAcid})</span>
-                                  {option.mutationImpact.isWobble && (
-                                    <span className="wobble-badge" title="Wobble position mutation (preferred)">W</span>
-                                  )}
-                                </div>
-                              )}
-
-                              {/* Primer Tm if available */}
-                              {option.primerTm && (option.primerTm.fwd > 0 || option.primerTm.rev > 0) && (
-                                <div className="detail primer-tm">
-                                  <span className="label">Primer Tm:</span>
-                                  <span>
-                                    {option.primerTm.fwd > 0 && `F: ${option.primerTm.fwd.toFixed(1)}°C`}
-                                    {option.primerTm.fwd > 0 && option.primerTm.rev > 0 && ' / '}
-                                    {option.primerTm.rev > 0 && `R: ${option.primerTm.rev.toFixed(1)}°C`}
-                                  </span>
-                                </div>
-                              )}
+                                )}
+                              </div>
                             </div>
                           </>
                         )}
