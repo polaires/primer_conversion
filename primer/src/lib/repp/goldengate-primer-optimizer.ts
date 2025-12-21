@@ -875,6 +875,10 @@ export function findGTMismatchRisks(overhangs: any, config: any = {}) {
 /**
  * Calculate enhanced fidelity including G:T mismatch penalties
  *
+ * @deprecated Use `calculateFidelity` from `fidelity-core.ts` instead.
+ * The unified module consolidates matrix-based calculation, G:T risks,
+ * and efficiency penalties into a single comprehensive analysis.
+ *
  * PRIMARY METHOD: Uses experimental ligation frequency matrix to calculate
  * cross-reactivity between overhangs in this specific assembly set.
  * This is more accurate than product-of-individual-fidelities.

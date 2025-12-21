@@ -18,6 +18,13 @@ import { OPTIMAL_FLANKING_SEQUENCES, OPTIMAL_SPACERS } from './goldengate-primer
 // Import ligation data - Vite handles JSON imports automatically
 import ligationDataRaw from './ligation-data.json';
 
+// Import unified fidelity calculation
+import {
+  calculateFidelity as calculateUnifiedFidelity,
+  type FidelityResult,
+  type JunctionFidelity as CoreJunctionFidelity,
+} from './fidelity-core.js';
+
 // Re-export ligation data for direct access
 export const ligationData = ligationDataRaw;
 
@@ -534,91 +541,81 @@ export interface ExperimentalFidelityResult {
 /**
  * Calculate assembly fidelity using experimental ligation data
  *
+ * @deprecated Use `calculateFidelity` from `fidelity-core.ts` instead.
+ * This function is maintained for backwards compatibility but wraps
+ * the unified fidelity calculation module.
+ *
  * For each junction, fidelity = p(correct) / p(total)
  * where p(total) includes only the overhangs actually in the assembly
  */
 export function calculateExperimentalFidelity(overhangs: string[], enzyme: string = 'BsaI'): ExperimentalFidelityResult {
-  const enzymeData = getEnzymeLigationData(enzyme);
+  // Use the unified fidelity calculation from fidelity-core.ts
+  const unifiedResult = calculateUnifiedFidelity(overhangs, enzyme, {
+    includeGTRisks: false,      // Don't include extended analysis for backwards compat
+    includeEfficiency: false,   // Keep simple output
+  });
 
-  // Fall back to static calculation if no experimental data
-  if (!enzymeData) {
-    return calculateSetFidelity(overhangs) as any;
-  }
+  // Convert CoreJunctionFidelity to local JunctionFidelity format
+  const junctions: JunctionFidelity[] = unifiedResult.junctions.map(j => ({
+    overhang: j.overhang,
+    wcPartner: j.wcPartner,
+    fidelity: j.fidelity,
+    fidelityPercent: j.fidelityPercent,
+    correctFreq: j.correctFreq,
+    totalFreq: j.totalFreq,
+    error: j.error,
+  }));
 
-  const matrix = enzymeData.matrix;
-  const junctions: JunctionFidelity[] = [];
-  let assemblyFidelity = 1.0;
-  const warnings: string[] = [];
+  const sortedJunctions: JunctionFidelity[] = unifiedResult.sortedJunctions.map(j => ({
+    overhang: j.overhang,
+    wcPartner: j.wcPartner,
+    fidelity: j.fidelity,
+    fidelityPercent: j.fidelityPercent,
+    correctFreq: j.correctFreq,
+    totalFreq: j.totalFreq,
+    error: j.error,
+  }));
 
-  for (const oh of overhangs) {
-    const ohUpper = oh.toUpperCase();
-    const wcPartner = reverseComplement(ohUpper);
-
-    // Get correct ligation frequency (with Watson-Crick partner)
-    const correctFreq = matrix[ohUpper]?.[wcPartner] || 0;
-
-    if (correctFreq === 0) {
-      warnings.push(`No ligation data for overhang ${ohUpper}`);
-      junctions.push({
-        overhang: ohUpper,
-        wcPartner,
-        fidelity: 0,
-        fidelityPercent: '0.0%',
-        correctFreq: 0,
-        totalFreq: 0,
-        error: 'No experimental data',
-      });
-      continue;
-    }
-
-    // Calculate total competing ligation frequency
-    // Only count overhangs that are actually in our assembly
-    let totalFreq = correctFreq;
-
-    for (const otherOh of overhangs) {
-      if (otherOh.toUpperCase() === ohUpper) continue;
-
-      // Add mismatch frequency with other overhangs' complements
-      const otherWc = reverseComplement(otherOh.toUpperCase());
-      totalFreq += matrix[ohUpper]?.[otherWc] || 0;
-    }
-
-    const junctionFidelity = totalFreq > 0 ? correctFreq / totalFreq : 0;
-    assemblyFidelity *= junctionFidelity;
-
-    junctions.push({
-      overhang: ohUpper,
-      wcPartner,
-      fidelity: junctionFidelity,
-      fidelityPercent: (junctionFidelity * 100).toFixed(1) + '%',
-      correctFreq,
-      totalFreq,
-    });
-
-    // Warn about low-fidelity junctions
-    if (junctionFidelity < 0.95) {
-      warnings.push(`Junction ${ohUpper} has ${(junctionFidelity * 100).toFixed(1)}% fidelity`);
-    }
-  }
-
-  // Sort junctions by fidelity to show weakest first
-  const sortedJunctions = [...junctions].sort((a, b) => a.fidelity - b.fidelity);
-  const lowestFidelity = sortedJunctions[0];
+  const lowestFidelity: JunctionFidelity = {
+    overhang: unifiedResult.lowestFidelity.overhang,
+    wcPartner: unifiedResult.lowestFidelity.wcPartner,
+    fidelity: unifiedResult.lowestFidelity.fidelity,
+    fidelityPercent: unifiedResult.lowestFidelity.fidelityPercent,
+    correctFreq: unifiedResult.lowestFidelity.correctFreq,
+    totalFreq: unifiedResult.lowestFidelity.totalFreq,
+    error: unifiedResult.lowestFidelity.error,
+  };
 
   return {
-    enzyme,
-    enzymeFullName: GOLDEN_GATE_ENZYMES[enzyme]?.fullName || enzyme,
-    overhangs: overhangs.map(o => o.toUpperCase()),
-    numJunctions: overhangs.length,
+    enzyme: unifiedResult.enzyme,
+    enzymeFullName: unifiedResult.enzymeFullName,
+    overhangs: unifiedResult.overhangs,
+    numJunctions: unifiedResult.numJunctions,
     junctions,
     sortedJunctions,
-    assemblyFidelity,
-    assemblyFidelityPercent: (assemblyFidelity * 100).toFixed(1) + '%',
+    assemblyFidelity: unifiedResult.assemblyFidelity,
+    assemblyFidelityPercent: unifiedResult.assemblyFidelityPercent,
     lowestFidelity,
-    warnings,
-    source: 'experimental',
+    warnings: unifiedResult.warnings,
+    source: unifiedResult.source,
     dataSource: (ligationData as LigationData).metadata,
   };
+}
+
+/**
+ * Calculate fidelity using the unified module
+ *
+ * This is the recommended way to calculate fidelity. It includes:
+ * - Matrix-based experimental fidelity (when available)
+ * - G:T mismatch risk analysis
+ * - Efficiency penalties (TNNA, palindromes, etc.)
+ *
+ * @param overhangs Array of 4-bp overhangs
+ * @param enzyme Enzyme name (default: 'BsaI')
+ * @returns Full FidelityResult with all analyses
+ */
+export function calculateFidelity(overhangs: string[], enzyme: string = 'BsaI'): FidelityResult {
+  return calculateUnifiedFidelity(overhangs, enzyme);
 }
 
 /**
@@ -1871,6 +1868,10 @@ export interface SetFidelityAnalysis {
 
 /**
  * Calculate expected assembly fidelity for a set of overhangs
+ *
+ * @deprecated Use `calculateFidelity` from `fidelity-core.ts` instead.
+ * This function uses static fidelity data while the unified module uses
+ * experimental matrix data when available.
  */
 export function calculateSetFidelity(overhangs: string[]): SetFidelityAnalysis {
   const analysis: SetFidelityAnalysis = {
@@ -2805,6 +2806,10 @@ export interface OverhangValidation {
 
 /**
  * Validate an overhang sequence
+ *
+ * @deprecated Use `validateOverhang` from `overhang-validation.ts` instead.
+ * The unified module provides more comprehensive validation including
+ * efficiency penalties, G:T mismatch risks, and set-level conflict detection.
  */
 export function validateOverhang(overhang: string): OverhangValidation {
   const oh = overhang.toUpperCase();
@@ -3203,3 +3208,11 @@ export {
   getAllOverhangs,
   filterOverhangs,
 } from './overhang-optimizer.js';
+
+// Re-export unified fidelity types for new API
+export {
+  type FidelityResult,
+  type FidelityOptions,
+  type GTMismatchRisk,
+  type JunctionFidelity as CoreJunctionFidelity,
+} from './fidelity-core.js';
