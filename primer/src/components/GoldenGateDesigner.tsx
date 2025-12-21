@@ -827,18 +827,23 @@ function CircularPlasmidView({ parts, overhangs, totalLength }: CircularPlasmidV
   const [hoveredJunction, setHoveredJunction] = useState<number | null>(null);
   const [hoveredPart, setHoveredPart] = useState<number | null>(null);
 
-  // Calculate angles for each part
+  // Gap angle between segments (in degrees)
+  const gapAngle = parts.length > 1 ? 2 : 0;
+
+  // Calculate angles for each part with gaps
   const partAngles = useMemo((): PartWithAngles[] => {
     if (!parts.length) return [];
 
     const total = parts.reduce((sum: number, p: Part) => sum + (p.seq?.length || 100), 0);
+    const totalGapAngle = gapAngle * parts.length;
+    const availableAngle = 360 - totalGapAngle;
     let currentAngle = -90; // Start at top
 
     return parts.map((part: Part, i: number): PartWithAngles => {
       const partLength = part.seq?.length || 100;
-      const sweepAngle = (partLength / total) * 360;
+      const sweepAngle = (partLength / total) * availableAngle;
       const startAngle = currentAngle;
-      currentAngle += sweepAngle;
+      currentAngle += sweepAngle + gapAngle;
       return {
         ...part,
         startAngle,
@@ -847,7 +852,7 @@ function CircularPlasmidView({ parts, overhangs, totalLength }: CircularPlasmidV
         index: i,
       };
     });
-  }, [parts]);
+  }, [parts, gapAngle]);
 
   // Generate arc path
   const describeArc = (cx: number, cy: number, r: number, startAngle: number, endAngle: number) => {
@@ -869,36 +874,77 @@ function CircularPlasmidView({ parts, overhangs, totalLength }: CircularPlasmidV
     <div className="circular-plasmid-view">
       <svg viewBox="0 0 300 300" className="plasmid-svg">
         {/* Background circle */}
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e5e7eb" strokeWidth="20" />
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e5e7eb" strokeWidth="22" />
 
-        {/* Part arcs */}
+        {/* Part arcs with shadows for depth */}
         {partAngles.map((part: PartWithAngles, i: number) => {
           const typeInfo = PART_TYPES[part.type as keyof typeof PART_TYPES] || PART_TYPES.other;
           const isHovered = hoveredPart === i;
           // Detect sub-fragment by property or name pattern (e.g., GFP_cds_frag1)
           const isSubFragment = (part as any)._isSubFragment || /_frag\d+$/.test(part.id || '');
+
           return (
             <g key={i}>
+              {/* Shadow/outline for depth */}
               <path
-                d={describeArc(cx, cy, r, part.startAngle, part.startAngle + part.sweepAngle - 1)}
+                d={describeArc(cx, cy, r, part.startAngle + 0.5, part.startAngle + part.sweepAngle - 0.5)}
+                fill="none"
+                stroke="rgba(0,0,0,0.15)"
+                strokeWidth="24"
+                strokeLinecap="round"
+              />
+              {/* Main arc */}
+              <path
+                d={describeArc(cx, cy, r, part.startAngle + 0.5, part.startAngle + part.sweepAngle - 0.5)}
                 fill="none"
                 stroke={typeInfo.color}
-                strokeWidth={isHovered ? 24 : 20}
+                strokeWidth={isHovered ? 22 : 20}
                 strokeLinecap="round"
-                strokeDasharray={isSubFragment ? "8 4" : "none"}
+                strokeDasharray={isSubFragment ? "6 3" : "none"}
+                opacity={isSubFragment ? 0.85 : 1}
                 className="cursor-pointer transition-all duration-200"
                 onMouseEnter={() => setHoveredPart(i)}
                 onMouseLeave={() => setHoveredPart(null)}
               />
+              {/* Inner highlight for sub-fragments */}
+              {isSubFragment && (
+                <path
+                  d={describeArc(cx, cy, r - 6, part.startAngle + 1, part.startAngle + part.sweepAngle - 1)}
+                  fill="none"
+                  stroke={typeInfo.color}
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  opacity="0.4"
+                />
+              )}
             </g>
+          );
+        })}
+
+        {/* Radial divider lines at junctions */}
+        {partAngles.map((part: PartWithAngles, i: number) => {
+          const angle = (part.startAngle * Math.PI) / 180;
+          const innerR = r - 14;
+          const outerR = r + 14;
+          return (
+            <line
+              key={`divider-${i}`}
+              x1={cx + innerR * Math.cos(angle)}
+              y1={cy + innerR * Math.sin(angle)}
+              x2={cx + outerR * Math.cos(angle)}
+              y2={cy + outerR * Math.sin(angle)}
+              stroke="#94a3b8"
+              strokeWidth="1.5"
+              opacity="0.6"
+            />
           );
         })}
 
         {/* Junction markers */}
         {partAngles.map((part: PartWithAngles, i: number) => {
           const angle = (part.startAngle * Math.PI) / 180;
-          const jx = cx + (r + 20) * Math.cos(angle);
-          const jy = cy + (r + 20) * Math.sin(angle);
+          const jx = cx + (r + 24) * Math.cos(angle);
+          const jy = cy + (r + 24) * Math.sin(angle);
           const isHovered = hoveredJunction === i;
 
           // Check if this is an internal domestication junction
@@ -919,15 +965,31 @@ function CircularPlasmidView({ parts, overhangs, totalLength }: CircularPlasmidV
               onMouseLeave={() => setHoveredJunction(null)}
               className="cursor-pointer"
             >
-              <circle
-                cx={cx + r * Math.cos(angle)}
-                cy={cy + r * Math.sin(angle)}
-                r={isHovered ? 6 : 4}
-                fill={isInternalJunction ? "#f59e0b" : "#10b981"}
-                stroke={isInternalJunction ? "#d97706" : "none"}
-                strokeWidth="2"
-                className="transition-all duration-200"
-              />
+              {/* Junction marker - diamond for internal, circle for regular */}
+              {isInternalJunction ? (
+                <g transform={`translate(${cx + r * Math.cos(angle)}, ${cy + r * Math.sin(angle)}) rotate(45)`}>
+                  <rect
+                    x={isHovered ? -5 : -4}
+                    y={isHovered ? -5 : -4}
+                    width={isHovered ? 10 : 8}
+                    height={isHovered ? 10 : 8}
+                    fill="#f59e0b"
+                    stroke="#d97706"
+                    strokeWidth="1.5"
+                    className="transition-all duration-200"
+                  />
+                </g>
+              ) : (
+                <circle
+                  cx={cx + r * Math.cos(angle)}
+                  cy={cy + r * Math.sin(angle)}
+                  r={isHovered ? 5 : 4}
+                  fill="#10b981"
+                  stroke="#059669"
+                  strokeWidth="1.5"
+                  className="transition-all duration-200"
+                />
+              )}
               {isHovered && (
                 <g>
                   <rect
@@ -3767,16 +3829,6 @@ export default function GoldenGateDesigner() {
 
   const loadExample = useCallback(() => {
     setParts([
-      {
-        id: 'J23100_promoter',
-        seq: 'TTGACGGCTAGCTCAGTCCTAGGTACAGTGCTAGC',
-        type: 'promoter',
-      },
-      {
-        id: 'B0034_rbs',
-        seq: 'AAAGAGGAGAAA',
-        type: 'rbs',
-      },
       {
         id: 'GFP_cds',
         seq: 'ATGCGTAAAGGAGAAGAACTTTTCACTGGAGTTGTCCCAATTCTTGTTGAATTAGATGGTGATGTTAATGGGCACAAATTTTCTGTCAGTGGAGAGGGTGAAGGTGATGCAACATACGGAAAACTTACCCTTAAATTTATTTGCACTACTGGAAAACTACCTGTTCCATGGCCAACACTTGTCACTACTTTCGGTTATGGTGTTCAATGCTTTGCGAGATACCCAGATCATATGAAACAGCATGACTTTTTCAAGAGTGCCATGCCCGAAGGTTATGTACAGGAAAGAACTATATTTTTCAAAGATGACGGGAACTACAAGACACGTGCTGAAGTCAAGTTTGAAGGTGATACCCTTGTTAATAGAATCGAGTTAAAAGGTATTGATTTTAAAGAAGATGGAAACATTCTTGGACACAAATTGGAATACAACTATAACTCACACAATGTATACATCATGGCAGACAAACAAAAGAATGGAATCAAAGTTAACTTCAAAATTAGACACAACATTGAAGATGGAAGCGTTCAACTAGCAGACCATTATCAACAAAATACTCCAATTGGCGATGGCCCTGTCCTTTTACCAGACAACCATTACCTGTCCACACAATCTGCCCTTTCGAAAGATCCCAACGAAAAGAGAGACCACATGGTCCTTCTTGAGTTTGTAACAGCTGCTGGGATTACACATGGCATGGATGAACTATACAAATAA',
