@@ -25,6 +25,11 @@ import {
   type JunctionFidelity as CoreJunctionFidelity,
 } from './fidelity-core.js';
 
+// Import unified overhang validation
+import {
+  validateOverhang as validateOverhangUnified,
+} from './overhang-validation.js';
+
 // Re-export ligation data for direct access
 export const ligationData = ligationDataRaw;
 
@@ -1874,42 +1879,56 @@ export interface SetFidelityAnalysis {
  * experimental matrix data when available.
  */
 export function calculateSetFidelity(overhangs: string[]): SetFidelityAnalysis {
+  // Use the unified module for fidelity calculation
+  const unifiedResult = calculateUnifiedFidelity(overhangs, 'BsaI', {
+    includeGTRisks: false,
+    includeEfficiency: false,
+  });
+
   const analysis: SetFidelityAnalysis = {
     overhangs: [],
-    overallFidelity: 1,
-    overallFidelityPercent: '',
-    lowestFidelity: { overhang: null, fidelity: 1 },
-    warnings: [],
+    overallFidelity: unifiedResult.assemblyFidelity,
+    overallFidelityPercent: unifiedResult.assemblyFidelityPercent,
+    lowestFidelity: {
+      overhang: unifiedResult.lowestFidelity?.overhang || null,
+      fidelity: unifiedResult.lowestFidelity?.fidelity || 1,
+    },
+    warnings: [...unifiedResult.warnings],
     categories: { excellent: 0, good: 0, medium: 0, low: 0, avoid: 0, unknown: 0 },
   };
 
-  for (const oh of overhangs) {
-    const data = OVERHANG_FIDELITY[oh.toUpperCase()];
-    const fidelity = data?.fidelity || 0.85;
-    const category = data?.category || 'unknown';
+  // Map junction results to legacy format with categories
+  for (const junction of unifiedResult.junctions) {
+    const fidelity = junction.fidelity;
+    let category: 'excellent' | 'good' | 'medium' | 'low' | 'avoid' | 'unknown';
+    let note: string;
+
+    if (fidelity >= 0.98) {
+      category = 'excellent';
+      note = 'High fidelity';
+    } else if (fidelity >= 0.95) {
+      category = 'good';
+      note = 'Good fidelity';
+    } else if (fidelity >= 0.90) {
+      category = 'medium';
+      note = 'Medium fidelity';
+    } else if (fidelity >= 0.80) {
+      category = 'low';
+      note = 'Low fidelity - may need extra screening';
+    } else {
+      category = 'avoid';
+      note = 'Very low fidelity - avoid if possible';
+    }
 
     analysis.overhangs.push({
-      sequence: oh.toUpperCase(),
+      sequence: junction.overhang,
       fidelity,
       category,
-      note: data?.note || 'Not in database',
+      note,
     });
 
-    analysis.overallFidelity *= fidelity;
-    analysis.categories[category as keyof typeof analysis.categories]++;
-
-    if (fidelity < analysis.lowestFidelity.fidelity) {
-      analysis.lowestFidelity = { overhang: oh, fidelity };
-    }
-
-    if (category === 'avoid') {
-      analysis.warnings.push(`${oh}: Problematic overhang - ${data?.note}`);
-    } else if (category === 'low') {
-      analysis.warnings.push(`${oh}: Low fidelity (${(fidelity * 100).toFixed(0)}%) - may need extra screening`);
-    }
+    analysis.categories[category]++;
   }
-
-  analysis.overallFidelityPercent = (analysis.overallFidelity * 100).toFixed(1) + '%';
 
   return analysis;
 }
@@ -2812,33 +2831,46 @@ export interface OverhangValidation {
  * efficiency penalties, G:T mismatch risks, and set-level conflict detection.
  */
 export function validateOverhang(overhang: string): OverhangValidation {
-  const oh = overhang.toUpperCase();
+  // Use unified validation module
+  const unifiedResult = validateOverhangUnified(overhang);
 
-  if (oh.length !== 4) {
-    return { valid: false, error: 'Overhang must be exactly 4 bases' };
-  }
-
-  if (!/^[ATGC]+$/.test(oh)) {
-    return { valid: false, error: 'Overhang must contain only A, T, G, C' };
-  }
-
-  const rc = reverseComplement(oh);
-  if (oh === rc) {
+  // Map to legacy OverhangValidation interface
+  if (!unifiedResult.isValid) {
+    // Find the primary error
+    const errorIssue = unifiedResult.issues.find(i => i.severity === 'error');
     return {
       valid: false,
-      error: 'Palindromic overhangs should be avoided (can self-ligate)',
+      error: errorIssue?.message || 'Invalid overhang',
     };
   }
 
-  const fidelity = OVERHANG_FIDELITY[oh] || { fidelity: 0.85, note: 'Custom' };
+  const oh = overhang.toUpperCase();
+  const rc = reverseComplement(oh);
+
+  // Get fidelity from efficiency data
+  const fidelity = unifiedResult.efficiency?.correctFreq
+    ? unifiedResult.efficiency.correctFreq / 10000 // Normalize to 0-1 range
+    : 0.85;
+
+  // Determine note based on score
+  let note: string;
+  if (unifiedResult.score >= 90) {
+    note = 'Excellent fidelity';
+  } else if (unifiedResult.score >= 70) {
+    note = 'Good fidelity';
+  } else if (unifiedResult.score >= 50) {
+    note = 'Medium fidelity';
+  } else {
+    note = 'Low fidelity';
+  }
 
   return {
     valid: true,
     overhang: oh,
     reverseComplement: rc,
-    fidelity: fidelity.fidelity,
-    note: fidelity.note,
-    warning: fidelity.fidelity < 0.8 ? 'Low fidelity overhang - may cause misassembly' : null,
+    fidelity: Math.min(1, fidelity),
+    note,
+    warning: unifiedResult.score < 50 ? 'Low fidelity overhang - may cause misassembly' : null,
   };
 }
 
