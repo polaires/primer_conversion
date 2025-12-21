@@ -2222,13 +2222,25 @@ function PrimersStep({ executionResult, primerDesign, onContinue, onBack }: Prim
           })()}
         </div>
       ) : (
-        <div className="no-primers-needed">
-          <div className="info-icon">{Icons.info}</div>
-          <p>
-            {hasMutations
-              ? 'Silent mutations applied directly to template. Use your existing primers or design standard amplification primers.'
-              : 'No additional primers needed for this domestication strategy.'}
-          </p>
+        <div className={`no-primers-needed ${hasJunctions ? 'warning' : ''}`}>
+          <div className="info-icon">{hasJunctions ? Icons.warning : Icons.info}</div>
+          {hasJunctions ? (
+            <>
+              <p><strong>Primer design issue</strong></p>
+              <p>
+                Mutagenic junction primers could not be automatically designed.
+                You will need {executionResult.junctions.length + 1} fragments with mutagenic overhangs
+                at positions: {executionResult.junctions.map((j: any) => j.position + 1).join(', ')}.
+              </p>
+              <p className="hint">
+                Design primers manually with Type IIS overhangs that introduce the required mutations.
+              </p>
+            </>
+          ) : hasMutations ? (
+            <p>Silent mutations applied directly to template. Use your existing primers or design standard amplification primers.</p>
+          ) : (
+            <p>No additional primers needed for this domestication strategy.</p>
+          )}
         </div>
       )}
 

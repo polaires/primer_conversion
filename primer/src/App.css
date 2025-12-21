@@ -28189,6 +28189,50 @@ body {
   color: var(--edp-neutral-500);
 }
 
+/* No Primers Needed State */
+.enhanced-domestication-panel .no-primers-needed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 24px;
+  text-align: center;
+  background: var(--edp-neutral-50);
+  border-radius: var(--edp-radius-lg);
+  margin: 24px;
+}
+
+.enhanced-domestication-panel .no-primers-needed .info-icon {
+  font-size: 24px;
+  color: var(--edp-primary);
+}
+
+.enhanced-domestication-panel .no-primers-needed p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--edp-neutral-600);
+  max-width: 500px;
+}
+
+.enhanced-domestication-panel .no-primers-needed .hint {
+  font-size: 12px;
+  color: var(--edp-neutral-500);
+  font-style: italic;
+}
+
+.enhanced-domestication-panel .no-primers-needed.warning {
+  background: var(--edp-warning-bg);
+  border: 1px solid var(--edp-warning-border);
+}
+
+.enhanced-domestication-panel .no-primers-needed.warning .info-icon {
+  color: var(--edp-warning);
+}
+
+.enhanced-domestication-panel .no-primers-needed.warning p {
+  color: var(--edp-neutral-700);
+}
+
 /* Primer Card V2 */
 .enhanced-domestication-panel .primer-card-v2 {
   background: white;
