@@ -1642,49 +1642,6 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
         </div>
       )}
 
-      {/* Workflow Steps - shown when user-configured domestication with multi-step workflow */}
-      {(() => { console.log('[PrimerResults] _autoDomestication:', result._autoDomestication); return null; })()}
-      {result._autoDomestication?.details?.some(d => d.workflowSteps?.length > 0) && (
-        <div className="workflow-steps-card">
-          <div className="workflow-header">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
-            </svg>
-            <span className="workflow-title">Multi-Step Workflow Required</span>
-            <span className="workflow-badge">Silent Mutation Strategy</span>
-          </div>
-          <div className="workflow-steps-list">
-            {result._autoDomestication.details
-              .filter(d => d.workflowSteps?.length > 0)
-              .flatMap((d: any, di: number) => d.workflowSteps.map((step: any, si: number) => (
-                <div key={`${di}-${si}`} className={`workflow-step-item ${step.type}`}>
-                  <div className="step-indicator">
-                    <span className="step-number">{step.step}</span>
-                  </div>
-                  <div className="step-content">
-                    <div className="step-title">{step.title}</div>
-                    <div className="step-description">{step.description}</div>
-                    {step.primers?.length > 0 && (
-                      <div className="step-primer-count">
-                        {step.primers.length} primer pair{step.primers.length !== 1 ? 's' : ''}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )))}
-          </div>
-          <div className="workflow-note">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
-            </svg>
-            <span>
-              Complete Step 1 (mutagenesis) before proceeding to Step 2 (assembly).
-              See Primers tab for detailed sequences.
-            </span>
-          </div>
-        </div>
-      )}
-
       {/* Tabs - Streamlined with Overview first */}
       <div className="results-tabs-bar">
         <button className={`tab ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>
@@ -1833,6 +1790,78 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                 </div>
               </div>
             </div>
+
+            {/* Multi-Step Workflow Section - shown when silent mutation strategy */}
+            {result._autoDomestication?.details?.some((d: any) => d.workflowSteps?.length > 0) && (
+              <div className="gg-workflow-section">
+                <div className="gg-section-header">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="#8b5cf6">
+                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                  </svg>
+                  <span>Multi-Step Workflow</span>
+                  <span className="gg-workflow-badge">Silent Mutation Strategy</span>
+                </div>
+                <div className="gg-workflow-steps">
+                  {(() => {
+                    // Calculate mutagenesis primer count
+                    const mutagenesisPrimers = result._autoDomestication?.details
+                      ?.filter((d: any) => d.workflowSteps?.length > 0)
+                      ?.flatMap((d: any) => d.workflowSteps)
+                      ?.filter((step: any) => step.type === 'pcr_mutagenesis')
+                      ?.flatMap((step: any) => step.primers || [])?.length || 0;
+
+                    // Assembly primer pairs = number of parts
+                    const assemblyPrimers = result.parts?.length || 0;
+
+                    return (
+                      <>
+                        <div className="gg-workflow-step step1">
+                          <div className="gg-wf-indicator">
+                            <span className="gg-wf-number">1</span>
+                          </div>
+                          <div className="gg-wf-content">
+                            <div className="gg-wf-title">Site-Directed Mutagenesis</div>
+                            <div className="gg-wf-desc">Remove internal BsaI sites with silent mutations</div>
+                            <div className="gg-wf-primers">
+                              <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                                <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
+                              </svg>
+                              <span>{mutagenesisPrimers} primer pair{mutagenesisPrimers !== 1 ? 's' : ''}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="gg-workflow-connector">
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="#9ca3af">
+                            <path d="M16.01 11H4v2h12.01v3L20 12l-3.99-4v3z"/>
+                          </svg>
+                        </div>
+                        <div className="gg-workflow-step step2">
+                          <div className="gg-wf-indicator">
+                            <span className="gg-wf-number">2</span>
+                          </div>
+                          <div className="gg-wf-content">
+                            <div className="gg-wf-title">Golden Gate Assembly</div>
+                            <div className="gg-wf-desc">Assemble domesticated template with other parts</div>
+                            <div className="gg-wf-primers">
+                              <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                                <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
+                              </svg>
+                              <span>{assemblyPrimers} primer pair{assemblyPrimers !== 1 ? 's' : ''}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+                <div className="gg-workflow-note">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="#6366f1">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                  </svg>
+                  <span>Complete Step 1 before proceeding to Step 2. See <button className="gg-link-btn" onClick={() => setActiveTab('primers')}>Primers tab</button> for detailed sequences.</span>
+                </div>
+              </div>
+            )}
 
             {/* Warnings Section */}
             {result.warnings && result.warnings.length > 0 && (
