@@ -562,7 +562,12 @@ export function executeDomesticationPlan(
           position: selectedOption.junction.junctionPosition,
           overhang: selectedOption.junction.overhang || selectedOption.overhang || 'NNNN',
           primers: selectedOption.junction.primers || selectedOption.primers,
-          mutations: selectedOption.junction.mutations || (selectedOption.junction as any).mutation,
+          // Ensure mutations is always an array
+        mutations: Array.isArray(selectedOption.junction.mutations)
+          ? selectedOption.junction.mutations
+          : (selectedOption.junction as any).mutation
+            ? [(selectedOption.junction as any).mutation]
+            : [],
         });
       }
     }
@@ -1258,7 +1263,12 @@ function generateMutationOptions(
         overhang: junction.overhang,
         onePotCompatible: true,
         primers: junction.primers,
-        mutations: (junction as any).mutation || (junction as any).mutations,  // FIXED: Property name
+        // Ensure mutations is always an array (designMutagenicJunction returns 'mutation' singular)
+        mutations: Array.isArray((junction as any).mutations)
+          ? (junction as any).mutations
+          : (junction as any).mutation
+            ? [(junction as any).mutation]
+            : [],
         benefits: [
           'One-pot Golden Gate compatible',
           'No pre-modified template needed',
