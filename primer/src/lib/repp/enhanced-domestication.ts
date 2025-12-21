@@ -554,14 +554,15 @@ export function executeDomesticationPlan(
         });
       } else if (selectedOption && selectedOption.type === 'mutagenic_junction' && selectedOption.junction) {
         // Track junction for fragment generation
+        // Use fallback for overhang - may be at junction level or top level of option
         junctions.push({
           site: siteOption.site,
           junction: selectedOption.junction,
           type: 'mutagenic_junction',
           position: selectedOption.junction.junctionPosition,
-          overhang: selectedOption.junction.overhang,
-          primers: selectedOption.junction.primers,
-          mutations: selectedOption.junction.mutations,
+          overhang: selectedOption.junction.overhang || selectedOption.overhang || 'NNNN',
+          primers: selectedOption.junction.primers || selectedOption.primers,
+          mutations: selectedOption.junction.mutations || (selectedOption.junction as any).mutation,
         });
       }
     }

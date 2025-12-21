@@ -8816,8 +8816,8 @@ body {
 
 /* Enzyme Chips */
 .enzyme-chips {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(65px, 1fr));
   gap: 0.5rem;
 }
 
@@ -8826,12 +8826,11 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0.5rem 0.75rem;
+  padding: 0.5rem 0.6rem;
   background: var(--bg-color);
   border: 2px solid var(--border-color);
   border-radius: 8px;
   cursor: pointer;
-  min-width: 70px;
 }
 
 .enzyme-chip:hover { border-color: var(--primary-color); }
@@ -23651,8 +23650,8 @@ body {
 }
 
 .enzyme-recommendations .enzyme-buttons {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
   gap: 0.5rem;
 }
 
@@ -23661,13 +23660,12 @@ body {
   flex-direction: column;
   align-items: flex-start;
   gap: 0.25rem;
-  padding: 0.75rem 1rem;
+  padding: 0.6rem 0.8rem;
   border: 2px solid #e5e7eb;
   border-radius: 8px;
   background: white;
   cursor: pointer;
   transition: all 0.2s;
-  min-width: 120px;
   position: relative;
 }
 
