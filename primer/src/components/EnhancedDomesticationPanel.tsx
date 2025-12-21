@@ -847,6 +847,8 @@ interface AnalyzeStepProps {
 }
 
 function AnalyzeStep({ sequence, enzyme, internalSites, orfDetection, onContinue }: AnalyzeStepProps) {
+  const [showDetails, setShowDetails] = useState(false);
+
   return (
     <div className="step-content analyze-step">
       <h2>Sequence Analysis</h2>
@@ -856,12 +858,12 @@ function AnalyzeStep({ sequence, enzyme, internalSites, orfDetection, onContinue
 
       <div className="analysis-summary">
         <div className="summary-card warning">
-          <div className="card-icon">{Icons.warning}</div>
+          <div className="card-icon">{Icons.scissors}</div>
           <div className="card-content">
             <div className="card-label">INTERNAL SITES</div>
             <div className="card-value">{internalSites.count}</div>
             <div className="card-detail">
-              at position{internalSites.count !== 1 ? 's' : ''} {internalSites.sites.map(s => s.position + 1).join(', ')}
+              Position{internalSites.count !== 1 ? 's' : ''} {internalSites.sites.map(s => s.position + 1).join(', ')}
             </div>
           </div>
         </div>
@@ -871,7 +873,7 @@ function AnalyzeStep({ sequence, enzyme, internalSites, orfDetection, onContinue
           <div className="card-content">
             <div className="card-label">SEQUENCE LENGTH</div>
             <div className="card-value">{sequence.length.toLocaleString()}</div>
-            <div className="card-detail">base pairs</div>
+            <div className="card-detail">{sequence.length.toLocaleString()} base pairs</div>
           </div>
         </div>
 
@@ -882,8 +884,8 @@ function AnalyzeStep({ sequence, enzyme, internalSites, orfDetection, onContinue
             <div className="card-value">{orfDetection?.totalFound || 0}</div>
             <div className="card-detail">
               {orfDetection?.hasOrfs
-                ? `best in frame ${orfDetection.bestOrf?.frame} (${orfDetection.bestOrf?.proteinLength} aa)`
-                : 'no significant ORFs found'}
+                ? `Frame ${orfDetection.bestOrf?.frame} · ${orfDetection.bestOrf?.proteinLength} aa`
+                : 'No significant ORFs found'}
             </div>
           </div>
         </div>
@@ -904,31 +906,40 @@ function AnalyzeStep({ sequence, enzyme, internalSites, orfDetection, onContinue
         contextSize={20}
       />
 
-      <div className="site-details">
-        <h3>Site Details</h3>
-        <table className="sites-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Position</th>
-              <th>Recognition Sequence</th>
-              <th>Orientation</th>
-            </tr>
-          </thead>
-          <tbody>
-            {internalSites.sites.map((site, i) => {
-              const siteSeq = site.sequence || '';
-              return (
-                <tr key={i}>
-                  <td className="site-num">{i + 1}</td>
-                  <td>{site.position + 1}</td>
-                  <td><code className="site-seq">{siteSeq}</code></td>
-                  <td className={`orient-${site.orientation?.toLowerCase()}`}>{site.orientation}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      {/* Collapsible Site Details */}
+      <div className="site-details-collapsible">
+        <button
+          className="details-toggle"
+          onClick={() => setShowDetails(!showDetails)}
+        >
+          <span>{showDetails ? '▼' : '▶'} Show Details</span>
+          <span className="details-count">{internalSites.count} site{internalSites.count !== 1 ? 's' : ''}</span>
+        </button>
+        {showDetails && (
+          <table className="sites-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Position</th>
+                <th>Recognition Sequence</th>
+                <th>Orientation</th>
+              </tr>
+            </thead>
+            <tbody>
+              {internalSites.sites.map((site, i) => {
+                const siteSeq = site.sequence || '';
+                return (
+                  <tr key={i}>
+                    <td className="site-num">{i + 1}</td>
+                    <td>{site.position + 1}</td>
+                    <td><code className="site-seq">{siteSeq}</code></td>
+                    <td className={`orient-${site.orientation?.toLowerCase()}`}>{site.orientation}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
 
       <div className="step-actions">
@@ -1290,7 +1301,7 @@ function FrameSelectionStep({
                 <div className="frame-number">Frame {opt.frame}</div>
                 <div className="frame-badges">
                   {opt.isRecommended && <span className="frame-badge recommended">Best</span>}
-                  {selectedFrame === opt.frame && <span className="frame-badge selected">✓</span>}
+                  {selectedFrame === opt.frame && !opt.isRecommended && <span className="frame-badge selected">Selected</span>}
                 </div>
               </div>
 
@@ -1515,7 +1526,7 @@ function MutationSelectionStep({
                 <div className="minimap-sequence">
                   <span className="site-highlight">{coloredSeq}</span>
                   {effectiveSelected?.type === 'mutagenic_junction' && effectiveSelected.junction && (
-                    <span className="junction-marker"> ← junction at {effectiveSelected.junction.junctionPosition}</span>
+                    <span className="junction-marker"> ← junction at position {effectiveSelected.junction.junctionPosition + 1}</span>
                   )}
                 </div>
               </div>
@@ -1545,10 +1556,10 @@ function MutationSelectionStep({
                         </span>
                         <div className="option-badges">
                           {isRecommended && (
-                            <span className="option-badge recommended">Recommended</span>
+                            <span className="option-badge recommended" title="Recommended option">★ Recommended</span>
                           )}
-                          <span className={`option-badge ${option.type === 'silent_mutation' ? 'silent' : 'junction'}`}>
-                            {option.type === 'silent_mutation' ? 'No fragments' : '+1 fragment'}
+                          <span className={`option-badge fragment-tag ${option.type === 'silent_mutation' ? 'silent' : 'junction'}`}>
+                            {option.type === 'silent_mutation' ? '○ No fragments' : '◇ +1 fragment'}
                           </span>
                         </div>
                       </div>
@@ -1577,7 +1588,7 @@ function MutationSelectionStep({
                           <>
                             <div className="detail">
                               <span className="label">Junction at:</span>
-                              <span>position {option.junction?.junctionPosition}</span>
+                              <span>position {(option.junction?.junctionPosition ?? 0) + 1}</span>
                             </div>
                             <div className="detail">
                               <span className="label">Overhang:</span>
