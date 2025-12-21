@@ -74,6 +74,23 @@ interface ReadingFrameValidation {
   warnings: string[];
 }
 
+interface JunctionQualityMetrics {
+  overall: number;
+  tier: 'excellent' | 'good' | 'acceptable' | 'poor';
+  breakdown: {
+    overhangFidelity: number;
+    mutationQuality: number;
+    primerQuality: number;
+    positionOptimality: number;
+  };
+}
+
+interface JunctionFidelityInfo {
+  singleOverhang: number;
+  withExisting: number;
+  source: 'NEB_experimental' | 'calculated';
+}
+
 interface MutationOption {
   type: 'silent_mutation' | 'mutagenic_junction';
   score: number;
@@ -85,6 +102,20 @@ interface MutationOption {
     junctionPosition: number;
   };
   overhang?: string;
+  shortDescription?: string;
+  description?: string;
+  benefits?: string[];
+  // Enhanced junction metrics (state-of-the-art)
+  junctionQuality?: JunctionQualityMetrics;
+  junctionFidelity?: JunctionFidelityInfo;
+  junctionPosition?: number;
+  primerTm?: { fwd: number; rev: number };
+  mutationImpact?: {
+    codonChange: string;
+    aminoAcid: string;
+    frequencyChange: string;
+    isWobble: boolean;
+  };
 }
 
 interface SiteOption {
@@ -1559,6 +1590,11 @@ function MutationSelectionStep({
                           {isRecommended && (
                             <span className="option-badge recommended" title="Recommended option">★ Recommended</span>
                           )}
+                          {option.shortDescription && option.type === 'mutagenic_junction' && (
+                            <span className="option-badge quality-tag" title={option.shortDescription}>
+                              {option.shortDescription}
+                            </span>
+                          )}
                           <span className={`option-badge fragment-tag ${option.type === 'silent_mutation' ? 'silent' : 'junction'}`}>
                             {option.type === 'silent_mutation' ? '○ No fragments' : '◇ +1 fragment'}
                           </span>
@@ -1587,13 +1623,73 @@ function MutationSelectionStep({
                           </>
                         ) : (
                           <>
-                            <div className="detail">
-                              <span className="label">Junction at:</span>
-                              <span>position {(option.junction?.junctionPosition ?? 0) + 1}</span>
-                            </div>
-                            <div className="detail">
-                              <span className="label">Overhang:</span>
-                              <code>{option.overhang}</code>
+                            {/* Enhanced Junction Display - State-of-the-Art */}
+                            <div className="junction-metrics">
+                              <div className="detail-row">
+                                <div className="detail">
+                                  <span className="label">Position:</span>
+                                  <span>{(option.junctionPosition ?? option.junction?.junctionPosition ?? 0) + 1}</span>
+                                </div>
+                                <div className="detail">
+                                  <span className="label">Overhang:</span>
+                                  <code className="overhang-code">{option.overhang}</code>
+                                </div>
+                              </div>
+
+                              {/* Fidelity Score with NEB data indicator */}
+                              {option.junctionFidelity && (
+                                <div className="detail fidelity-detail">
+                                  <span className="label">Fidelity:</span>
+                                  <span className={`fidelity-score ${
+                                    option.junctionFidelity.singleOverhang >= 0.98 ? 'excellent' :
+                                    option.junctionFidelity.singleOverhang >= 0.95 ? 'good' :
+                                    option.junctionFidelity.singleOverhang >= 0.90 ? 'acceptable' : 'low'
+                                  }`}>
+                                    {Math.round(option.junctionFidelity.singleOverhang * 100)}%
+                                  </span>
+                                  {option.junctionFidelity.source === 'NEB_experimental' && (
+                                    <span className="neb-badge" title="Based on NEB experimental ligation data">NEB</span>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Quality Score Breakdown */}
+                              {option.junctionQuality && (
+                                <div className="quality-breakdown">
+                                  <div className="quality-bar-container">
+                                    <div
+                                      className={`quality-bar ${option.junctionQuality.tier}`}
+                                      style={{ width: `${option.junctionQuality.overall}%` }}
+                                      title={`Overall: ${option.junctionQuality.overall}/100`}
+                                    />
+                                  </div>
+                                  <span className="quality-label">{option.junctionQuality.overall}/100</span>
+                                </div>
+                              )}
+
+                              {/* Mutation Impact */}
+                              {option.mutationImpact && (
+                                <div className="detail mutation-impact">
+                                  <span className="label">Mutation:</span>
+                                  <code>{option.mutationImpact.codonChange}</code>
+                                  <span className="aa">({option.mutationImpact.aminoAcid})</span>
+                                  {option.mutationImpact.isWobble && (
+                                    <span className="wobble-badge" title="Wobble position mutation (preferred)">W</span>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Primer Tm if available */}
+                              {option.primerTm && (option.primerTm.fwd > 0 || option.primerTm.rev > 0) && (
+                                <div className="detail primer-tm">
+                                  <span className="label">Primer Tm:</span>
+                                  <span>
+                                    {option.primerTm.fwd > 0 && `F: ${option.primerTm.fwd.toFixed(1)}°C`}
+                                    {option.primerTm.fwd > 0 && option.primerTm.rev > 0 && ' / '}
+                                    {option.primerTm.rev > 0 && `R: ${option.primerTm.rev.toFixed(1)}°C`}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           </>
                         )}

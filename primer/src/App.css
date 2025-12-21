@@ -27443,6 +27443,186 @@ body {
 }
 
 /* ==========================================================================
+   ENHANCED JUNCTION METRICS (STATE-OF-THE-ART)
+   ========================================================================== */
+
+.enhanced-domestication-panel .junction-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.enhanced-domestication-panel .junction-metrics .detail-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.enhanced-domestication-panel .junction-metrics .detail {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.enhanced-domestication-panel .junction-metrics .label {
+  color: var(--edp-neutral-400);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.enhanced-domestication-panel .overhang-code {
+  font-family: var(--edp-font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+  color: #0369a1;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 1px;
+}
+
+/* Fidelity Score Styling */
+.enhanced-domestication-panel .fidelity-detail {
+  background: var(--edp-neutral-100);
+  padding: 4px 8px;
+  border-radius: 6px;
+  margin-top: 2px;
+}
+
+.enhanced-domestication-panel .fidelity-score {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.enhanced-domestication-panel .fidelity-score.excellent {
+  color: #059669;
+}
+
+.enhanced-domestication-panel .fidelity-score.good {
+  color: #0891b2;
+}
+
+.enhanced-domestication-panel .fidelity-score.acceptable {
+  color: #d97706;
+}
+
+.enhanced-domestication-panel .fidelity-score.low {
+  color: #dc2626;
+}
+
+.enhanced-domestication-panel .neb-badge {
+  font-size: 8px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%);
+  color: white;
+  padding: 2px 4px;
+  border-radius: 3px;
+  margin-left: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Quality Bar Visualization */
+.enhanced-domestication-panel .quality-breakdown {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.enhanced-domestication-panel .quality-bar-container {
+  flex: 1;
+  height: 6px;
+  background: var(--edp-neutral-200);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.enhanced-domestication-panel .quality-bar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.enhanced-domestication-panel .quality-bar.excellent {
+  background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+}
+
+.enhanced-domestication-panel .quality-bar.good {
+  background: linear-gradient(90deg, #0891b2 0%, #22d3ee 100%);
+}
+
+.enhanced-domestication-panel .quality-bar.acceptable {
+  background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%);
+}
+
+.enhanced-domestication-panel .quality-bar.poor {
+  background: linear-gradient(90deg, #ef4444 0%, #f87171 100%);
+}
+
+.enhanced-domestication-panel .quality-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--edp-neutral-500);
+  min-width: 40px;
+}
+
+/* Mutation Impact Styling */
+.enhanced-domestication-panel .mutation-impact {
+  background: var(--edp-neutral-50);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border-left: 2px solid var(--edp-primary);
+}
+
+.enhanced-domestication-panel .mutation-impact code {
+  font-weight: 600;
+  background: white;
+}
+
+.enhanced-domestication-panel .mutation-impact .aa {
+  color: var(--edp-neutral-400);
+  font-size: 10px;
+  margin-left: 4px;
+}
+
+.enhanced-domestication-panel .wobble-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  font-size: 9px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #059669 0%, #34d399 100%);
+  color: white;
+  border-radius: 50%;
+  margin-left: 4px;
+}
+
+/* Primer Tm Styling */
+.enhanced-domestication-panel .primer-tm {
+  font-size: 10px;
+  color: var(--edp-neutral-400);
+}
+
+.enhanced-domestication-panel .primer-tm span:last-child {
+  font-family: var(--edp-font-mono);
+  color: var(--edp-neutral-600);
+}
+
+/* Quality Tag Badge */
+.enhanced-domestication-panel .option-badge.quality-tag {
+  background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+  color: white;
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+/* ==========================================================================
    PREVIEW STEP - CELEBRATORY SUCCESS
    ========================================================================== */
 
