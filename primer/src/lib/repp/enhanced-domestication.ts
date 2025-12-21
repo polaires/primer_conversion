@@ -1257,7 +1257,7 @@ function generateMutationOptions(
         type: 'mutagenic_junction',
         junction,
         score: (junction.combinedScore || 0) + (prioritizeMutagenic ? 100 : 0), // Boost if primary strategy
-        description: `Mutagenic junction at position ${junction.junctionPosition + 1}`,
+        description: `Mutagenic junction at position ${(junction.junctionPosition ?? 0) + 1}`,
         shortDescription: 'Junction + primer mutation',
         fragmentIncrease: 1,
         overhang: junction.overhang,
