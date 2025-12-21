@@ -1011,6 +1011,15 @@ function CircularPlasmidView({ parts, overhangs, totalLength }: CircularPlasmidV
 function LinearAssemblyDiagram({ parts, overhangs }: LinearAssemblyDiagramProps) {
   const [hoveredOH, setHoveredOH] = useState<string | null>(null);
 
+  // Check if previous part is a sub-fragment of same parent (to detect internal junctions)
+  const isInternalJunction = (index: number) => {
+    if (index === 0) return false;
+    const currentPart = parts[index] as any;
+    const prevPart = parts[index - 1] as any;
+    return currentPart._isSubFragment && prevPart._isSubFragment &&
+           currentPart._parentIndex === prevPart._parentIndex;
+  };
+
   return (
     <div className="linear-assembly-diagram">
       <div className="assembly-track">
@@ -1020,33 +1029,41 @@ function LinearAssemblyDiagram({ parts, overhangs }: LinearAssemblyDiagramProps)
           const rightOH = overhangs[i + 1];
           const hasDomestication = part._domesticationApproved;
           const mutationCount = part._domesticationMutations?.length || 0;
+          const isSubFragment = (part as any)._isSubFragment;
+          const isInternal = isInternalJunction(i);
 
           return (
             <React.Fragment key={i}>
               {/* Left junction */}
               <div
-                className={`junction-node ${hoveredOH === leftOH ? 'highlighted' : ''}`}
+                className={`junction-node ${hoveredOH === leftOH ? 'highlighted' : ''} ${isInternal ? 'internal-junction' : ''}`}
                 onMouseEnter={() => setHoveredOH(leftOH)}
                 onMouseLeave={() => setHoveredOH(null)}
+                title={isInternal ? 'Domestication junction (silent mutation site)' : undefined}
               >
-                <span className="junction-seq">{leftOH}</span>
+                <span className={`junction-seq ${isInternal ? 'domestication' : ''}`}>{leftOH}</span>
               </div>
 
               {/* Part block */}
-              <div className={`part-block ${hasDomestication ? 'domesticated' : ''}`} style={{ borderColor: typeInfo.color }}>
+              <div
+                className={`part-block ${hasDomestication ? 'domesticated' : ''} ${isSubFragment ? 'sub-fragment' : ''}`}
+                style={{ borderColor: typeInfo.color }}
+              >
                 <div className="part-color-stripe" style={{ backgroundColor: typeInfo.color }}></div>
                 <div className="part-block-content">
                   <span className="part-block-name">
                     {part.id || `Part ${i + 1}`}
-                    {hasDomestication && (
-                      <span className="domestication-badge" title={`${mutationCount} silent mutation${mutationCount !== 1 ? 's' : ''} configured`}>
+                    {(hasDomestication || isSubFragment) && (
+                      <span className="domestication-badge" title={isSubFragment ? 'Sub-fragment (domesticated)' : `${mutationCount} silent mutation${mutationCount !== 1 ? 's' : ''} configured`}>
                         <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor">
                           <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                         </svg>
                       </span>
                     )}
                   </span>
-                  <span className="part-block-info">{typeInfo.name} • {part.seq?.length || 0} bp</span>
+                  <span className="part-block-info">
+                    {isSubFragment ? 'Fragment' : typeInfo.name} • {part.seq?.length || 0} bp
+                  </span>
                 </div>
               </div>
 
@@ -2812,6 +2829,58 @@ export default function GoldenGateDesigner() {
   const totalLength = useMemo(() => {
     return parts.reduce((sum: number, p: Part) => sum + (p.seq?.length || 0), 0);
   }, [parts]);
+
+  // Expand parts to include domestication sub-fragments in assembly diagram
+  const assemblyViewData = useMemo(() => {
+    if (!isGoldenGate) {
+      return {
+        parts: parts.filter(p => p.seq),
+        overhangs: parts.filter(p => p.seq).map((_, i) => `J${i + 1}`)
+      };
+    }
+
+    const expandedParts: Part[] = [];
+    const expandedOverhangs: string[] = [];
+    const validParts = parts.filter(p => p.seq);
+    const baseOverhangs = recommendedOverhangs.overhangs;
+
+    validParts.forEach((part, i) => {
+      // Add left overhang (from base set)
+      if (i === 0 || expandedOverhangs.length === 0) {
+        expandedOverhangs.push(baseOverhangs[i] || 'GGAG');
+      }
+
+      // Check if part has domestication junctions (split points)
+      if (part._domesticationApproved && part._domesticationJunctions && part._domesticationJunctions.length > 0) {
+        // Part is split into sub-fragments
+        const junctions = part._domesticationJunctions;
+        const numSubParts = junctions.length + 1;
+
+        for (let j = 0; j < numSubParts; j++) {
+          // Create sub-part
+          expandedParts.push({
+            ...part,
+            id: `${part.id || `Part ${i + 1}`}${numSubParts > 1 ? `.${j + 1}` : ''}`,
+            _isSubFragment: true,
+            _parentIndex: i,
+          } as Part);
+
+          // Add junction overhang after each sub-part except the last
+          if (j < junctions.length) {
+            expandedOverhangs.push(junctions[j].overhang || 'NNNN');
+          }
+        }
+      } else {
+        // Regular part without domestication
+        expandedParts.push(part);
+      }
+
+      // Add right overhang (from base set)
+      expandedOverhangs.push(baseOverhangs[i + 1] || 'GCTT');
+    });
+
+    return { parts: expandedParts, overhangs: expandedOverhangs };
+  }, [parts, isGoldenGate, recommendedOverhangs.overhangs]);
 
   const handlePartChange = useCallback((index: number, newPart: Part) => {
     setParts(prev => {
@@ -4649,14 +4718,14 @@ export default function GoldenGateDesigner() {
               <div className="card-body">
                 {viewMode === 'circular' ? (
                   <CircularPlasmidView
-                    parts={parts.filter(p => p.seq)}
-                    overhangs={isGoldenGate ? recommendedOverhangs.overhangs : parts.filter(p => p.seq).map((_, i) => `J${i + 1}`)}
+                    parts={assemblyViewData.parts}
+                    overhangs={assemblyViewData.overhangs}
                     totalLength={totalLength}
                   />
                 ) : (
                   <LinearAssemblyDiagram
-                    parts={parts.filter(p => p.seq)}
-                    overhangs={isGoldenGate ? recommendedOverhangs.overhangs : parts.filter(p => p.seq).map((_, i) => `${overlapSettings.overlapLength}bp`)}
+                    parts={assemblyViewData.parts}
+                    overhangs={assemblyViewData.overhangs}
                   />
                 )}
 
