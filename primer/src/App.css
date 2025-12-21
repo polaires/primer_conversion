@@ -26602,6 +26602,7 @@ body {
   margin-bottom: 24px;
 }
 
+/* Summary Cards - Equal height, consistent layout */
 .enhanced-domestication-panel .summary-card {
   display: flex;
   align-items: flex-start;
@@ -26610,34 +26611,56 @@ body {
   background: white;
   border: 1px solid var(--edp-neutral-200);
   border-radius: var(--edp-radius-lg);
+  min-height: 100px; /* Equal heights */
 }
 
 .enhanced-domestication-panel .summary-card .card-icon {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: var(--edp-radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  margin-top: 2px; /* Align with first line of text */
 }
 
-.enhanced-domestication-panel .summary-card .card-icon.warning {
+/* Card type-based styling */
+.enhanced-domestication-panel .summary-card.warning {
+  border-left: 3px solid var(--edp-warning);
+}
+
+.enhanced-domestication-panel .summary-card.warning .card-icon {
   background: var(--edp-warning-bg);
   color: var(--edp-warning);
-  border: 1px solid var(--edp-warning-border);
 }
 
-.enhanced-domestication-panel .summary-card .card-icon.success {
+.enhanced-domestication-panel .summary-card.success {
+  border-left: 3px solid var(--edp-success);
+}
+
+.enhanced-domestication-panel .summary-card.success .card-icon {
   background: var(--edp-success-bg);
   color: var(--edp-success);
-  border: 1px solid var(--edp-success-border);
 }
 
-.enhanced-domestication-panel .summary-card .card-icon.info {
+.enhanced-domestication-panel .summary-card.info {
+  border-left: 3px solid var(--edp-primary);
+}
+
+.enhanced-domestication-panel .summary-card.info .card-icon {
   background: var(--edp-primary-bg);
   color: var(--edp-primary);
-  border: 1px solid var(--edp-primary-border);
+}
+
+/* Card label - ALL CAPS standardized */
+.enhanced-domestication-panel .card-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--edp-neutral-500);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .enhanced-domestication-panel .card-title {
@@ -26800,14 +26823,20 @@ body {
 .enhanced-domestication-panel .strategy-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 6px;
+  justify-content: space-between;
+  margin-bottom: 8px;
 }
 
 .enhanced-domestication-panel .strategy-title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--edp-neutral-800);
+}
+
+.enhanced-domestication-panel .strategy-badges {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .enhanced-domestication-panel .strategy-badge {
@@ -26832,22 +26861,55 @@ body {
 
 .enhanced-domestication-panel .strategy-description {
   font-size: 13px;
-  color: var(--edp-neutral-500);
-  margin-bottom: 12px;
-  line-height: 1.4;
+  color: var(--edp-neutral-600);
+  margin-bottom: 14px;
+  line-height: 1.5;
 }
 
 .enhanced-domestication-panel .strategy-meta {
   display: flex;
-  gap: 16px;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.enhanced-domestication-panel .meta-benefits,
+.enhanced-domestication-panel .meta-tradeoffs {
+  display: flex;
   flex-wrap: wrap;
+  gap: 8px;
 }
 
 .enhanced-domestication-panel .meta-item {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.enhanced-domestication-panel .meta-item.benefit {
+  color: var(--edp-success);
+}
+
+.enhanced-domestication-panel .meta-item.tradeoff {
+  color: var(--edp-warning);
+}
+
+/* Strategy icon container */
+.enhanced-domestication-panel .strategy-icon-container {
+  display: flex;
+  align-items: flex-start;
+  margin-right: 4px;
+}
+
+.enhanced-domestication-panel .strategy-icon {
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  justify-content: center;
+  color: var(--edp-neutral-400);
+}
+
+.enhanced-domestication-panel .strategy-card.selected .strategy-icon {
+  color: var(--edp-primary);
 }
 
 .enhanced-domestication-panel .meta-item.benefit {
@@ -27007,6 +27069,36 @@ body {
   color: var(--edp-neutral-600);
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Frame Status Indicator */
+.enhanced-domestication-panel .frame-status {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: var(--edp-radius-sm);
+  font-size: 11px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.enhanced-domestication-panel .frame-status.success {
+  background: var(--edp-success-bg);
+  color: var(--edp-success);
+  border: 1px solid var(--edp-success-border);
+}
+
+.enhanced-domestication-panel .frame-status.warning {
+  background: var(--edp-warning-bg);
+  color: var(--edp-warning);
+  border: 1px solid var(--edp-warning-border);
+}
+
+.enhanced-domestication-panel .frame-status.danger {
+  background: var(--edp-danger-bg);
+  color: var(--edp-danger);
+  border: 1px solid var(--edp-danger-border);
 }
 
 /* Codon Mode */
@@ -27217,6 +27309,24 @@ body {
 .enhanced-domestication-panel .option-badge.silent {
   background: var(--edp-success-bg);
   color: var(--edp-success);
+}
+
+.enhanced-domestication-panel .option-badge.recommended {
+  background: var(--edp-primary);
+  color: white;
+}
+
+.enhanced-domestication-panel .warning-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--edp-warning);
+  background: var(--edp-warning-bg);
+  border: 1px solid var(--edp-warning-border);
+  border-radius: 4px;
 }
 
 .enhanced-domestication-panel .option-details {
@@ -27554,6 +27664,100 @@ body {
 
 .enhanced-domestication-panel .approval-warning .approval-text {
   color: var(--edp-warning);
+}
+
+/* Protein Verification - Compact Summary */
+.enhanced-domestication-panel .protein-verification {
+  margin-bottom: 20px;
+}
+
+.enhanced-domestication-panel .protein-verification .verification-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.enhanced-domestication-panel .protein-verification h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--edp-neutral-700);
+  margin: 0;
+}
+
+.enhanced-domestication-panel .verification-result {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--edp-radius-md);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.enhanced-domestication-panel .verification-result.success {
+  background: var(--edp-success-bg);
+  color: var(--edp-success);
+  border: 1px solid var(--edp-success-border);
+}
+
+.enhanced-domestication-panel .verification-result.error {
+  background: var(--edp-danger-bg);
+  color: var(--edp-danger);
+  border: 1px solid var(--edp-danger-border);
+}
+
+.enhanced-domestication-panel .protein-lengths {
+  display: flex;
+  gap: 24px;
+  font-size: 12px;
+  color: var(--edp-neutral-600);
+  background: var(--edp-neutral-50);
+  padding: 10px 14px;
+  border-radius: var(--edp-radius-md);
+}
+
+.enhanced-domestication-panel .protein-lengths strong {
+  color: var(--edp-neutral-700);
+}
+
+/* Mutation Context Display */
+.enhanced-domestication-panel .mutation-context {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--edp-font-mono);
+  font-size: 12px;
+  background: var(--edp-neutral-100);
+  padding: 4px 8px;
+  border-radius: var(--edp-radius-sm);
+}
+
+.enhanced-domestication-panel .mutation-context .ctx-before,
+.enhanced-domestication-panel .mutation-context .ctx-after {
+  color: var(--edp-neutral-500);
+}
+
+.enhanced-domestication-panel .mutation-context .ctx-old {
+  background: var(--edp-danger-bg);
+  color: var(--edp-danger);
+  padding: 1px 3px;
+  border-radius: 2px;
+  font-weight: 700;
+  text-decoration: line-through;
+}
+
+.enhanced-domestication-panel .mutation-context .ctx-arrow {
+  color: var(--edp-neutral-400);
+  margin: 0 2px;
+}
+
+.enhanced-domestication-panel .mutation-context .ctx-new {
+  background: var(--edp-success-bg);
+  color: var(--edp-success);
+  padding: 1px 3px;
+  border-radius: 2px;
+  font-weight: 700;
 }
 
 /* ==========================================================================
@@ -27983,6 +28187,50 @@ body {
 
 .enhanced-domestication-panel .strategy-badge-detail {
   color: var(--edp-neutral-500);
+}
+
+/* No Primers Needed State */
+.enhanced-domestication-panel .no-primers-needed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 24px;
+  text-align: center;
+  background: var(--edp-neutral-50);
+  border-radius: var(--edp-radius-lg);
+  margin: 24px;
+}
+
+.enhanced-domestication-panel .no-primers-needed .info-icon {
+  font-size: 24px;
+  color: var(--edp-primary);
+}
+
+.enhanced-domestication-panel .no-primers-needed p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--edp-neutral-600);
+  max-width: 500px;
+}
+
+.enhanced-domestication-panel .no-primers-needed .hint {
+  font-size: 12px;
+  color: var(--edp-neutral-500);
+  font-style: italic;
+}
+
+.enhanced-domestication-panel .no-primers-needed.warning {
+  background: var(--edp-warning-bg);
+  border: 1px solid var(--edp-warning-border);
+}
+
+.enhanced-domestication-panel .no-primers-needed.warning .info-icon {
+  color: var(--edp-warning);
+}
+
+.enhanced-domestication-panel .no-primers-needed.warning p {
+  color: var(--edp-neutral-700);
 }
 
 /* Primer Card V2 */

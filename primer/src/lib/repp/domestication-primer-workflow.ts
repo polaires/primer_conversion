@@ -260,6 +260,10 @@ interface PrimerDesign {
   junctionPosition?: number;
   overhang?: string;
   fragmentIndex?: number;
+  fragmentRange?: { start: number; end: number };
+  junction?: any;
+  overhangStart?: string;
+  overhangEnd?: string;
   forward?: PrimerWithAnalysis;
   reverse?: PrimerWithAnalysis;
   tmDifference?: number;
@@ -816,6 +820,83 @@ export function designIntegratedPrimers(
       ...ggPrimerPair,
       instructions: 'Use after obtaining mutated template from Step 1',
     });
+  } else if (strategyResult.junctions && strategyResult.junctions.length > 0) {
+    // Mutagenic Junction Strategy - ONE-POT PROCESS
+    // Design primers for each fragment created by junctions
+    const junctions = strategyResult.junctions;
+    const numFragments = junctions.length + 1;
+
+    // Sort junctions by position
+    const sortedJunctions = [...junctions].sort((a, b) => a.position - b.position);
+
+    // Collect all overhangs for the fragments
+    const fragmentOverhangs: { start: string; end: string }[] = [];
+
+    // First fragment: starts with vector overhang, ends with first junction overhang
+    fragmentOverhangs.push({
+      start: existingOverhangs[0] || 'GGAG',
+      end: sortedJunctions[0]?.overhang || 'NNNN',
+    });
+
+    // Middle fragments: start with previous junction overhang, end with next junction overhang
+    for (let i = 1; i < sortedJunctions.length; i++) {
+      fragmentOverhangs.push({
+        start: sortedJunctions[i - 1]?.overhang || 'NNNN',
+        end: sortedJunctions[i]?.overhang || 'NNNN',
+      });
+    }
+
+    // Last fragment: starts with last junction overhang, ends with vector overhang
+    fragmentOverhangs.push({
+      start: sortedJunctions[sortedJunctions.length - 1]?.overhang || 'NNNN',
+      end: existingOverhangs[existingOverhangs.length - 1] || 'GCTT',
+    });
+
+    // Design primers for each fragment
+    let currentPos = 0;
+    for (let i = 0; i < numFragments; i++) {
+      const fragmentStart = currentPos;
+      const fragmentEnd = i < sortedJunctions.length
+        ? sortedJunctions[i].position
+        : sequence.length;
+
+      // Design primers for this fragment
+      const fragmentPrimers = designFragmentPrimers(
+        sequence,
+        fragmentStart,
+        fragmentEnd,
+        enzyme,
+        {
+          targetTm,
+          flanking,
+          spacer,
+          overhangStart: fragmentOverhangs[i].start,
+          overhangEnd: fragmentOverhangs[i].end,
+          mutations: [],
+        }
+      );
+
+      const isJunctionFragment = i < sortedJunctions.length;
+      const junction = isJunctionFragment ? sortedJunctions[i] : null;
+
+      primers.push({
+        type: 'junction',
+        step: 1,
+        stepLabel: 'One-Pot Golden Gate Assembly',
+        name: `Fragment ${i + 1}${junction ? ` (Junction at ${junction.position + 1})` : ' (Terminal)'}`,
+        fragmentIndex: i,
+        fragmentRange: { start: fragmentStart + 1, end: fragmentEnd },
+        junction: junction,
+        overhangStart: fragmentOverhangs[i].start,
+        overhangEnd: fragmentOverhangs[i].end,
+        ...fragmentPrimers,
+        instructions: junction
+          ? `Mutagenic overhang ${fragmentOverhangs[i].end} introduces mutation at position ${junction.position + 1}`
+          : 'Terminal fragment for assembly',
+      });
+
+      currentPos = fragmentEnd;
+    }
   }
 
   // Generate summary
