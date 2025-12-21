@@ -28975,6 +28975,7 @@ body {
   text-align: center;
   position: relative;
   height: 14px;
+  background: transparent !important;
 }
 
 .enhanced-domestication-panel .ruler-marker {
@@ -28993,32 +28994,35 @@ body {
 .enhanced-domestication-panel .tick-row {
   display: flex;
   font-family: 'SF Mono', Monaco, 'Consolas', monospace;
-  font-size: 6px;
-  color: #E5E7EB;
+  font-size: 8px;
+  color: #D1D5DB;
   margin-bottom: 2px;
   line-height: 1;
-  height: 8px;
+  height: 10px;
   align-items: center;
+  background: transparent;
 }
 
 .enhanced-domestication-panel .tick-track {
   display: flex;
+  background: transparent;
 }
 
 .enhanced-domestication-panel .tick {
   width: 10px;
   text-align: center;
-  color: #E5E7EB;
+  color: #D1D5DB;
+  background: transparent;
 }
 
 .enhanced-domestication-panel .tick.major {
-  color: #D1D5DB;
-  font-size: 8px;
+  color: #9CA3AF;
+  font-size: 10px;
 }
 
 .enhanced-domestication-panel .tick.minor {
-  color: #E5E7EB;
-  font-size: 4px;
+  color: #D1D5DB;
+  font-size: 6px;
 }
 
 /* Sequence row */
