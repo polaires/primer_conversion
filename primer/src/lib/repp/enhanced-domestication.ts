@@ -1299,18 +1299,14 @@ function estimatePrimerQualityScore(candidate: JunctionCandidateInfo): number {
     return candidate.quality.breakdown.primerQuality;
   }
 
-  // Otherwise estimate from overall score
-  // Overall score = 35% fidelity + 25% mutation + 25% primer + 15% position
-  // If fidelity is 100% (score ~100), mutation quality ~70, position ~70
-  // Then primer quality ≈ (overall - 35*1 - 25*0.7 - 15*0.7) / 0.25
+  // For candidates without detailed breakdown, use overall score as proxy
+  // Since we filter for high fidelity first, the main differentiator is primer quality
+  // A reasonable estimate: if fidelity is ~100%, primer/mutation/position make up ~65%
   const overallScore = candidate.overallScore || 0;
-  const fidelityContribution = (candidate.overhangFidelity || 0) * 35;
-  const estimatedOtherContribution = 25 * 0.7 + 15 * 0.7; // ~28
-  const estimatedPrimerScore = Math.max(0, Math.min(100,
-    (overallScore - fidelityContribution - estimatedOtherContribution) / 0.25
-  ));
 
-  return estimatedPrimerScore;
+  // If overall score is high with 100% fidelity, primers are likely good
+  // Scale: overallScore 90+ = excellent primers, 70+ = good, 50+ = acceptable
+  return overallScore;
 }
 
 /**
@@ -1457,6 +1453,9 @@ function generateMutationOptions(
     });
 
     if (enhancedJunction.success && enhancedJunction.junctionPosition !== undefined) {
+      // Debug: Log junction alternatives
+      console.log('[Junction Selection] Site:', site.position, 'Alternatives:', enhancedJunction.alternatives?.length || 0);
+
       // Collect all junction candidates: best + alternatives
       const allJunctionCandidates: JunctionCandidateInfo[] = [
         {
@@ -1485,6 +1484,10 @@ function generateMutationOptions(
 
       // Select top 3 junction options prioritizing 100% fidelity
       const topJunctions = selectTopJunctionOptions(allJunctionCandidates, 3);
+
+      // Debug: Log selection results
+      console.log('[Junction Selection] Total candidates:', allJunctionCandidates.length, 'Selected:', topJunctions.length);
+      topJunctions.forEach((j, i) => console.log(`  Option ${i + 1}: ${j.overhang} fidelity=${j.overhangFidelity} score=${j.overallScore}`));
 
       // Create MutationOption for each selected junction
       for (let i = 0; i < topJunctions.length; i++) {
