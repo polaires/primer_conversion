@@ -56,15 +56,9 @@ interface ORF {
   frame: number;
   start: number;
   end: number;
-  length?: number;
   proteinLength: number;
-  proteinSequence?: string;
   strand: 'forward' | 'reverse';
-  avgCodonUsage: string | number; // Can be string from orf-detector or number
-  score?: number;
-  codons?: string[];
-  hasRareCodon?: boolean;
-  stopCodon?: string | null;
+  avgCodonUsage: number;
 }
 
 interface ORFDetectionResult {
@@ -1068,25 +1062,17 @@ function FrameSelectionStep({
           const stopCount = opt.validation?.internalStops?.length || 0;
           const severityClass = stopCount === 0 ? 'severity-ok' : stopCount <= 5 ? 'severity-warning' : 'severity-danger';
 
-            <div className="frame-details">
-              {opt.bestOrf ? (
-                <>
-                  <div className="detail-row">
-                    <span className="label">Best ORF:</span>
-                    <span className="value">{opt.bestOrf.proteinLength} amino acids</span>
-                  </div>
-                  <div className="detail-row">
-                    <span className="label">Codon Usage:</span>
-                    <span className="value">
-                      {typeof opt.bestOrf.avgCodonUsage === 'number'
-                        ? opt.bestOrf.avgCodonUsage.toFixed(1)
-                        : opt.bestOrf.avgCodonUsage ?? 'N/A'}/1000 avg
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <div className="detail-row">
-                  <span className="label">No significant ORF</span>
+          return (
+            <div
+              key={opt.frame}
+              className={`frame-option ${selectedFrame === opt.frame ? 'selected' : ''} ${severityClass}`}
+              onClick={() => onFrameSelect(opt.frame)}
+            >
+              <div className="frame-header">
+                <div className="frame-number">Frame {opt.frame}</div>
+                <div className="frame-badges">
+                  {opt.isRecommended && <span className="frame-badge recommended">Best</span>}
+                  {selectedFrame === opt.frame && <span className="frame-badge selected">✓</span>}
                 </div>
               </div>
 
