@@ -1063,10 +1063,9 @@ function LinearAssemblyDiagram({ parts, overhangs }: LinearAssemblyDiagramProps)
   );
 }
 
-// Fidelity Gauge (enhanced with cross-ligation heatmap)
+// Fidelity Gauge (enhanced with enzyme comparison)
 function FidelityGauge({ overhangs, enzyme, staticFidelity }: FidelityGaugeProps) {
   const [showDetails, setShowDetails] = useState<boolean>(false);
-  const [showHeatmap, setShowHeatmap] = useState<boolean>(false);
 
   const experimentalFidelity = useMemo((): ExperimentalFidelity | null => {
     if (!overhangs || overhangs.length === 0) return null;
@@ -1092,15 +1091,6 @@ function FidelityGauge({ overhangs, enzyme, staticFidelity }: FidelityGaugeProps
       return findProblematicPairs(overhangs, enzyme, 0.05) as any[];
     } catch (e: unknown) {
       return [];
-    }
-  }, [overhangs, enzyme]);
-
-  const heatmapData = useMemo((): HeatmapData | null => {
-    if (!overhangs || overhangs.length === 0) return null;
-    try {
-      return generateCrossLigationHeatmap(overhangs, enzyme) as HeatmapData;
-    } catch (e: unknown) {
-      return null;
     }
   }, [overhangs, enzyme]);
 
@@ -1164,11 +1154,6 @@ function FidelityGauge({ overhangs, enzyme, staticFidelity }: FidelityGaugeProps
         <button className="details-toggle" onClick={() => setShowDetails(!showDetails)}>
           {showDetails ? '▲ Hide Enzymes' : '▼ Compare Enzymes'}
         </button>
-        {heatmapData && !heatmapData.error && (
-          <button className="details-toggle heatmap-toggle" onClick={() => setShowHeatmap(!showHeatmap)}>
-            {showHeatmap ? '▲ Hide Heatmap' : '▼ Cross-Ligation'}
-          </button>
-        )}
       </div>
 
       {showDetails && enzymeComparison && (
@@ -1189,12 +1174,6 @@ function FidelityGauge({ overhangs, enzyme, staticFidelity }: FidelityGaugeProps
               {e.enzyme === enzyme && <span className="current-badge">✓</span>}
             </div>
           ))}
-        </div>
-      )}
-
-      {showHeatmap && heatmapData && (
-        <div className="heatmap-section">
-          <CrossLigationHeatmapCompact heatmapData={heatmapData as any} enzyme={enzyme} />
         </div>
       )}
     </div>

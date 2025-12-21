@@ -102,8 +102,8 @@ export function CrossLigationHeatmap({ heatmapData, enzyme = 'BsaI', compact = f
   };
 
   // Cell size based on compact mode and number of overhangs
-  const cellSize = compact ? Math.min(24, 120 / n) : Math.min(40, 200 / n);
-  const labelWidth = compact ? 40 : 50;
+  const cellSize = compact ? Math.min(28, 140 / n) : Math.min(40, 200 / n);
+  const labelWidth = compact ? 50 : 50; // Increased for 4-letter overhangs
 
   return (
     <div className={`cross-ligation-heatmap ${compact ? 'compact' : ''}`}>
@@ -141,7 +141,7 @@ export function CrossLigationHeatmap({ heatmapData, enzyme = 'BsaI', compact = f
                 style={{ width: cellSize }}
                 title={oh}
               >
-                {compact ? oh.slice(0, 2) : oh}
+                {oh}
               </div>
             ))}
           </div>
@@ -156,7 +156,7 @@ export function CrossLigationHeatmap({ heatmapData, enzyme = 'BsaI', compact = f
                   style={{ height: cellSize, width: labelWidth }}
                   title={oh}
                 >
-                  {compact ? oh.slice(0, 2) : oh}
+                  {oh}
                 </div>
               ))}
             </div>
