@@ -3,7 +3,6 @@
  * Live metrics display for assembly fidelity and overhang status
  */
 
-import React from 'react';
 import { getFidelityLevel } from '../../types/fragmentPlanner';
 
 interface FidelityDashboardProps {

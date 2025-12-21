@@ -3,7 +3,7 @@
  * Main container component for the enhanced plasmid assembly tool
  */
 
-import React, { useEffect, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useDesignStore, useHistoryKeyboardShortcuts } from '../../stores/designStore';
 import { DesignTimeline } from './DesignTimeline';
 import { FragmentList } from './FragmentList';

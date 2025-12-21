@@ -3,7 +3,7 @@
  * Configure assembly constraints for the optimizer
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useDesignStore } from '../../stores/designStore';
 import { GoldenGateEnzyme, GOLDEN_GATE_ENZYMES } from '../../types/fragmentPlanner';
 

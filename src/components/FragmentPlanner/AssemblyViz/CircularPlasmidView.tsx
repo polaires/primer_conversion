@@ -3,7 +3,7 @@
  * Circular visualization of assembled plasmid with fragments
  */
 
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { Fragment, FRAGMENT_TYPES } from '../../../types/fragmentPlanner';
 
 interface CircularPlasmidViewProps {
@@ -29,7 +29,7 @@ export function CircularPlasmidView({
 
     let currentAngle = -90; // Start at 12 o'clock
 
-    return fragments.map((fragment, idx) => {
+    return fragments.map((fragment) => {
       const sweepAngle = (fragment.length / totalLength) * 360;
       const startAngle = currentAngle;
       const endAngle = currentAngle + sweepAngle;
@@ -54,21 +54,6 @@ export function CircularPlasmidView({
       x: cx + r * Math.cos(angleRad),
       y: cy + r * Math.sin(angleRad),
     };
-  };
-
-  // Create arc path
-  const describeArc = (
-    cx: number,
-    cy: number,
-    r: number,
-    startAngle: number,
-    endAngle: number
-  ) => {
-    const start = polarToCartesian(cx, cy, r, endAngle);
-    const end = polarToCartesian(cx, cy, r, startAngle);
-    const largeArcFlag = endAngle - startAngle <= 180 ? 0 : 1;
-
-    return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`;
   };
 
   // Create donut segment path

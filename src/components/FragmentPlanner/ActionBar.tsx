@@ -3,7 +3,7 @@
  * Bottom action bar with export and design actions
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useDesignStore } from '../../stores/designStore';
 
 export function ActionBar() {

@@ -137,7 +137,7 @@ function FragmentCard({
   onDragEnd,
 }: FragmentCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const [_isEditing, _setIsEditing] = useState(false);
 
   const typeInfo = FRAGMENT_TYPES[fragment.type];
 
