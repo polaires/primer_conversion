@@ -26328,6 +26328,8 @@ body {
 
 /* Warning item info severity */
 .iso-warning-item.info {
+  color: #6b7280;
+}
 
 /* ============================================================================
    ENHANCED DOMESTICATION WIZARD - PROFESSIONAL DESIGN SYSTEM
