@@ -1104,6 +1104,7 @@ function StrategySelectionStep({
               className={`strategy-card ${isSelected ? 'selected' : ''} ${!strategy.feasible ? 'disabled' : ''} ${strategy.id === ENHANCED_CONFIG.strategies.MUTAGENIC_JUNCTION ? 'recommended' : ''}`}
               onClick={() => strategy.feasible && onStrategySelect(strategy.id)}
             >
+              <div className="strategy-radio" />
               <div className="strategy-content">
                 <div className="strategy-header">
                   <span className="strategy-title">{strategy.name}</span>
@@ -1660,7 +1661,11 @@ function PreviewStep({
           ? `Junction ${i + 1}`
           : `Site ${i + 1}`,
         type: 'mutation' as const,
-        details: selected?.type === 'silent_mutation' ? 'silent mutation' : 'mutagenic junction'
+        details: selected?.type === 'silent_mutation'
+          ? 'silent mutation'
+          : selected?.type === 'mutagenic_junction'
+          ? `pos ${(selected.junction?.junctionPosition ?? 0) + 1}`
+          : ''
       };
     });
   }, [mutationStep, mutationSelections]);
