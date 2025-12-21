@@ -875,6 +875,7 @@ function CircularPlasmidView({ parts, overhangs, totalLength }: CircularPlasmidV
         {partAngles.map((part: PartWithAngles, i: number) => {
           const typeInfo = PART_TYPES[part.type as keyof typeof PART_TYPES] || PART_TYPES.other;
           const isHovered = hoveredPart === i;
+          const isSubFragment = (part as any)._isSubFragment;
           return (
             <g key={i}>
               <path
@@ -883,6 +884,7 @@ function CircularPlasmidView({ parts, overhangs, totalLength }: CircularPlasmidV
                 stroke={typeInfo.color}
                 strokeWidth={isHovered ? 24 : 20}
                 strokeLinecap="round"
+                strokeDasharray={isSubFragment ? "8 4" : "none"}
                 className="cursor-pointer transition-all duration-200"
                 onMouseEnter={() => setHoveredPart(i)}
                 onMouseLeave={() => setHoveredPart(null)}
@@ -898,6 +900,12 @@ function CircularPlasmidView({ parts, overhangs, totalLength }: CircularPlasmidV
           const jy = cy + (r + 20) * Math.sin(angle);
           const isHovered = hoveredJunction === i;
 
+          // Check if this is an internal domestication junction
+          const currentPart = part as any;
+          const prevPart = i > 0 ? partAngles[i - 1] as any : null;
+          const isInternalJunction = currentPart._isSubFragment && prevPart?._isSubFragment &&
+            currentPart._parentIndex === prevPart._parentIndex;
+
           return (
             <g
               key={`junction-${i}`}
@@ -909,7 +917,9 @@ function CircularPlasmidView({ parts, overhangs, totalLength }: CircularPlasmidV
                 cx={cx + r * Math.cos(angle)}
                 cy={cy + r * Math.sin(angle)}
                 r={isHovered ? 6 : 4}
-                fill="#10b981"
+                fill={isInternalJunction ? "#f59e0b" : "#10b981"}
+                stroke={isInternalJunction ? "#d97706" : "none"}
+                strokeWidth="2"
                 className="transition-all duration-200"
               />
               {isHovered && (
@@ -990,14 +1000,21 @@ function CircularPlasmidView({ parts, overhangs, totalLength }: CircularPlasmidV
       <div className="plasmid-legend">
         {parts.map((part: Part, i: number) => {
           const typeInfo = PART_TYPES[part.type as keyof typeof PART_TYPES] || PART_TYPES.other;
+          const isSubFragment = (part as any)._isSubFragment;
           return (
             <div
               key={i}
-              className={`legend-item ${hoveredPart === i ? 'active' : ''}`}
+              className={`legend-item ${hoveredPart === i ? 'active' : ''} ${isSubFragment ? 'sub-fragment' : ''}`}
               onMouseEnter={() => setHoveredPart(i)}
               onMouseLeave={() => setHoveredPart(null)}
             >
-              <span className="legend-dot" style={{ backgroundColor: typeInfo.color }}></span>
+              <span
+                className="legend-dot"
+                style={{
+                  backgroundColor: typeInfo.color,
+                  border: isSubFragment ? '2px dashed currentColor' : 'none'
+                }}
+              ></span>
               <span className="legend-name">{part.id || `Part ${i + 1}`}</span>
             </div>
           );
