@@ -20361,9 +20361,8 @@ body {
 
 .gg-overview-header {
   display: flex;
-  flex-wrap: wrap;
-  gap: 1.25rem;
-  align-items: flex-start;
+  gap: 1.5rem;
+  align-items: center;
 }
 
 /* Quality Gauge */
@@ -20372,22 +20371,22 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
   flex-shrink: 0;
 }
 
 .gg-gauge-svg {
-  width: 120px;
-  height: 120px;
+  width: 140px;
+  height: 140px;
 }
 
 .gg-gauge-center {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -60%);
+  top: 70px;
+  left: 70px;
+  transform: translate(-50%, -50%);
   display: flex;
   align-items: baseline;
+  justify-content: center;
   gap: 0.1rem;
 }
 
@@ -20405,7 +20404,7 @@ body {
 
 .gg-gauge-label {
   text-align: center;
-  margin-top: -0.5rem;
+  margin-top: 0.25rem;
 }
 
 .gg-gauge-status {
@@ -20770,6 +20769,7 @@ body {
 /* Responsive adjustments for Overview */
 @media (max-width: 992px) {
   .gg-overview-header {
+    flex-wrap: wrap;
     justify-content: center;
   }
 
@@ -20778,6 +20778,16 @@ body {
     justify-content: center;
     flex: none;
     width: 100%;
+  }
+
+  .gg-gauge-svg {
+    width: 120px;
+    height: 120px;
+  }
+
+  .gg-gauge-center {
+    top: 60px;
+    left: 60px;
   }
 }
 
