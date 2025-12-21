@@ -3,6 +3,7 @@
  * Linear visualization of fragment assembly with junctions
  */
 
+import React from 'react';
 import { Fragment, FRAGMENT_TYPES } from '../../../types/fragmentPlanner';
 
 interface LinearAssemblyViewProps {
@@ -52,6 +53,7 @@ export function LinearAssemblyView({
           <div className="flex gap-0 relative z-10 ml-4">
             {fragments.map((fragment, idx) => {
               const typeInfo = FRAGMENT_TYPES[fragment.type];
+              const widthPercent = (fragment.length / totalLength) * 100;
               const minWidth = 80;
 
               return (

@@ -3,6 +3,7 @@
  * Shows design history with visual timeline and restore functionality
  */
 
+import React from 'react';
 import { useDesignStore } from '../../stores/designStore';
 import { HistoryEntry } from '../../types/fragmentPlanner';
 
