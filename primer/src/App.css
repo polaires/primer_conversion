@@ -21005,8 +21005,13 @@ body {
 .gg-primer-sequence .seq-enzyme { color: #ef4444; font-weight: 600; }
 .gg-primer-sequence .seq-spacer { color: #f59e0b; }
 .gg-primer-sequence .seq-overhang { color: #8b5cf6; font-weight: 600; }
-.gg-primer-sequence .seq-homology { color: #3b82f6; }
-.gg-primer-sequence .seq-annealing { color: #22c55e; }
+.gg-primer-sequence .seq-annealing {
+  color: #22c55e;
+  text-decoration: underline;
+  text-decoration-color: #86efac;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+}
 
 /* Metrics Grid */
 .gg-primer-metrics {
@@ -21157,6 +21162,263 @@ body {
   border-radius: 4px;
   font-size: 0.7rem;
   color: #d97706;
+}
+
+/* ========================================
+   Golden Gate Mutagenesis Section
+   ======================================== */
+
+.gg-mutagenesis-section {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.03), transparent);
+  border-radius: 12px;
+}
+
+/* Step Headers */
+.gg-step-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  background: var(--card-bg);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.gg-step-header.step1 {
+  border-left: 3px solid #f59e0b;
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.05), transparent);
+}
+
+.gg-step-header.step2 {
+  border-left: 3px solid #22c55e;
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.05), transparent);
+}
+
+.gg-step-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.gg-step-header.step1 .gg-step-badge {
+  background: rgba(245, 158, 11, 0.15);
+  color: #d97706;
+}
+
+.gg-step-header.step2 .gg-step-badge {
+  background: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+}
+
+.gg-step-header h4 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin: 0;
+}
+
+.gg-step-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-light);
+  margin-left: auto;
+}
+
+/* Mutagenesis Card List */
+.gg-mutagenesis-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+/* Mutagenesis Card */
+.gg-mutagenesis-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: all 0.2s;
+}
+
+.gg-mutagenesis-card:hover {
+  border-color: var(--primary-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* Mutagenesis Card Header */
+.gg-mut-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.08), transparent);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.gg-mut-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.5rem;
+  background: #f59e0b;
+  color: white;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.gg-mut-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.gg-mut-change {
+  padding: 0.2rem 0.4rem;
+  background: rgba(99, 102, 241, 0.1);
+  border-radius: 4px;
+}
+
+.gg-mut-change code {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: #6366f1;
+}
+
+.gg-mut-quality {
+  margin-left: auto;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+/* Mutagenesis Primer Sequences */
+.gg-mut-primers {
+  padding: 0.5rem 0.75rem;
+}
+
+.gg-mut-primer-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+}
+
+.gg-mut-primer-row:first-child {
+  border-bottom: 1px dashed var(--border-light);
+}
+
+.gg-mut-dir {
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  min-width: 32px;
+  text-align: center;
+}
+
+.gg-mut-dir.fwd {
+  background: rgba(59, 130, 246, 0.15);
+  color: #2563eb;
+}
+
+.gg-mut-dir.rev {
+  background: rgba(139, 92, 246, 0.15);
+  color: #7c3aed;
+}
+
+.gg-mut-seq-wrapper {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.gg-mut-sequence {
+  display: block;
+  font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-size: 0.72rem;
+  color: var(--text-dark);
+  background: var(--bg-subtle);
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.gg-mut-sequence:hover {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--primary-color);
+}
+
+.gg-mut-stats {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.65rem;
+  color: var(--text-light);
+  flex-shrink: 0;
+}
+
+.gg-mut-stats span {
+  white-space: nowrap;
+}
+
+/* Mutagenesis Instructions */
+.gg-mut-instructions {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0 0.75rem 0.5rem;
+  padding: 0.5rem;
+  background: rgba(245, 158, 11, 0.08);
+  border-radius: 6px;
+  border-left: 3px solid #f59e0b;
+}
+
+.gg-mut-instructions svg {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.gg-mut-instructions span {
+  font-size: 0.7rem;
+  color: var(--text-dark);
+  line-height: 1.4;
+}
+
+/* Step Divider */
+.gg-step-divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.gg-divider-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-color), transparent);
+}
+
+.gg-divider-text {
+  font-size: 0.7rem;
+  color: var(--text-light);
+  font-style: italic;
+  white-space: nowrap;
 }
 
 /* ========================================

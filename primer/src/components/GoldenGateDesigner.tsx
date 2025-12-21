@@ -1206,9 +1206,9 @@ function GGPrimerCard({ primer, direction, partId, overhang, onCopy, copiedId }:
   const enzymeLen = (structure.bsaISite || structure.recognitionSite)?.length || 0;
   const spacerLen = structure.spacer?.length || 0;
   const overhangLen = structure.overhang?.length || 0;
-  const homologyLen = structure.homology?.length || 0;
-  const annealingLen = structure.annealing?.length || 0;
-  const totalLen = safePrimer.length || (extraLen + enzymeLen + spacerLen + overhangLen + homologyLen + annealingLen);
+  // For Golden Gate, homology IS the annealing region (template-binding)
+  const annealingLen = structure.annealing?.length || structure.homology?.length || 0;
+  const totalLen = safePrimer.length || (extraLen + enzymeLen + spacerLen + overhangLen + annealingLen);
 
   // Get quality color
   const getQualityColor = (score: number) => {
@@ -1218,11 +1218,11 @@ function GGPrimerCard({ primer, direction, partId, overhang, onCopy, copiedId }:
     return '#ef4444';
   };
 
-  // Check for issues
-  const homology = structure.homology || '';
-  const last2 = homology.slice(-2).toUpperCase();
+  // Check for issues - use homology or annealing for 3' end check
+  const annealingSeq = structure.annealing || structure.homology || '';
+  const last2 = annealingSeq.slice(-2).toUpperCase();
   const gcClamp = (last2.match(/[GC]/g) || []).length;
-  const hasGGGG = /GGGG/i.test(homology);
+  const hasGGGG = /GGGG/i.test(annealingSeq);
 
   const breakdown = safePrimer.breakdown;
 
@@ -1275,21 +1275,18 @@ function GGPrimerCard({ primer, direction, partId, overhang, onCopy, copiedId }:
           {overhangLen > 0 && (
             <div className="gg-segment overhang" style={{ flex: overhangLen }} title={`Overhang: ${overhangLen}bp`} />
           )}
-          {homologyLen > 0 && (
-            <div className="gg-segment homology" style={{ flex: homologyLen }} title={`Homology: ${homologyLen}bp`} />
-          )}
           {annealingLen > 0 && (
             <div className="gg-segment annealing" style={{ flex: annealingLen }} title={`Annealing: ${annealingLen}bp`} />
           )}
         </div>
         <div className="gg-structure-legend">
           {enzymeLen > 0 && <span className="legend-item enzyme">BsaI</span>}
-          {overhangLen > 0 && <span className="legend-item overhang">{overhang || 'OH'}</span>}
-          <span className="legend-item annealing">{annealingLen}bp anneal</span>
+          {overhangLen > 0 && <span className="legend-item overhang">{overhang || structure.overhang || 'OH'}</span>}
+          {annealingLen > 0 && <span className="legend-item annealing">{annealingLen}bp anneal</span>}
         </div>
       </div>
 
-      {/* Sequence Display */}
+      {/* Sequence Display - with underline for annealing region */}
       <div className="gg-primer-sequence">
         <code>
           {structure.extra && <span className="seq-extra">{structure.extra}</span>}
@@ -1298,8 +1295,9 @@ function GGPrimerCard({ primer, direction, partId, overhang, onCopy, copiedId }:
           )}
           {structure.spacer && <span className="seq-spacer">{structure.spacer}</span>}
           {structure.overhang && <span className="seq-overhang">{structure.overhang}</span>}
-          {structure.homology && <span className="seq-homology">{structure.homology}</span>}
-          {structure.annealing && <span className="seq-annealing">{structure.annealing}</span>}
+          {(structure.homology || structure.annealing) && (
+            <span className="seq-annealing">{structure.homology || structure.annealing}</span>
+          )}
         </code>
       </div>
 
@@ -1970,71 +1968,111 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
           <div className="primers-panel">
             {/* Show mutagenesis primers first if silent mutation workflow */}
             {result._autoDomestication?.details?.some(d => d.workflowSteps?.length > 0) && (
-              <div className="mutagenesis-primers-section">
-                <div className="mutagenesis-section-header">
-                  <span className="section-badge step1">Step 1</span>
-                  <span className="section-title">Site-Directed Mutagenesis Primers</span>
+              <div className="gg-mutagenesis-section">
+                {/* Step 1 Header */}
+                <div className="gg-step-header step1">
+                  <div className="gg-step-badge">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                      <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                    </svg>
+                    <span>Step 1</span>
+                  </div>
+                  <h4>Site-Directed Mutagenesis</h4>
+                  <span className="gg-step-subtitle">Remove internal restriction sites with silent mutations</span>
                 </div>
-                {result._autoDomestication.details
-                  .filter(d => d.workflowSteps?.length > 0)
-                  .flatMap((detail: any, di: number) =>
-                    detail.workflowSteps
-                      .filter((step: any) => step.type === 'pcr_mutagenesis' && step.primers?.length > 0)
-                      .flatMap((step: any, si: number) => step.primers.map((primer: any, pi: number) => (
-                        <div key={`mut-${di}-${si}-${pi}`} className="primer-block mutagenesis">
-                          <div className="primer-block-header">
-                            <div className="header-left">
-                              <span className="part-tag mutagenesis-tag">M</span>
-                              <span className="part-name-label">{primer.name || `Mutagenesis ${pi + 1}`}</span>
+
+                {/* Mutagenesis Primer Cards */}
+                <div className="gg-mutagenesis-list">
+                  {result._autoDomestication.details
+                    .filter((d: any) => d.workflowSteps?.length > 0)
+                    .flatMap((detail: any, di: number) =>
+                      detail.workflowSteps
+                        .filter((step: any) => step.type === 'pcr_mutagenesis' && step.primers?.length > 0)
+                        .flatMap((step: any, si: number) => step.primers.map((primer: any, pi: number) => (
+                          <div key={`mut-${di}-${si}-${pi}`} className="gg-mutagenesis-card">
+                            {/* Card Header */}
+                            <div className="gg-mut-card-header">
+                              <span className="gg-mut-badge">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                                  <path d="M17.66 7.93L12 2.27 6.34 7.93c-3.12 3.12-3.12 8.19 0 11.31C7.9 20.8 9.95 21.58 12 21.58s4.1-.78 5.66-2.34c3.12-3.12 3.12-8.19 0-11.31zM12 19.59c-1.6 0-3.11-.62-4.24-1.76C6.62 16.69 6 15.19 6 13.59s.62-3.11 1.76-4.24L12 5.1v14.49z"/>
+                                </svg>
+                                M{di + 1}
+                              </span>
+                              <span className="gg-mut-name">{primer.name || `Mutagenesis ${pi + 1}`}</span>
                               {primer.codonChange && (
-                                <span className="mutation-info">
+                                <span className="gg-mut-change">
                                   <code>{primer.codonChange}</code>
                                 </span>
                               )}
+                              {primer.pairQuality && (
+                                <span className="gg-mut-quality" style={{
+                                  backgroundColor: primer.pairQuality >= 85 ? '#22c55e15' : primer.pairQuality >= 70 ? '#3b82f615' : '#f59e0b15',
+                                  color: primer.pairQuality >= 85 ? '#22c55e' : primer.pairQuality >= 70 ? '#3b82f6' : '#f59e0b',
+                                }}>
+                                  {primer.pairQuality}/100
+                                </span>
+                              )}
                             </div>
-                            {primer.pairQuality && (
-                              <span className="quality-score-badge" style={{
-                                backgroundColor: primer.pairQuality >= 85 ? '#22c55e20' : primer.pairQuality >= 70 ? '#3b82f620' : '#f59e0b20',
-                                color: primer.pairQuality >= 85 ? '#22c55e' : primer.pairQuality >= 70 ? '#3b82f6' : '#f59e0b',
-                              }}>
-                                {primer.pairQuality}/100
-                              </span>
+
+                            {/* Primer Sequences */}
+                            <div className="gg-mut-primers">
+                              <div className="gg-mut-primer-row">
+                                <span className="gg-mut-dir fwd">FWD</span>
+                                <div className="gg-mut-seq-wrapper">
+                                  <code className="gg-mut-sequence" onClick={() => copyToClipboard(primer.forward?.sequence, 'Forward primer')}>
+                                    {primer.forward?.sequence}
+                                  </code>
+                                </div>
+                                <div className="gg-mut-stats">
+                                  <span>{primer.forward?.length}bp</span>
+                                  <span>Tm {primer.forward?.homologyTm || primer.overlapTm || '—'}°C</span>
+                                </div>
+                              </div>
+                              <div className="gg-mut-primer-row">
+                                <span className="gg-mut-dir rev">REV</span>
+                                <div className="gg-mut-seq-wrapper">
+                                  <code className="gg-mut-sequence" onClick={() => copyToClipboard(primer.reverse?.sequence, 'Reverse primer')}>
+                                    {primer.reverse?.sequence}
+                                  </code>
+                                </div>
+                                <div className="gg-mut-stats">
+                                  <span>{primer.reverse?.length}bp</span>
+                                  <span>Tm {primer.reverse?.homologyTm || primer.overlapTm || '—'}°C</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Instructions */}
+                            {primer.instructions && (
+                              <div className="gg-mut-instructions">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="#f59e0b">
+                                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                                </svg>
+                                <span>{primer.instructions}</span>
+                              </div>
                             )}
                           </div>
-                          <div className="primer-sequences">
-                            <div className="primer-row">
-                              <span className="primer-label fwd">FWD</span>
-                              <code className="primer-sequence" onClick={() => copyToClipboard(primer.forward?.sequence, 'Forward primer')}>
-                                {primer.forward?.sequence}
-                              </code>
-                              <span className="primer-stats">
-                                {primer.forward?.length}bp • Tm {primer.forward?.homologyTm || primer.overlapTm}°C
-                              </span>
-                            </div>
-                            <div className="primer-row">
-                              <span className="primer-label rev">REV</span>
-                              <code className="primer-sequence" onClick={() => copyToClipboard(primer.reverse?.sequence, 'Reverse primer')}>
-                                {primer.reverse?.sequence}
-                              </code>
-                              <span className="primer-stats">
-                                {primer.reverse?.length}bp • Tm {primer.reverse?.homologyTm || primer.overlapTm}°C
-                              </span>
-                            </div>
-                          </div>
-                          {primer.instructions && (
-                            <div className="primer-instructions">
-                              <span className="instruction-icon">💡</span> {primer.instructions}
-                            </div>
-                          )}
-                        </div>
-                      )))
-                  )}
-                <div className="section-divider">
-                  <span className="divider-text">After completing mutagenesis, use the template for assembly:</span>
+                        )))
+                    )}
                 </div>
-                <div className="mutagenesis-section-header">
-                  <span className="section-badge step2">Step 2</span>
-                  <span className="section-title">Golden Gate Assembly Primers</span>
+
+                {/* Step 2 Divider */}
+                <div className="gg-step-divider">
+                  <div className="gg-divider-line"></div>
+                  <span className="gg-divider-text">After completing mutagenesis PCR, proceed to assembly</span>
+                  <div className="gg-divider-line"></div>
+                </div>
+
+                {/* Step 2 Header */}
+                <div className="gg-step-header step2">
+                  <div className="gg-step-badge">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                    </svg>
+                    <span>Step 2</span>
+                  </div>
+                  <h4>Golden Gate Assembly</h4>
+                  <span className="gg-step-subtitle">Assemble domesticated fragments</span>
                 </div>
               </div>
             )}
