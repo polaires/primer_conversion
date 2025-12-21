@@ -247,3 +247,46 @@ export {
   compareProteins,
   formatProteinForDisplay,
 } from './orf-detector.js';
+
+// ==============================================================================
+// UNIFIED MODULES (RECOMMENDED - consolidated implementations)
+// ==============================================================================
+
+// Unified Fidelity Calculation (consolidates all fidelity analysis)
+export {
+  calculateFidelity,
+  findGTMismatchRisks as findGTRisks,
+  quickFidelityCheck,
+  compareEnzymeFidelity as compareEnzymes,
+  type FidelityResult,
+  type FidelityOptions,
+  type GTMismatchRisk,
+  type JunctionFidelity,
+} from './fidelity-core.js';
+
+// Unified Overhang Validation (consolidates all validation)
+export {
+  validateOverhang as validateOverhangUnified,
+  validateOverhangSet,
+  filterOverhangCandidates,
+  hasZeroCrossLigation,
+  setHasZeroCrossLigation,
+  checkSiteRecreation,
+  checkMultipleJunctions,
+  type OverhangValidation as UnifiedOverhangValidation,
+  type SetValidation,
+  type ValidationContext,
+  type ValidationOptions,
+  type SiteRecreationResult,
+} from './overhang-validation.js';
+
+// Golden Gate Weights (layered scoring for GG-specific criteria)
+export {
+  GG_WEIGHT_MODIFIERS,
+  GG_WEIGHT_OVERRIDES,
+  computeGGModifiers,
+  computeUnifiedGGScore,
+  type GGScoringContext,
+  type GGModifierResult,
+  type UnifiedGGScoreResult,
+} from './goldengate-weights.js';

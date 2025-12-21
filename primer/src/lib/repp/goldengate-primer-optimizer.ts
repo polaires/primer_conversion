@@ -31,6 +31,9 @@ import {
   findAlternativeEnzymes,
   suggestDomestication,
 } from './goldengate.js';
+import {
+  calculateFidelity as calculateUnifiedFidelity,
+} from './fidelity-core.js';
 import { calculateHairpinDG, calculateHomodimerDG, calculateHeterodimerDG } from '../equilibrium.js';
 import { calculate3primeTerminalDG, calculateTmQ5 } from '../tmQ5.js';
 import {
@@ -891,12 +894,6 @@ export function findGTMismatchRisks(overhangs: any, config: any = {}) {
  * @returns {Object} Enhanced fidelity data
  */
 export function calculateEnhancedFidelity(overhangs: any, enzyme = 'BsaI', config: any = {}) {
-  const {
-    defaultFidelityFallback = GG_OPTIMIZER_DEFAULTS.defaultFidelityFallback,
-    gtMismatchFactor = GG_OPTIMIZER_DEFAULTS.gtMismatchFactor,
-    useMatrixData = true, // Default to matrix-based calculation (most accurate)
-  } = config;
-
   // Handle empty or invalid input gracefully
   if (!Array.isArray(overhangs) || overhangs.length === 0) {
     return {
@@ -913,81 +910,39 @@ export function calculateEnhancedFidelity(overhangs: any, enzyme = 'BsaI', confi
     };
   }
 
-  let baseFidelity = 1.0;
-  let junctionFidelities: any[] = [];
-  let calculationMethod = 'static';
+  // Use the unified fidelity calculation from fidelity-core.ts
+  const unifiedResult = calculateUnifiedFidelity(overhangs, enzyme, {
+    includeGTRisks: true,
+    includeEfficiency: true,
+  });
 
-  // PRIMARY: Use matrix-based calculation (accounts for cross-reactivity within this set)
-  if (useMatrixData) {
-    const matrixResult = calculateExperimentalFidelity(overhangs, enzyme);
+  // Convert junction format for backwards compatibility
+  const junctionFidelities = unifiedResult.junctions.map(j => ({
+    overhang: j.overhang,
+    fidelity: j.fidelity,
+    category: j.fidelity >= 0.95 ? 'excellent' :
+              j.fidelity >= 0.90 ? 'good' :
+              j.fidelity >= 0.80 ? 'medium' : 'low',
+    correctFreq: j.correctFreq,
+    totalFreq: j.totalFreq,
+  }));
 
-    // Check if we got valid matrix-based results
-    if (matrixResult.source === 'experimental' && matrixResult.assemblyFidelity > 0) {
-      baseFidelity = matrixResult.assemblyFidelity;
-      calculationMethod = 'matrix';
-
-      // Convert junction format for consistency
-      junctionFidelities = matrixResult.junctions.map(j => ({
-        overhang: j.overhang,
-        fidelity: j.fidelity,
-        category: j.fidelity >= 0.95 ? 'excellent' :
-                  j.fidelity >= 0.90 ? 'good' :
-                  j.fidelity >= 0.80 ? 'medium' : 'low',
-        correctFreq: j.correctFreq,
-        totalFreq: j.totalFreq,
-      }));
-    }
-  }
-
-  // FALLBACK: Use static data if matrix calculation failed or not requested
-  if (calculationMethod === 'static') {
-    baseFidelity = 1.0;
-    junctionFidelities = [];
-
-    for (const oh of overhangs) {
-      if (!oh) continue;
-
-      const ohUpper = oh.toUpperCase();
-      const staticData = OVERHANG_FIDELITY[ohUpper];
-      const junctionFidelity = staticData?.fidelity || defaultFidelityFallback;
-      const category = staticData?.category || 'unknown';
-
-      baseFidelity *= junctionFidelity;
-      junctionFidelities.push({
-        overhang: ohUpper,
-        fidelity: junctionFidelity,
-        category,
-      });
-    }
-  }
-
-  // Find G:T mismatch risks (applies to both methods)
-  const gtRisks = findGTMismatchRisks(overhangs, { gtMismatchFactor });
-
-  // Adjust fidelity based on G:T risks
-  // Note: For matrix calculation, cross-ligation is already accounted for,
-  // but G:T wobbles may not be fully captured in the experimental data
-  let gtPenalty = 1.0;
-  if (calculationMethod === 'static') {
-    // Only apply G:T penalty for static method (matrix already includes cross-ligation)
-    gtRisks.forEach(risk => {
-      gtPenalty *= (1 - risk.expectedMisLigation);
-    });
-  }
-
-  const gtAdjustedFidelity = baseFidelity * gtPenalty;
+  // Calculate G:T penalty from unified results
+  const gtPenalty = unifiedResult.assemblyFidelity > 0
+    ? unifiedResult.gtAdjustedFidelity / unifiedResult.assemblyFidelity
+    : 1.0;
 
   return {
-    baseFidelity,
-    baseFidelityPercent: `${(baseFidelity * 100).toFixed(1)}%`,
-    gtAdjustedFidelity,
-    gtAdjustedFidelityPercent: `${(gtAdjustedFidelity * 100).toFixed(1)}%`,
+    baseFidelity: unifiedResult.assemblyFidelity,
+    baseFidelityPercent: unifiedResult.assemblyFidelityPercent,
+    gtAdjustedFidelity: unifiedResult.gtAdjustedFidelity,
+    gtAdjustedFidelityPercent: unifiedResult.gtAdjustedFidelityPercent,
     gtPenalty,
     gtPenaltyPercent: `${((1 - gtPenalty) * 100).toFixed(1)}%`,
-    gtRisks,
+    gtRisks: unifiedResult.gtRisks,
     junctionFidelities,
-    hasGTRisks: gtRisks.length > 0,
-    calculationMethod, // 'matrix' or 'static'
+    hasGTRisks: unifiedResult.hasGTRisks,
+    calculationMethod: unifiedResult.source, // 'matrix' or 'static' or 'fallback'
   };
 }
 
