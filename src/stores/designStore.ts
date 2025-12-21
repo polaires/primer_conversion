@@ -10,6 +10,8 @@ import {
   DesignStore,
   DesignState,
   Fragment,
+  AssemblyConstraints,
+  AssemblyMethod,
   HistoryEntry,
   DesignSnapshot,
   SolverResult,
@@ -514,6 +516,8 @@ export const useDesignStore = create<DesignStore>()(
         },
 
         importDesign: (snapshot) => {
+          const prevState = get();
+
           set((draft) => {
             draft.fragments = snapshot.fragments.map((f) => ({
               ...f,
