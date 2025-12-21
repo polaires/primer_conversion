@@ -875,6 +875,10 @@ export function findGTMismatchRisks(overhangs: any, config: any = {}) {
 /**
  * Calculate enhanced fidelity including G:T mismatch penalties
  *
+ * @deprecated Use `calculateFidelity` from `fidelity-core.ts` instead.
+ * The unified module consolidates matrix-based calculation, G:T risks,
+ * and efficiency penalties into a single comprehensive analysis.
+ *
  * PRIMARY METHOD: Uses experimental ligation frequency matrix to calculate
  * cross-reactivity between overhangs in this specific assembly set.
  * This is more accurate than product-of-individual-fidelities.
@@ -2038,6 +2042,405 @@ function calculateTmSimple(seq: any) {
   }
   // Longer primers: use nearest-neighbor approximation
   return 64.9 + 41 * (gc - 16.4) / seq.length;
+}
+
+// ============================================================================
+// TEMPERATURE-AWARE HOMOLOGY SELECTION
+// ============================================================================
+
+/**
+ * Temperature preferences for primer design
+ */
+export interface TemperaturePreferences {
+  /** Target annealing temperature (default: 58°C for GG) */
+  targetTa: number;
+
+  /** Prefer lower annealing temperature when possible */
+  preferLowerTa: boolean;
+
+  /** Maximum acceptable annealing temperature (default: 72°C) */
+  maxAcceptableTa: number;
+
+  /** Acceptable temperature range */
+  acceptableRange: {
+    min: number;
+    max: number;
+  };
+}
+
+/**
+ * Default temperature preferences (NEB Golden Gate recommendations)
+ */
+export const DEFAULT_TEMPERATURE_PREFS: TemperaturePreferences = {
+  targetTa: 58,
+  preferLowerTa: true,
+  maxAcceptableTa: 72,
+  acceptableRange: {
+    min: 50,
+    max: 72,
+  },
+};
+
+/**
+ * Homology candidate for temperature-aware selection
+ */
+export interface HomologyCandidate {
+  sequence: string;
+  startPosition: number;
+  endPosition: number;
+  length: number;
+  tm: number;
+  gcContent: number;
+  quality: {
+    score: number;
+    tier: string;
+    issues: string[];
+  };
+}
+
+/**
+ * Result of temperature-aware homology selection
+ */
+export interface HomologySelectionResult {
+  selected: HomologyCandidate;
+  alternatives: HomologyCandidate[];
+  temperatureOptimized: boolean;
+  warnings: string[];
+  selectionReason: string;
+}
+
+/**
+ * Generate homology candidates with different lengths and shifts
+ */
+function generateHomologyCandidates(
+  template: string,
+  position: number,
+  direction: 'forward' | 'reverse',
+  options: {
+    minLength?: number;
+    maxLength?: number;
+    shiftRange?: [number, number];
+  } = {}
+): HomologyCandidate[] {
+  const {
+    minLength = 18,
+    maxLength = 28,
+    shiftRange = [-5, 5],
+  } = options;
+
+  const candidates: HomologyCandidate[] = [];
+  const seq = template.toUpperCase();
+
+  // Generate candidates with different lengths and shifts
+  for (let length = minLength; length <= maxLength; length++) {
+    for (let shift = shiftRange[0]; shift <= shiftRange[1]; shift++) {
+      let startPos: number;
+      let endPos: number;
+
+      if (direction === 'forward') {
+        // Forward primer: homology is downstream of overhang
+        startPos = position + shift;
+        endPos = startPos + length;
+      } else {
+        // Reverse primer: homology is upstream of overhang
+        endPos = position + shift;
+        startPos = endPos - length;
+      }
+
+      // Validate bounds
+      if (startPos < 0 || endPos > seq.length) continue;
+
+      const homologySeq = seq.slice(startPos, endPos);
+
+      // Skip if contains invalid characters
+      if (!/^[ATGC]+$/i.test(homologySeq)) continue;
+
+      const tm = calculateTmSimple(homologySeq);
+      const gcCount = (homologySeq.match(/[GC]/gi) || []).length;
+      const gcContent = gcCount / homologySeq.length;
+
+      // Score the candidate
+      const quality = scoreHomologyCandidate(homologySeq);
+
+      candidates.push({
+        sequence: homologySeq,
+        startPosition: startPos,
+        endPosition: endPos,
+        length: homologySeq.length,
+        tm,
+        gcContent,
+        quality,
+      });
+    }
+  }
+
+  return candidates;
+}
+
+/**
+ * Score a homology candidate for quality
+ */
+function scoreHomologyCandidate(homology: string): { score: number; tier: string; issues: string[] } {
+  let score = 100;
+  const issues: string[] = [];
+  const seq = homology.toUpperCase();
+
+  // GC content (ideal: 40-60%)
+  const gcCount = (seq.match(/[GC]/gi) || []).length;
+  const gc = gcCount / seq.length;
+
+  if (gc < 0.30) {
+    issues.push('Low GC content (<30%)');
+    score -= 20;
+  } else if (gc < 0.40) {
+    issues.push('Low GC content (<40%)');
+    score -= 10;
+  } else if (gc > 0.70) {
+    issues.push('High GC content (>70%)');
+    score -= 15;
+  } else if (gc > 0.60) {
+    issues.push('High GC content (>60%)');
+    score -= 5;
+  }
+
+  // 3' end quality (GC clamp)
+  const last2 = seq.slice(-2);
+  const gcInLast2 = (last2.match(/[GC]/gi) || []).length;
+
+  if (gcInLast2 === 0) {
+    issues.push('No GC clamp');
+    score -= 15;
+  }
+
+  // Homopolymer runs
+  if (/(.)\1{3,}/.test(seq)) {
+    issues.push('Long homopolymer run (4+)');
+    score -= 20;
+  } else if (/(.)\1{2}/.test(seq)) {
+    issues.push('Homopolymer run (3+)');
+    score -= 5;
+  }
+
+  // Self-complementarity (hairpin potential)
+  // Simple check: look for inverted repeats
+  for (let i = 4; i <= Math.floor(seq.length / 2); i++) {
+    const start = seq.slice(0, i);
+    const end = seq.slice(-i);
+    const endRC = reverseComplement(end);
+
+    if (start === endRC) {
+      issues.push('Potential hairpin structure');
+      score -= 15;
+      break;
+    }
+  }
+
+  // Determine tier
+  let tier: string;
+  if (score >= 90) tier = 'excellent';
+  else if (score >= 75) tier = 'good';
+  else if (score >= 60) tier = 'acceptable';
+  else tier = 'poor';
+
+  return { score, tier, issues };
+}
+
+/**
+ * Temperature-aware homology selection
+ *
+ * Selects optimal homology region considering:
+ * 1. User temperature preferences (prefer lower Ta when possible)
+ * 2. Quality factors (GC clamp, hairpins, etc.)
+ * 3. Acceptable temperature range
+ *
+ * @param template - Template sequence
+ * @param position - Position for homology region
+ * @param direction - Primer direction
+ * @param options - Selection options including temperature preferences
+ * @returns Selected homology with alternatives
+ */
+export function selectOptimalHomology(
+  template: string,
+  position: number,
+  direction: 'forward' | 'reverse',
+  options: {
+    temperature?: Partial<TemperaturePreferences>;
+    minLength?: number;
+    maxLength?: number;
+    minQualityScore?: number;
+  } = {}
+): HomologySelectionResult {
+  const tempPrefs: TemperaturePreferences = {
+    ...DEFAULT_TEMPERATURE_PREFS,
+    ...options.temperature,
+  };
+
+  const minQualityScore = options.minQualityScore ?? 60;
+
+  // Generate all candidates
+  const candidates = generateHomologyCandidates(template, position, direction, {
+    minLength: options.minLength ?? 18,
+    maxLength: options.maxLength ?? 28,
+  });
+
+  if (candidates.length === 0) {
+    return {
+      selected: {
+        sequence: '',
+        startPosition: position,
+        endPosition: position,
+        length: 0,
+        tm: 0,
+        gcContent: 0,
+        quality: { score: 0, tier: 'poor', issues: ['No valid candidates found'] },
+      },
+      alternatives: [],
+      temperatureOptimized: false,
+      warnings: ['No valid homology candidates found at this position'],
+      selectionReason: 'no_candidates',
+    };
+  }
+
+  // Partition by temperature threshold
+  const belowThreshold = candidates.filter(
+    c => c.tm <= tempPrefs.maxAcceptableTa && c.quality.score >= minQualityScore
+  );
+
+  const aboveThreshold = candidates.filter(
+    c => c.tm > tempPrefs.maxAcceptableTa && c.quality.score >= minQualityScore
+  );
+
+  // If we have candidates below the temperature threshold
+  if (belowThreshold.length > 0) {
+    // Sort based on preference
+    if (tempPrefs.preferLowerTa) {
+      // Primary: quality must be acceptable (>= minQualityScore)
+      // Secondary: prefer lower Tm within acceptable quality
+      belowThreshold.sort((a, b) => {
+        // Both acceptable quality - prefer lower Tm
+        if (a.quality.score >= 75 && b.quality.score >= 75) {
+          return a.tm - b.tm;
+        }
+        // One has better quality - prefer that one
+        if (a.quality.score >= 75 && b.quality.score < 75) return -1;
+        if (b.quality.score >= 75 && a.quality.score < 75) return 1;
+
+        // Both marginal quality - prefer lower Tm
+        return a.tm - b.tm;
+      });
+    } else {
+      // Sort by quality only
+      belowThreshold.sort((a, b) => b.quality.score - a.quality.score);
+    }
+
+    const selected = belowThreshold[0];
+    const alternatives = belowThreshold.slice(1, 4);
+
+    return {
+      selected,
+      alternatives,
+      temperatureOptimized: true,
+      warnings: [],
+      selectionReason: tempPrefs.preferLowerTa
+        ? `Selected lowest Tm (${selected.tm.toFixed(1)}°C) with acceptable quality`
+        : `Selected highest quality (${selected.quality.tier}) within temperature limit`,
+    };
+  }
+
+  // Fallback: use best available above threshold
+  if (aboveThreshold.length > 0) {
+    aboveThreshold.sort((a, b) => b.quality.score - a.quality.score);
+
+    const selected = aboveThreshold[0];
+
+    return {
+      selected,
+      alternatives: aboveThreshold.slice(1, 4),
+      temperatureOptimized: false,
+      warnings: [
+        `No primer found with Tm ≤ ${tempPrefs.maxAcceptableTa}°C. ` +
+        `Selected primer has Tm = ${selected.tm.toFixed(1)}°C. ` +
+        `Consider adjusting junction position or using shorter homology.`,
+      ],
+      selectionReason: 'above_threshold_fallback',
+    };
+  }
+
+  // Last fallback: any candidate
+  candidates.sort((a, b) => b.quality.score - a.quality.score);
+  const selected = candidates[0];
+
+  return {
+    selected,
+    alternatives: candidates.slice(1, 4),
+    temperatureOptimized: false,
+    warnings: [
+      `All candidates have quality issues. Best available: ${selected.quality.tier} ` +
+      `(Tm=${selected.tm.toFixed(1)}°C, score=${selected.quality.score})`,
+    ],
+    selectionReason: 'best_available_fallback',
+  };
+}
+
+/**
+ * Analyze temperature distribution of homology options
+ *
+ * Useful for understanding available temperature range at a position.
+ */
+export function analyzeHomologyTemperatureRange(
+  template: string,
+  position: number,
+  direction: 'forward' | 'reverse',
+  options: {
+    minLength?: number;
+    maxLength?: number;
+  } = {}
+): {
+  minTm: number;
+  maxTm: number;
+  optimalTm: number;
+  distribution: { tm: number; count: number; avgQuality: number }[];
+} {
+  const candidates = generateHomologyCandidates(template, position, direction, options);
+
+  if (candidates.length === 0) {
+    return {
+      minTm: 0,
+      maxTm: 0,
+      optimalTm: 0,
+      distribution: [],
+    };
+  }
+
+  const tms = candidates.map(c => c.tm);
+  const minTm = Math.min(...tms);
+  const maxTm = Math.max(...tms);
+
+  // Find optimal: highest quality with reasonable Tm
+  const sortedByQuality = [...candidates].sort((a, b) => b.quality.score - a.quality.score);
+  const optimalTm = sortedByQuality[0].tm;
+
+  // Build temperature distribution (binned by 2°C)
+  const bins: Map<number, { count: number; totalQuality: number }> = new Map();
+
+  for (const c of candidates) {
+    const bin = Math.floor(c.tm / 2) * 2;
+    const existing = bins.get(bin) || { count: 0, totalQuality: 0 };
+    bins.set(bin, {
+      count: existing.count + 1,
+      totalQuality: existing.totalQuality + c.quality.score,
+    });
+  }
+
+  const distribution = Array.from(bins.entries())
+    .map(([tm, data]) => ({
+      tm,
+      count: data.count,
+      avgQuality: data.totalQuality / data.count,
+    }))
+    .sort((a, b) => a.tm - b.tm);
+
+  return { minTm, maxTm, optimalTm, distribution };
 }
 
 /**

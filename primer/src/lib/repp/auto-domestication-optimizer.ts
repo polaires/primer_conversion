@@ -12,6 +12,10 @@
 
 import { GOLDEN_GATE_ENZYMES, calculateExperimentalFidelity, getEnzymeLigationData, findInternalSites } from './goldengate.js';
 import { reverseComplement } from './enzymes.js';
+import {
+  validateOverhang,
+  checkSiteRecreation,
+} from './overhang-validation.js';
 
 /**
  * Configuration for auto-domestication
@@ -702,6 +706,8 @@ function doesJunctionBreakSite(
 
 /**
  * Score an overhang for use in domestication
+ *
+ * Uses the unified overhang-validation module for consistent scoring.
  */
 function scoreOverhangForDomestication(
   overhang: string,
@@ -709,67 +715,45 @@ function scoreOverhangForDomestication(
   sequence: string,
   position: number
 ): OverhangQuality {
-  let score = 70; // Base score
-  const issues: string[] = [];
+  // Use the unified validation module
+  const validation = validateOverhang(overhang, {
+    enzyme,
+  });
+
+  // Convert unified validation to local OverhangQuality format
+  const issues: string[] = validation.issues
+    .filter(i => i.severity === 'error' || i.severity === 'warning')
+    .map(i => i.message);
+
   const benefits: string[] = [];
 
-  // Check for palindrome (self-complementary)
-  const rc = reverseComplement(overhang);
-  if (overhang === rc) {
-    score -= 30;
-    issues.push('Palindromic overhang - can self-ligate');
-  }
-
-  // Check for homopolymers
-  if (/^(.)\1{3}$/.test(overhang)) {
-    score -= 25;
-    issues.push('Homopolymer - very low fidelity');
-  } else if (/(.)\1{2}/.test(overhang)) {
-    score -= 10;
-    issues.push('Contains triplet repeat');
-  }
-
-  // Check GC content
-  const gc = (overhang.match(/[GC]/g) || []).length / overhang.length;
-  if (gc === 0.5) {
-    score += 10;
-    benefits.push('Optimal GC content (50%)');
-  } else if (gc < 0.25 || gc > 0.75) {
-    score -= 10;
-    issues.push('Extreme GC content');
-  }
-
-  // Check for TNNA pattern (high efficiency)
-  if (/^T..A$/.test(overhang)) {
-    score += 5;
+  // Check for TNNA pattern benefit (not flagged as issue in unified module)
+  if (/^T..A$/.test(overhang.toUpperCase())) {
     benefits.push('TNNA pattern - high ligation efficiency');
   }
 
-  // Try to get experimental fidelity data
-  try {
-    const ligData = getEnzymeLigationData(enzyme);
-    if (ligData && (ligData as any)[overhang]) {
-      const selfLigation = (ligData as any)[overhang][overhang] || 0;
-      if (selfLigation > 0.9) {
-        score += 15;
-        benefits.push('High self-ligation efficiency');
-      }
-    }
-  } catch (e) {
-    // No ligation data available
+  // gcContent is 0-1, convert to percent for comparison
+  const gcPercent = validation.details.gcContent * 100;
+
+  // Check for optimal GC content (45-55%)
+  if (gcPercent >= 45 && gcPercent <= 55) {
+    benefits.push('Optimal GC content');
   }
 
   return {
-    score: Math.max(0, Math.min(100, score)),
+    score: validation.score,
     issues,
     benefits,
-    gc: gc * 100,
-    isPalindrome: overhang === rc,
+    gc: gcPercent,
+    isPalindrome: validation.details.isPalindrome,
   };
 }
 
 /**
  * Check if assembling with this junction would recreate the recognition site
+ *
+ * Uses the unified checkSiteRecreation function from overhang-validation.ts
+ * for comprehensive site recreation analysis.
  */
 function wouldRecreateRecognitionSite(
   sequence: string,
@@ -779,20 +763,20 @@ function wouldRecreateRecognitionSite(
   enzyme: string
 ): boolean {
   const seq = sequence.toUpperCase();
-  const recognitionRC = reverseComplement(recognition);
 
   // Get the overhang
   const overhang = seq.slice(junctionPos, junctionPos + overhangLen);
 
-  // Check 1: Is the overhang itself the recognition site or its reverse complement?
-  if (overhang === recognition.slice(0, overhangLen) ||
-      overhang === recognitionRC.slice(0, overhangLen)) {
-    return true;
-  }
+  // Get flanking sequences for comprehensive analysis
+  const flankingLen = 10; // Check 10bp on each side
+  const upstreamSeq = seq.slice(Math.max(0, junctionPos - flankingLen), junctionPos);
+  const downstreamSeq = seq.slice(junctionPos + overhangLen, junctionPos + overhangLen + flankingLen);
 
-  // For domestication purposes (breaking existing sites), we're generally safe
-  // as long as the overhang isn't at the very start of the recognition pattern
-  return false;
+  // Use the unified site recreation check
+  const result = checkSiteRecreation(upstreamSeq, downstreamSeq, overhang, enzyme);
+
+  // Return true if there's any high risk of site recreation
+  return result.recreatesSite || result.risk === 'high';
 }
 
 /**

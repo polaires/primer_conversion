@@ -24,7 +24,7 @@ interface PatternPenalty {
   severity: 'low' | 'medium' | 'high';
 }
 
-interface EfficiencyPenalty {
+export interface EfficiencyPenalty {
   type: 'pattern' | 'specific';
   name: string;
   factor: number;
@@ -33,7 +33,7 @@ interface EfficiencyPenalty {
   reducedDueToSpecific?: boolean;
 }
 
-interface EfficiencyResult {
+export interface EfficiencyResult {
   overhang: string;
   efficiency: number;
   efficiencyPercent: string;
@@ -49,7 +49,7 @@ interface EfficiencyResult {
   isTNNA: boolean;
 }
 
-interface SetEfficiencyResult {
+export interface SetEfficiencyResult {
   overhangs: string[];
   individual: EfficiencyResult[];
   combinedEfficiency: number;

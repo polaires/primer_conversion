@@ -925,6 +925,10 @@ function scoreJunctionCandidates(
 
 /**
  * Score overhang fidelity using NEB experimental data
+ *
+ * @deprecated Use `calculateFidelity` from `fidelity-core.ts` instead for
+ * comprehensive fidelity analysis. For primer-specific GG scoring, use
+ * `computeUnifiedGGScore` from `goldengate-weights.ts`.
  */
 export function scoreOverhangFidelity(
   overhang: string,
