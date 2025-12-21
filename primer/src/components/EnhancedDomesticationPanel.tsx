@@ -56,9 +56,15 @@ interface ORF {
   frame: number;
   start: number;
   end: number;
+  length?: number;
   proteinLength: number;
+  proteinSequence?: string;
   strand: 'forward' | 'reverse';
-  avgCodonUsage: number;
+  avgCodonUsage: string | number; // Can be string from orf-detector or number
+  score?: number;
+  codons?: string[];
+  hasRareCodon?: boolean;
+  stopCodon?: string | null;
 }
 
 interface ORFDetectionResult {
@@ -1082,7 +1088,11 @@ function FrameSelectionStep({
                   </div>
                   <div className="detail-row">
                     <span className="label">Codon Usage:</span>
-                    <span className="value">{opt.bestOrf.avgCodonUsage}/1000 avg</span>
+                    <span className="value">
+                      {typeof opt.bestOrf.avgCodonUsage === 'number'
+                        ? opt.bestOrf.avgCodonUsage.toFixed(1)
+                        : opt.bestOrf.avgCodonUsage ?? 'N/A'}/1000 avg
+                    </span>
                   </div>
                 </>
               ) : (
