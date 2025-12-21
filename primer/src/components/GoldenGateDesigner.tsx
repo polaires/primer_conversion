@@ -1477,41 +1477,47 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
             <div className="gg-overview-header">
               {/* Quality Gauge */}
               <div className="gg-quality-gauge">
-                <svg viewBox="0 0 120 120" className="gg-gauge-svg">
-                  {/* Background circle */}
-                  <circle cx="60" cy="60" r="50" fill="none" stroke="#e5e7eb" strokeWidth="10" />
-                  {/* Progress circle */}
-                  <circle
-                    cx="60" cy="60" r="50"
-                    fill="none"
-                    stroke={
-                      (result.fidelity?.overall || 0) >= 0.95 ? '#22c55e' :
-                      (result.fidelity?.overall || 0) >= 0.90 ? '#84cc16' :
-                      (result.fidelity?.overall || 0) >= 0.80 ? '#f59e0b' : '#ef4444'
-                    }
-                    strokeWidth="10"
-                    strokeLinecap="round"
-                    strokeDasharray={`${(result.fidelity?.overall || 0) * 314.16} 314.16`}
-                    transform="rotate(-90 60 60)"
-                    style={{ transition: 'stroke-dasharray 0.5s ease' }}
-                  />
-                </svg>
-                <div className="gg-gauge-center">
-                  <span className="gg-gauge-value">{((result.fidelity?.overall || 0) * 100).toFixed(1)}</span>
-                  <span className="gg-gauge-unit">%</span>
-                </div>
-                <div className="gg-gauge-label">
-                  <span className="gg-gauge-status" style={{
-                    color: (result.fidelity?.overall || 0) >= 0.95 ? '#22c55e' :
-                           (result.fidelity?.overall || 0) >= 0.90 ? '#84cc16' :
-                           (result.fidelity?.overall || 0) >= 0.80 ? '#f59e0b' : '#ef4444'
-                  }}>
-                    {(result.fidelity?.overall || 0) >= 0.95 ? 'Excellent' :
-                     (result.fidelity?.overall || 0) >= 0.90 ? 'Good' :
-                     (result.fidelity?.overall || 0) >= 0.80 ? 'Moderate' : 'Low'}
-                  </span>
-                  <span className="gg-gauge-sublabel">Assembly Fidelity</span>
-                </div>
+                {(() => {
+                  // Parse fidelity percentage from string like "95.2%" to decimal 0.952
+                  const fidelityValue = result.fidelity?.percentage
+                    ? parseFloat(result.fidelity.percentage.replace('%', '')) / 100
+                    : 0;
+                  const fidelityColor = fidelityValue >= 0.95 ? '#22c55e' :
+                                       fidelityValue >= 0.90 ? '#84cc16' :
+                                       fidelityValue >= 0.80 ? '#f59e0b' : '#ef4444';
+                  const fidelityStatus = fidelityValue >= 0.95 ? 'Excellent' :
+                                        fidelityValue >= 0.90 ? 'Good' :
+                                        fidelityValue >= 0.80 ? 'Moderate' : 'Low';
+                  return (
+                    <>
+                      <svg viewBox="0 0 120 120" className="gg-gauge-svg">
+                        {/* Background circle */}
+                        <circle cx="60" cy="60" r="50" fill="none" stroke="#e5e7eb" strokeWidth="10" />
+                        {/* Progress circle */}
+                        <circle
+                          cx="60" cy="60" r="50"
+                          fill="none"
+                          stroke={fidelityColor}
+                          strokeWidth="10"
+                          strokeLinecap="round"
+                          strokeDasharray={`${fidelityValue * 314.16} 314.16`}
+                          transform="rotate(-90 60 60)"
+                          style={{ transition: 'stroke-dasharray 0.5s ease' }}
+                        />
+                      </svg>
+                      <div className="gg-gauge-center">
+                        <span className="gg-gauge-value">{(fidelityValue * 100).toFixed(1)}</span>
+                        <span className="gg-gauge-unit">%</span>
+                      </div>
+                      <div className="gg-gauge-label">
+                        <span className="gg-gauge-status" style={{ color: fidelityColor }}>
+                          {fidelityStatus}
+                        </span>
+                        <span className="gg-gauge-sublabel">Assembly Fidelity</span>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
               {/* Export Panel */}
@@ -1638,7 +1644,7 @@ function PrimerResults({ result, onCopy, method, enzyme, isGoldenGate: isGoldenG
                 {result.parts?.map((part: any, i: number) => (
                   <div key={i} className="gg-primer-table-row">
                     <span className="col-part">
-                      <span className="part-color" style={{ backgroundColor: PART_TYPES[part.type]?.color || '#8b5cf6' }} />
+                      <span className="part-color" style={{ backgroundColor: (PART_TYPES as Record<string, { color: string }>)[part.type]?.color || '#8b5cf6' }} />
                       {part.id || `Part ${i + 1}`}
                     </span>
                     <span className="col-fwd" title={part.primers?.forward?.sequence || ''}>
