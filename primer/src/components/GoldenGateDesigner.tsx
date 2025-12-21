@@ -1024,6 +1024,18 @@ function CircularPlasmidView({ parts, overhangs, totalLength }: CircularPlasmidV
           const ly = cy + labelR * Math.sin(angle);
           const typeInfo = PART_TYPES[part.type as keyof typeof PART_TYPES] || PART_TYPES.other;
 
+          // Smart label: show fragment number if it's a sub-fragment
+          const partId = part.id || `Part ${i + 1}`;
+          const fragMatch = partId.match(/^(.+)_frag(\d+)$/);
+          let displayLabel: string;
+          if (fragMatch) {
+            // Show abbreviated parent name + fragment indicator
+            const parentName = fragMatch[1].slice(0, 6);
+            displayLabel = `${parentName}.${fragMatch[2]}`;
+          } else {
+            displayLabel = partId.slice(0, 8);
+          }
+
           return (
             <g key={`label-${i}`}>
               <text
@@ -1031,11 +1043,11 @@ function CircularPlasmidView({ parts, overhangs, totalLength }: CircularPlasmidV
                 y={ly}
                 textAnchor="middle"
                 dominantBaseline="middle"
-                fontSize="10"
+                fontSize="9"
                 fontWeight="600"
                 fill={hoveredPart === i ? typeInfo.color : '#374151'}
               >
-                {(part.id || `Part ${i + 1}`).slice(0, 8)}
+                {displayLabel}
               </text>
             </g>
           );
@@ -1070,12 +1082,15 @@ function CircularPlasmidView({ parts, overhangs, totalLength }: CircularPlasmidV
           const typeInfo = PART_TYPES[part.type as keyof typeof PART_TYPES] || PART_TYPES.other;
           // Detect sub-fragment by property or name pattern (e.g., GFP_cds_frag1)
           const isSubFragment = (part as any)._isSubFragment || /_frag\d+$/.test(part.id || '');
+          const partId = part.id || `Part ${i + 1}`;
+
           return (
             <div
               key={i}
               className={`legend-item ${hoveredPart === i ? 'active' : ''} ${isSubFragment ? 'sub-fragment' : ''}`}
               onMouseEnter={() => setHoveredPart(i)}
               onMouseLeave={() => setHoveredPart(null)}
+              title={partId}
             >
               <span
                 className="legend-dot"
@@ -1084,7 +1099,7 @@ function CircularPlasmidView({ parts, overhangs, totalLength }: CircularPlasmidV
                   border: isSubFragment ? '2px dashed currentColor' : 'none'
                 }}
               ></span>
-              <span className="legend-name">{part.id || `Part ${i + 1}`}</span>
+              <span className="legend-name">{partId}</span>
             </div>
           );
         })}
