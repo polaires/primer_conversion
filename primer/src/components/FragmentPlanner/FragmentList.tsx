@@ -61,7 +61,7 @@ export function FragmentList() {
     <div className="p-2">
       {/* Fragment Cards */}
       <div className="space-y-2">
-        {fragments.map((fragment, index) => (
+        {fragments.map((fragment: Fragment, index: number) => (
           <FragmentCard
             key={fragment.id}
             fragment={fragment}

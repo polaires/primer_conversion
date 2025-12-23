@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import { useDesignStore } from '../../stores/designStore';
+import { Fragment } from '../../types/fragmentPlanner';
 
 export function ActionBar() {
   const { fragments, overhangs, fidelity, exportDesign } = useDesignStore();
@@ -29,7 +30,7 @@ export function ActionBar() {
 
   const handleExportFasta = () => {
     let fasta = '';
-    fragments.forEach((f) => {
+    fragments.forEach((f: Fragment) => {
       fasta += `>${f.name}\n`;
       // Wrap sequence at 80 characters
       for (let i = 0; i < f.sequence.length; i += 80) {

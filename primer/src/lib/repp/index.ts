@@ -286,7 +286,7 @@ export {
   GG_WEIGHT_OVERRIDES,
   computeGGModifiers,
   computeUnifiedGGScore,
-  type GGScoringContext,
-  type GGModifierResult,
-  type UnifiedGGScoreResult,
+  type GGContext,
+  type GGModifierScores,
+  type UnifiedGGScore,
 } from './goldengate-weights.js';
