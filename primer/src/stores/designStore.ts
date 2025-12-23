@@ -182,7 +182,7 @@ const initialState: DesignState = {
 
 export const useDesignStore = create<DesignStore>()(
   subscribeWithSelector(
-    immer((set: (fn: (draft: DesignState) => void) => void, get: () => DesignState) => {
+    immer((set, get) => {
       // Helper to create history entry
       const pushHistory = (label: string, type: 'auto' | 'manual' = 'auto') => {
         const state = get();
