@@ -8724,15 +8724,23 @@ body {
 
 .gg-main-layout {
   display: grid;
-  grid-template-columns: 420px 1fr;
+  grid-template-columns: minmax(420px, 600px) 1fr;
   gap: 1.5rem;
   padding: 1rem 2rem 2rem;
+  min-height: calc(100vh - 140px);
+}
+
+@media (max-width: 1200px) {
+  .gg-main-layout {
+    grid-template-columns: minmax(380px, 500px) 1fr;
+  }
 }
 
 @media (max-width: 1000px) {
   .gg-main-layout {
     grid-template-columns: 1fr;
     padding: 1rem;
+    min-height: auto;
   }
 }
 
@@ -9624,11 +9632,14 @@ body {
 .error-message-box { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; color: #dc2626; font-size: 0.8rem; }
 
 /* Results Column */
-.results-column { min-height: 500px; }
+.results-column {
+  min-height: 500px;
+  height: 100%;
+}
 
 .empty-results-state {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  height: 100%; min-height: 500px;
+  height: 100%; min-height: 100%;
   background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px;
   padding: 2rem; text-align: center;
 }
