@@ -2,13 +2,13 @@ import { useState } from 'react';
 import PrimerForm from './components/PrimerForm';
 import PrimerResults from './components/PrimerResults';
 import StandaloneViewer from './components/StandaloneViewer';
-import AssemblyDesigner from './components/AssemblyDesigner';
 import GoldenGateDesigner from './components/GoldenGateDesigner';
 import TmCalculator from './components/TmCalculator';
 import SequencingDesigner from './components/SequencingDesigner';
 import UnifiedPrimerDesigner from './components/UnifiedPrimerDesigner';
 import EnhancedScorer from './components/EnhancedScorer';
 import ErrorBoundary from './components/ErrorBoundary';
+import { FragmentPlanner } from './components/FragmentPlanner';
 import { primers, score } from './lib/index.js';
 import type { Tool, ToolMode } from './types';
 
@@ -177,7 +177,7 @@ export default function App() {
           ) : mode === 'assembly-studio' ? (
             <GoldenGateDesigner />
           ) : mode === 'fragment-planner' ? (
-            <AssemblyDesigner />
+            <FragmentPlanner />
           ) : mode === 'tm' ? (
             <TmCalculator />
           ) : mode === 'sequencing' ? (
