@@ -4192,61 +4192,48 @@ export default function GoldenGateDesigner() {
     <div className="gg-designer-v2">
       {copyMessage && <div className="toast-notification">{copyMessage}</div>}
 
-      {/* Method Selector Cards */}
-      <div className="method-selector-pro">
-        <div className="method-cards">
+      {/* Compact Assembly Header */}
+      <div className="assembly-header">
+        {/* Method Segmented Control */}
+        <div className="method-segmented-control">
           {Object.entries(ASSEMBLY_METHODS).map(([key, m]) => (
             <button
               key={m.id}
-              className={`method-card ${method === m.id ? 'active' : ''}`}
+              className={`segment ${method === m.id ? 'active' : ''}`}
               onClick={() => { setMethod(m.id); setResult(null); }}
               style={{ '--method-color': m.color } as React.CSSProperties}
             >
-              <div className="method-card-icon">
-                {m.icon}
-              </div>
-              <div className="method-card-content">
-                <span className="method-card-name">{m.name}</span>
-                <span className="method-card-desc">{m.description}</span>
-              </div>
-              {method === m.id && (
-                <div className="method-card-check">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                  </svg>
-                </div>
-              )}
+              <span className="segment-icon">{m.icon}</span>
+              <span className="segment-label">{m.name}</span>
             </button>
           ))}
         </div>
+
+        {/* Advanced Options Toggle - Inline */}
+        <button
+          className="advanced-options-btn"
+          onClick={() => isGoldenGate ? setShowAdvancedOptions(!showAdvancedOptions) : setShowIsothermalAdvanced(!showIsothermalAdvanced)}
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+          </svg>
+          Advanced Options
+          <svg
+            className={`chevron ${(isGoldenGate ? showAdvancedOptions : showIsothermalAdvanced) ? 'expanded' : ''}`}
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            fill="currentColor"
+          >
+            <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+          </svg>
+        </button>
       </div>
 
-      {/* Advanced Options (Golden Gate) - Collapsible */}
-      {isGoldenGate && (
-        <div className="advanced-options-section">
-          <button
-            className="advanced-options-toggle"
-            onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
-          >
-            <span className="advanced-options-toggle-label">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
-              </svg>
-              Advanced Options
-            </span>
-            <svg
-              className={`advanced-options-chevron ${showAdvancedOptions ? 'expanded' : ''}`}
-              viewBox="0 0 24 24"
-              width="16"
-              height="16"
-              fill="currentColor"
-            >
-              <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
-            </svg>
-          </button>
-
-          {showAdvancedOptions && (
-            <div className="advanced-options-content">
+      {/* Advanced Options Panel (Golden Gate) - Collapsible */}
+      {isGoldenGate && showAdvancedOptions && (
+        <div className="advanced-options-panel">
+          <div className="advanced-options-content">
               {/* Auto-Domestication Toggle */}
               <div className="fusion-mode-toggle">
                 <div className="toggle-label">
@@ -4331,39 +4318,13 @@ export default function GoldenGateDesigner() {
                 />
               </div>
             </div>
-          )}
         </div>
       )}
 
-      {/* Advanced Options (Isothermal Assembly) - Collapsible */}
-      {isIsothermal && (
-        <div className="advanced-options-section isothermal-advanced">
-          <button
-            className="advanced-options-toggle"
-            onClick={() => setShowIsothermalAdvanced(!showIsothermalAdvanced)}
-          >
-            <span className="advanced-options-toggle-label">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
-              </svg>
-              Advanced Options
-              <span className="current-settings-badge">
-                {isothermalVariant === 'nebuilder_hifi' ? 'NEBuilder HiFi' : 'Gibson'} • {overlapSettings.overlapLength}bp • {overlapSettings.targetTm}°C
-              </span>
-            </span>
-            <svg
-              className={`advanced-options-chevron ${showIsothermalAdvanced ? 'expanded' : ''}`}
-              viewBox="0 0 24 24"
-              width="16"
-              height="16"
-              fill="currentColor"
-            >
-              <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
-            </svg>
-          </button>
-
-          {showIsothermalAdvanced && (
-            <div className="advanced-options-content isothermal-options-content">
+      {/* Advanced Options Panel (Isothermal Assembly) - Collapsible */}
+      {isIsothermal && showIsothermalAdvanced && (
+        <div className="advanced-options-panel isothermal-advanced">
+          <div className="advanced-options-content isothermal-options-content">
               {/* Protocol Variant */}
               <div className="isothermal-option-group">
                 <div className="option-group-header">
@@ -4449,7 +4410,6 @@ export default function GoldenGateDesigner() {
                 </div>
               </div>
             </div>
-          )}
         </div>
       )}
 
