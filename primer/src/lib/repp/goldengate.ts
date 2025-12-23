@@ -2847,9 +2847,9 @@ export function validateOverhang(overhang: string): OverhangValidation {
   const oh = overhang.toUpperCase();
   const rc = reverseComplement(oh);
 
-  // Get fidelity from efficiency data
-  const fidelity = unifiedResult.efficiency?.correctFreq
-    ? unifiedResult.efficiency.correctFreq / 10000 // Normalize to 0-1 range
+  // Get fidelity from details (correctFreq is in details, not efficiency)
+  const fidelity = unifiedResult.details?.correctFreq
+    ? unifiedResult.details.correctFreq / 10000 // Normalize to 0-1 range
     : 0.85;
 
   // Determine note based on score

@@ -182,7 +182,7 @@ const initialState: DesignState = {
 
 export const useDesignStore = create<DesignStore>()(
   subscribeWithSelector(
-    immer((set, get) => {
+    immer((set: (fn: (draft: DesignState) => void) => void, get: () => DesignState) => {
       // Helper to create history entry
       const pushHistory = (label: string, type: 'auto' | 'manual' = 'auto') => {
         const state = get();
@@ -194,7 +194,7 @@ export const useDesignStore = create<DesignStore>()(
           snapshot: createSnapshot(state),
         };
 
-        set((draft) => {
+        set((draft: DesignState) => {
           // If we're not at the end of history, truncate forward history
           if (draft.historyIndex < draft.history.length - 1) {
             draft.history = draft.history.slice(0, draft.historyIndex + 1);
@@ -217,11 +217,11 @@ export const useDesignStore = create<DesignStore>()(
         // Fragment Management
         // ====================================================================
 
-        addFragment: (input) => {
+        addFragment: (input: Omit<Fragment, 'id' | 'length' | 'gcContent'>) => {
           const prevState = get();
           const fragment = createFragment(input);
 
-          set((draft) => {
+          set((draft: DesignState) => {
             draft.fragments.push(fragment);
             draft.selectedFragmentId = fragment.id;
           });
@@ -232,11 +232,11 @@ export const useDesignStore = create<DesignStore>()(
           }
         },
 
-        updateFragment: (id, updates) => {
+        updateFragment: (id: string, updates: Partial<Fragment>) => {
           const prevState = get();
 
-          set((draft) => {
-            const index = draft.fragments.findIndex((f) => f.id === id);
+          set((draft: DesignState) => {
+            const index = draft.fragments.findIndex((f: Fragment) => f.id === id);
             if (index !== -1) {
               const fragment = draft.fragments[index];
               Object.assign(fragment, updates);
@@ -255,11 +255,11 @@ export const useDesignStore = create<DesignStore>()(
           }
         },
 
-        removeFragment: (id) => {
+        removeFragment: (id: string) => {
           const prevState = get();
 
-          set((draft) => {
-            const index = draft.fragments.findIndex((f) => f.id === id);
+          set((draft: DesignState) => {
+            const index = draft.fragments.findIndex((f: Fragment) => f.id === id);
             if (index !== -1) {
               draft.fragments.splice(index, 1);
               if (draft.selectedFragmentId === id) {

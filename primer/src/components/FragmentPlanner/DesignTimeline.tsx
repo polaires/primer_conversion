@@ -114,7 +114,7 @@ export function DesignTimeline() {
             {history
               .slice()
               .reverse()
-              .map((entry, reverseIdx) => {
+              .map((entry: HistoryEntry, reverseIdx: number) => {
                 const idx = history.length - 1 - reverseIdx;
                 const isActive = idx === historyIndex;
                 const isFuture = idx > historyIndex;

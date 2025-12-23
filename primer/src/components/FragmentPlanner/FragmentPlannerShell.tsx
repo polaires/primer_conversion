@@ -5,6 +5,7 @@
 
 import React, { useEffect, useCallback } from 'react';
 import { useDesignStore, useHistoryKeyboardShortcuts } from '../../stores/designStore';
+import { Fragment } from '../../types/fragmentPlanner';
 import { DesignTimeline } from './DesignTimeline';
 import { FragmentList } from './FragmentList';
 import { ConstraintPanel } from './ConstraintPanel';
@@ -36,7 +37,7 @@ export function FragmentPlannerShell() {
     optimizeOverhangs,
   } = useDesignStore();
 
-  const totalLength = fragments.reduce((sum, f) => sum + f.length, 0);
+  const totalLength = fragments.reduce((sum: number, f: Fragment) => sum + f.length, 0);
 
   const handleOptimize = useCallback(async () => {
     await optimizeOverhangs();
