@@ -274,10 +274,10 @@ export const useDesignStore = create<DesignStore>()(
           }
         },
 
-        reorderFragments: (fromIndex, toIndex) => {
+        reorderFragments: (fromIndex: number, toIndex: number) => {
           const prevState = get();
 
-          set((draft) => {
+          set((draft: DesignState) => {
             const [fragment] = draft.fragments.splice(fromIndex, 1);
             draft.fragments.splice(toIndex, 0, fragment);
           });
@@ -288,11 +288,11 @@ export const useDesignStore = create<DesignStore>()(
           }
         },
 
-        setFragments: (fragments) => {
+        setFragments: (fragments: Fragment[]) => {
           const prevState = get();
 
-          set((draft) => {
-            draft.fragments = fragments.map((f) => ({
+          set((draft: DesignState) => {
+            draft.fragments = fragments.map((f: Fragment) => ({
               ...f,
               length: f.sequence.length,
               gcContent: calculateGcContent(f.sequence),
@@ -309,10 +309,10 @@ export const useDesignStore = create<DesignStore>()(
         // Constraint Management
         // ====================================================================
 
-        updateConstraints: (updates) => {
+        updateConstraints: (updates: Partial<AssemblyConstraints>) => {
           const prevState = get();
 
-          set((draft) => {
+          set((draft: DesignState) => {
             Object.assign(draft.constraints, updates);
           });
 
@@ -326,10 +326,10 @@ export const useDesignStore = create<DesignStore>()(
         // Method Selection
         // ====================================================================
 
-        setAssemblyMethod: (method) => {
+        setAssemblyMethod: (method: AssemblyMethod) => {
           const prevState = get();
 
-          set((draft) => {
+          set((draft: DesignState) => {
             draft.assemblyMethod = method;
           });
 
@@ -343,14 +343,14 @@ export const useDesignStore = create<DesignStore>()(
         // Overhang Management
         // ====================================================================
 
-        setOverhangs: (overhangs) => {
-          set((draft) => {
+        setOverhangs: (overhangs: string[]) => {
+          set((draft: DesignState) => {
             draft.overhangs = overhangs;
           });
         },
 
         optimizeOverhangs: async () => {
-          set((draft) => {
+          set((draft: DesignState) => {
             draft.isOptimizing = true;
             draft.errors = [];
           });
@@ -363,7 +363,7 @@ export const useDesignStore = create<DesignStore>()(
               state.constraints
             );
 
-            set((draft) => {
+            set((draft: DesignState) => {
               draft.solverResult = result;
               draft.overhangs = result.overhangs;
               draft.fidelity = result.fidelity;
@@ -388,7 +388,7 @@ export const useDesignStore = create<DesignStore>()(
             const message =
               error instanceof Error ? error.message : 'Optimization failed';
 
-            set((draft) => {
+            set((draft: DesignState) => {
               draft.isOptimizing = false;
               draft.errors = [message];
             });
@@ -414,7 +414,7 @@ export const useDesignStore = create<DesignStore>()(
           const prevEntry = state.history[state.historyIndex - 1];
           if (!prevEntry) return;
 
-          set((draft) => {
+          set((draft: DesignState) => {
             draft.historyIndex--;
             draft.fragments = JSON.parse(
               JSON.stringify(prevEntry.snapshot.fragments)
@@ -434,7 +434,7 @@ export const useDesignStore = create<DesignStore>()(
           const nextEntry = state.history[state.historyIndex + 1];
           if (!nextEntry) return;
 
-          set((draft) => {
+          set((draft: DesignState) => {
             draft.historyIndex++;
             draft.fragments = JSON.parse(
               JSON.stringify(nextEntry.snapshot.fragments)
@@ -457,18 +457,18 @@ export const useDesignStore = create<DesignStore>()(
           return state.historyIndex < state.history.length - 1;
         },
 
-        createSnapshot: (label) => {
+        createSnapshot: (label: string) => {
           pushHistory(label, 'manual');
         },
 
-        restoreSnapshot: (historyId) => {
+        restoreSnapshot: (historyId: string) => {
           const state = get();
-          const index = state.history.findIndex((h) => h.id === historyId);
+          const index = state.history.findIndex((h: HistoryEntry) => h.id === historyId);
           if (index === -1) return;
 
           const entry = state.history[index];
 
-          set((draft) => {
+          set((draft: DesignState) => {
             draft.historyIndex = index;
             draft.fragments = JSON.parse(
               JSON.stringify(entry.snapshot.fragments)
@@ -485,7 +485,7 @@ export const useDesignStore = create<DesignStore>()(
         },
 
         clearHistory: () => {
-          set((draft) => {
+          set((draft: DesignState) => {
             draft.history = [];
             draft.historyIndex = -1;
           });
@@ -495,14 +495,14 @@ export const useDesignStore = create<DesignStore>()(
         // UI State
         // ====================================================================
 
-        selectFragment: (id) => {
-          set((draft) => {
+        selectFragment: (id: string | null) => {
+          set((draft: DesignState) => {
             draft.selectedFragmentId = id;
           });
         },
 
-        setViewMode: (mode) => {
-          set((draft) => {
+        setViewMode: (mode: 'circular' | 'linear') => {
+          set((draft: DesignState) => {
             draft.viewMode = mode;
           });
         },
@@ -515,11 +515,11 @@ export const useDesignStore = create<DesignStore>()(
           return createSnapshot(get());
         },
 
-        importDesign: (snapshot) => {
+        importDesign: (snapshot: DesignSnapshot) => {
           const prevState = get();
 
-          set((draft) => {
-            draft.fragments = snapshot.fragments.map((f) => ({
+          set((draft: DesignState) => {
+            draft.fragments = snapshot.fragments.map((f: Fragment) => ({
               ...f,
               length: f.sequence.length,
               gcContent: calculateGcContent(f.sequence),
@@ -533,7 +533,7 @@ export const useDesignStore = create<DesignStore>()(
         },
 
         reset: () => {
-          set((draft) => {
+          set((draft: DesignState) => {
             Object.assign(draft, initialState);
           });
         },
