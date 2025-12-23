@@ -3,7 +3,7 @@
  * Main container component for the enhanced plasmid assembly tool
  */
 
-import React, { useEffect, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { useDesignStore, useHistoryKeyboardShortcuts } from '../../stores/designStore';
 import { Fragment } from '../../types/fragmentPlanner';
 import { DesignTimeline } from './DesignTimeline';
@@ -15,11 +15,8 @@ import { LinearAssemblyView } from './AssemblyViz/LinearAssemblyView';
 import { ActionBar } from './ActionBar';
 
 export function FragmentPlannerShell() {
-  // Initialize keyboard shortcuts
-  useEffect(() => {
-    const cleanup = useHistoryKeyboardShortcuts();
-    return cleanup;
-  }, []);
+  // Initialize keyboard shortcuts (Ctrl+Z / Ctrl+Shift+Z)
+  useHistoryKeyboardShortcuts();
 
   const {
     fragments,
