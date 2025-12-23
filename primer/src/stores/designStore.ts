@@ -546,34 +546,38 @@ export const useDesignStore = create<DesignStore>()(
 // Keyboard Shortcuts Hook
 // ============================================================================
 
+import { useEffect } from 'react';
+
 export function useHistoryKeyboardShortcuts() {
   const { undo, redo, canUndo, canRedo } = useDesignStore();
 
-  if (typeof window === 'undefined') return;
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
 
-  const handleKeyDown = (e: KeyboardEvent) => {
-    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-    const modKey = isMac ? e.metaKey : e.ctrlKey;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const modKey = isMac ? e.metaKey : e.ctrlKey;
 
-    if (modKey && e.key === 'z' && !e.shiftKey) {
-      e.preventDefault();
-      if (canUndo()) undo();
-    }
+      if (modKey && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        if (canUndo()) undo();
+      }
 
-    if (modKey && e.key === 'z' && e.shiftKey) {
-      e.preventDefault();
-      if (canRedo()) redo();
-    }
+      if (modKey && e.key === 'z' && e.shiftKey) {
+        e.preventDefault();
+        if (canRedo()) redo();
+      }
 
-    // Also support Ctrl+Y for redo on Windows
-    if (!isMac && e.ctrlKey && e.key === 'y') {
-      e.preventDefault();
-      if (canRedo()) redo();
-    }
-  };
+      // Also support Ctrl+Y for redo on Windows
+      if (!isMac && e.ctrlKey && e.key === 'y') {
+        e.preventDefault();
+        if (canRedo()) redo();
+      }
+    };
 
-  window.addEventListener('keydown', handleKeyDown);
-  return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo, canUndo, canRedo]);
 }
 
 // ============================================================================
